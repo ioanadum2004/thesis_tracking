@@ -110,6 +110,13 @@ class SympyStepper {
     StepperStatistics statistics;
 
     detail::MaterialEffectsAccumulator materialEffectsAccumulator;
+
+    /// Sign of previous radial momentum (+1 outward, -1 inward, 0 uninitialized)
+    /// Used for detecting turning points in spiraling particle trajectories
+    int pr_sign_previous = 0;
+    
+    /// Flag set when radial momentum flip detected (particle reached turning point)
+    bool turningPointDetected = false;
   };
 
   /// Constructor requires knowledge of the detector's magnetic field

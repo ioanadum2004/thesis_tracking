@@ -135,6 +135,12 @@ class EigenStepper {
 
     /// Statistics of the stepper
     StepperStatistics statistics;
+
+    /// Sign of previous radial momentum (+1 outward, -1 inward, 0 uninitialized/tangend)
+    
+    int pr_sign_previous = 0;
+    /// Flag set when radial momentum flip detected (particle reached turning point)
+    bool turningPointDetected = false;
   };
 
   /// Constructor requires knowledge of the detector's magnetic field

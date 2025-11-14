@@ -120,8 +120,8 @@ def main():
             'r_mm': float(r[i]),
         })
 
-    # Sort by decreasing r (outer -> inner)
-    rows = sorted(rows, key=lambda r_: r_['r_mm'], reverse=True)
+    # Sort by increasing z (low to high)
+    rows = sorted(rows, key=lambda r_: r_['z_mm'], reverse=False)
 
     # Unique layer counts per volume (only count entries where module_id != 0)
     uniques = set()
@@ -222,14 +222,25 @@ def main():
                             matches = np.where(part_pid_arr == primary_pid)[0]
                             if matches.size > 0:
                                 particle_pt = float(part_pt_arr[matches[0]])
+                                #print(f"Particle pt: {particle_pt}")
                                 if eta_branch is not None:
                                     particle_eta = float(np.asarray(ptree[eta_branch].array())[matches[0]])
+                                    #print(f"Particle eta: {particle_eta}")
+                            
         except Exception:
             # Opening or reading particles.root failed — ignore and fall back.
             particle_pt = None
             particle_eta = None
 
-      
+        # Populate particle_summary if we have primary_pid
+        if primary_pid is not None:
+            n_hits = len(measurement_rows)
+            particle_summary = {
+                'particle_id': primary_pid,
+                'n_hits': n_hits,
+                'pt': particle_pt,
+                'eta': particle_eta
+            }
 
     per_vol_lines = []
     seen_vids = []
@@ -258,7 +269,7 @@ def main():
 
     summary_lines = []
     if particle_summary is not None:
-        summary_lines.append(f"Primary particle id={particle_summary['particle_id']} (contributing hits={particle_summary['n_hits']})")
+        summary_lines.append(f"Particle id={particle_summary['particle_id']} (contributing hits={particle_summary['n_hits']})")
         # Only display Pt/eta if we actually computed momentum values.
         if particle_summary.get('pt') is not None:
             # eta may be inf/-inf/nan; format will render these sensibly.
@@ -275,9 +286,9 @@ def main():
         for l in per_vol_lines:
             f.write('  ' + l + '\n')
 
-        f.write('\nPer-measurement table (measurements only, outer -> inner):\n')
-        hdr = ('idx', 'orig_idx', 'vol', 'lay', 'mod', 'r_mm', 'x_mm', 'y_mm', 'z_mm')
-        widths = [4, 8, 5, 5, 7, 9, 9, 9, 9]
+        f.write('\nPer-measurement table (sorted by z low -> high):\n')
+        hdr = ('vol', 'lay', 'mod', 'r_mm', 'x_mm', 'y_mm', 'z_mm')
+        widths = [5, 5, 7, 9, 9, 9, 9]
         # header
         header_line = ' '.join(h.center(w) for h, w in zip(hdr, widths))
         f.write(header_line + '\n')
@@ -286,15 +297,13 @@ def main():
         display_rows = [r for r in rows if r['module_id'] != 0]
         for i, rrow in enumerate(display_rows):
             parts = [
-                str(i).rjust(widths[0]),
-                str(rrow['orig_index']).rjust(widths[1]),
-                str(rrow['volume_id']).rjust(widths[2]),
-                str(rrow['layer_id']).rjust(widths[3]),
-                str(rrow['module_id']).rjust(widths[4]),
-                f"{rrow['r_mm']:.1f}".rjust(widths[5]),
-                f"{rrow['x_mm']:.1f}".rjust(widths[6]),
-                f"{rrow['y_mm']:.1f}".rjust(widths[7]),
-                f"{rrow['z_mm']:.1f}".rjust(widths[8]),
+                str(rrow['volume_id']).rjust(widths[0]),
+                str(rrow['layer_id']).rjust(widths[1]),
+                str(rrow['module_id']).rjust(widths[2]),
+                f"{rrow['r_mm']:.1f}".rjust(widths[3]),
+                f"{rrow['x_mm']:.1f}".rjust(widths[4]),
+                f"{rrow['y_mm']:.1f}".rjust(widths[5]),
+                f"{rrow['z_mm']:.1f}".rjust(widths[6]),
             ]
             f.write(' '.join(parts) + '\n')
 

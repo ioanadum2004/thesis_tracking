@@ -192,6 +192,10 @@ class Navigator {
     bool navigationBreak = false;
     Stage navigationStage = Stage::initial;
 
+    /// Sign indicating radial direction: -1 for inward (toward beam), +1 for outward, 0 for normal navigation
+    /// When non-zero, use pure radial direction for layer resolution at turning points
+    int radialDirectionSign = 0;
+
     NavigatorStatistics statistics;
 
     NavigationStream stream;
@@ -429,6 +433,12 @@ class Navigator {
           // First time, resolve the surfaces
           resolveSurfaces(state, position, direction);
           state.navSurfaceIndex = 0;
+          // Log surface list contents
+          ACTS_VERBOSE(volInfo(state) << "navSurfaces list has " << state.navSurfaces.size() << " items:");
+          for (std::size_t i = 0; i < state.navSurfaces.size(); ++i) {
+            ACTS_VERBOSE("  [" << i << "] geoId=" << state.navSurfaces[i].surface().geometryId()
+                         << " pathLength=" << state.navSurfaces[i].pathLength());
+          }
         } else {
           ++state.navSurfaceIndex.value();
         }
@@ -453,6 +463,12 @@ class Navigator {
           // First time, resolve the layers
           resolveLayers(state, position, direction);
           state.navLayerIndex = 0;
+          // Log layer list contents
+          ACTS_VERBOSE(volInfo(state) << "navLayers list has " << state.navLayers.size() << " items:");
+          for (std::size_t i = 0; i < state.navLayers.size(); ++i) {
+            ACTS_VERBOSE("  [" << i << "] geoId=" << state.navLayers[i].first.surface().geometryId()
+                         << " pathLength=" << state.navLayers[i].first.pathLength());
+          }
         } else {
           ++state.navLayerIndex.value();
         }
@@ -473,6 +489,12 @@ class Navigator {
           // First time, resolve the boundaries
           resolveBoundaries(state, position, direction);
           state.navBoundaryIndex = 0;
+          // Log boundary list contents
+          ACTS_VERBOSE(volInfo(state) << "navBoundaries list has " << state.navBoundaries.size() << " items:");
+          for (std::size_t i = 0; i < state.navBoundaries.size(); ++i) {
+            ACTS_VERBOSE("  [" << i << "] geoId=" << state.navBoundaries[i].intersection.surface().geometryId()
+                         << " pathLength=" << state.navBoundaries[i].intersection.pathLength());
+          }
         } else {
           ++state.navBoundaryIndex.value();
         }
@@ -816,9 +838,29 @@ class Navigator {
     navOpts.nearLimit = state.options.nearLimit;
     navOpts.farLimit = state.options.farLimit;
 
+    // Use pure radial direction for layer resolution when going inward (pr < 0)
+    // This is needed because straight-line approximation fails for inward motion
+    Vector3 effectiveDirection = direction;
+    if (state.radialDirectionSign < 0) {
+      double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
+      if (r_xy > 1e-6) {
+        // Radial unit vector: r_hat = (x, y) / r_xy
+        double r_hat_x = position[0] / r_xy;
+        double r_hat_y = position[1] / r_xy;
+        
+        // Set to pure radial inward direction (unit vector, no z component)
+        effectiveDirection[0] = -r_hat_x;  // Inward (negative radial)
+        effectiveDirection[1] = -r_hat_y;
+        effectiveDirection[2] = 0.0;
+        
+        ACTS_VERBOSE("Using pure radial inward direction for layer resolution");
+        
+      }
+    }
+
     // Request the compatible layers
     state.navLayers = state.currentVolume->compatibleLayers(
-        state.options.geoContext, position, direction, navOpts);
+        state.options.geoContext, position, effectiveDirection, navOpts);
     std::ranges::sort(state.navLayers, [](const auto& a, const auto& b) {
       return SurfaceIntersection::pathLengthOrder(a.first, b.first);
     });

@@ -8,7 +8,7 @@
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
   "maxSteps": 1000,
   "loopProtection": true,
-  "loopFraction": 1,
+  "loopFraction": 2,
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
@@ -17,8 +17,8 @@
         "transverse": true
       },
       "eta": {
-        "min": -0.2,
-        "max": -0.1,
+        "min": -1,
+        "max": 0.9,
         "uniform": true
       },
       "phi": {
@@ -172,8 +172,8 @@
     "csvSubdir": "csv"
   },
   "logging": {
-    "comment": "Logging configuration: INFO, DEBUG",
-    "level": "VERBOSE",
+    "comment": "Logging configuration: INFO, DEBUG, VERBOSE (Order by detail), n = number of stppper steps between log",
+    "level":"VERBOSE",
     "n": 1
   }
 }

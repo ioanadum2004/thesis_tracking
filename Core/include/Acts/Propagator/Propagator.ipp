@@ -132,6 +132,24 @@ Acts::Result<void> Acts::Propagator<S, N>::propagate(
       }
       if (postStepSurfaceStatus != IntersectionStatus::reachable) {
         nextTarget = NavigationTarget::None();
+        // Check if target became unreachable due to turning point detection
+        // Only if stepper supports turning point detection
+        if constexpr (requires { state.stepping.turningPointDetected; }) {
+          if (state.stepping.turningPointDetected) {
+            if constexpr (requires { state.navigation.navLayers; }) {
+              // pr_sign_previous now contains the NEW sign after flip
+              state.navigation.radialDirectionSign = state.stepping.pr_sign_previous;
+              
+              // Reset navigation state to clear lists
+              state.navigation.resetAfterVolumeSwitch();
+              // Force navigation to restart at layerTarget stage
+              state.navigation.navigationStage = N::Stage::layerTarget;
+              
+              ACTS_VERBOSE("Turning point detected, resetting navigation for inward propagation");
+            }
+            state.stepping.turningPointDetected = false;  // Reset flag
+          }
+        }
       }
     }
 
