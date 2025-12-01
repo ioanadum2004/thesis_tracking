@@ -8,17 +8,17 @@
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
   "maxSteps": 1000,
   "loopProtection": true,
-  "loopFraction": 2,
+  "loopFraction": 1,
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.5,
-        "max": 0.5,
+        "min": 0.2,
+        "max": 0.2,
         "transverse": true
       },
       "eta": {
-        "min": -1,
-        "max": 0.9,
+        "min": 0.01,
+        "max": 0.011,
         "uniform": true
       },
       "phi": {
@@ -35,7 +35,7 @@
   },
   "detector": {
     "field": {
-      "strength": 7,
+      "strength": 2,
       "direction": [0, 0, 1]
     },
     "geometry": {
@@ -50,7 +50,7 @@
   "particleSelection": {
     "pt": {
       "Comment": "Minimal energy in the denominator of the efficiency calculation (considered reconstructable)",
-      "min": 0.1,
+      "min": 0.05,
       "max": null
     },
     "measurements": {
@@ -97,11 +97,11 @@
       "maxSeedsPerSpM": 2,
       "sigmaScattering": 5.0,
       "radLengthPerSeed": 0.1,
-      "minPt": 0.4,
+      "minPt": 0.06,
       "impactMax": 3.0
     },
     "finderOptions": {
-      "bFieldInZ": 7,
+      "bFieldInZ": 2,
       "beamPos": [0.0, 0.0]
     },
     "filterConfig": {
