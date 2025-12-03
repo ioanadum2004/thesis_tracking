@@ -15,6 +15,7 @@
 
 #include <boost/mp11.hpp>
 #include <boost/mp11/algorithm.hpp>
+#include <iostream>
 
 namespace Acts::Experimental {
 
@@ -55,7 +56,7 @@ class Impl final : public DoubletSeedFinder {
 
     // equivalent to impactMax / (rM * rM);
     const float vIPAbs = impactMax * middleSpInfo.uIP2;
-
+    
     const auto outsideRangeCheck = [](const float value, const float min,
                                       const float max) {
       // intentionally using `|` after profiling. faster due to better branch
@@ -181,6 +182,25 @@ class Impl final : public DoubletSeedFinder {
 
         const float iDeltaR = std::sqrt(iDeltaR2);
         const float cotTheta = deltaZ * iDeltaR;
+
+        // Time ordering cut (for seeds resulting from loops): bottom doublet must have time <= middle, top doublet must have time >= middle
+        float tM = middleSp.time();
+        float tO = container[indexO].time();
+        if (isBottomCandidate) {
+          if (tO > tM) {
+            continue;  
+          }
+        } else {
+          if (tO < tM) {
+            continue;  
+          }
+        }
+        
+        // Doublet passed time check - print it
+        std::cout << "ACCEPTED doublet: isBottomCandidate=" << isBottomCandidate 
+                  << ", tM=" << tM << ", tO=" << tO 
+                  << ", rM=" << rM << ", rO=" << rO
+                  << ", zM=" << zM << ", zO=" << zO << std::endl;
 
         const float er =
             calculateError(varianceZO, varianceRO, iDeltaR2, cotTheta);

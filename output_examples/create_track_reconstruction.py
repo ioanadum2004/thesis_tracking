@@ -74,6 +74,7 @@ def main():
     print(f"Processing {ts_tree.num_entries} tracks from CKF reconstruction...")
 
     # Read tracksummary data - note: data is nested by event, then by track
+    event_numbers = ts_tree['event_nr'].array()
     track_numbers = ts_tree['track_nr'].array()
     n_measurements = ts_tree['nMeasurements'].array()
     n_states = ts_tree['nStates'].array()
@@ -84,6 +85,7 @@ def main():
     ndf = ts_tree['NDF'].array()
 
     # Read trackstates data (positions of track states)
+    ts_event_nr = tst_tree['event_nr'].array()
     ts_x = tst_tree['t_x'].array()
     ts_y = tst_tree['t_y'].array()
     ts_z = tst_tree['t_z'].array()
@@ -92,8 +94,8 @@ def main():
     # Check if we have layer information in trackstates
     has_layer_info = 'layer_id' in tst_tree.keys() and 'volume_id' in tst_tree.keys()
     if has_layer_info:
-        ts_volume_id = np.asarray(tst_tree['volume_id'].array())
-        ts_layer_id = np.asarray(tst_tree['layer_id'].array())
+        ts_volume_id = tst_tree['volume_id'].array()
+        ts_layer_id = tst_tree['layer_id'].array()
     else:
         ts_volume_id = None
         ts_layer_id = None
@@ -102,74 +104,60 @@ def main():
     all_rows = []
     track_summaries = []
 
-    # Process each event (should be 1 event with multiple tracks)
-    for event_idx in range(len(track_numbers)):
-        event_tracks = track_numbers[event_idx]
-        event_n_meas = n_measurements[event_idx] 
-        event_n_states = n_states[event_idx]
-        event_meas_vols = measurement_volumes[event_idx]
-        event_meas_lays = measurement_layers[event_idx]
-        event_meas_chi2s = measurement_chi2[event_idx]
-        event_chi2_sum = chi2_sum[event_idx]
-        event_ndf = ndf[event_idx]
+    # Process each entry (each entry corresponds to an event in the original data)
+    for entry_idx in range(len(track_numbers)):
+        event_nr = np.atleast_1d(event_numbers[entry_idx])[0] if hasattr(event_numbers[entry_idx], '__len__') else event_numbers[entry_idx]
+        event_tracks = track_numbers[entry_idx]
+        event_n_meas = n_measurements[entry_idx] 
+        event_n_states = n_states[entry_idx]
+        event_meas_vols = measurement_volumes[entry_idx]
+        event_meas_lays = measurement_layers[entry_idx]
+        event_meas_chi2s = measurement_chi2[entry_idx]
+        event_chi2_sum = chi2_sum[entry_idx]
+        event_ndf = ndf[entry_idx]
         
-        # Process each track in this event
+        # Process each track in this entry
         for track_idx in range(len(event_tracks)):
-            track_nr = int(event_tracks[track_idx])
+            track_nr_within_event = int(event_tracks[track_idx])
+            # Create unique track key from (event_nr, track_nr)
+            track_key = (int(event_nr), track_nr_within_event)
             n_meas = int(event_n_meas[track_idx])
             meas_vols = event_meas_vols[track_idx]
             meas_lays = event_meas_lays[track_idx]
             meas_chi2s = event_meas_chi2s[track_idx]
             
             # Find corresponding trackstates for this track
-            # Note: ROOT structure has 1 entry per track
-            # ts_track_nr[event_idx] can be scalar (1 track) or array (multiple tracks)
-            event_track_nr = np.atleast_1d(ts_track_nr[event_idx])
-            ts_mask = event_track_nr == track_nr
+            # Trackstates file has one entry per track, so we need to find the matching entry
+            # by matching both event_nr and track_nr
+            ts_idx = None
+            for i in range(len(ts_event_nr)):
+                if ts_event_nr[i] == event_nr and ts_track_nr[i] == track_nr_within_event:
+                    ts_idx = i
+                    break
             
-            if not np.any(ts_mask):
-                print(f"Warning: No trackstates found for track {track_nr}")
-                continue
-                
-            # Get the track state arrays for this specific track
-            track_ts_indices = np.where(ts_mask)[0]
-            if len(track_ts_indices) == 0:
-                print(f"Warning: No trackstates indices found for track {track_nr}")
+            if ts_idx is None:
+                print(f"Warning: No trackstates found for event {event_nr}, track {track_nr_within_event}")
                 continue
             
-            # Get track state data
-            # ts_x[event_idx] is the array of track states for the track(s) in this event
-            idx = track_ts_indices[0]
-            event_ts_x = ts_x[event_idx]
-            event_ts_y = ts_y[event_idx]
-            event_ts_z = ts_z[event_idx]
+            # Get track state data for this specific track
+            event_ts_x = ts_x[ts_idx]
+            event_ts_y = ts_y[ts_idx]
+            event_ts_z = ts_z[ts_idx]
             
-            # Check if we have multiple tracks (array of arrays) or single track (1D array)
-            # Awkward arrays from uproot won't be np.ndarray, so check ndim after conversion
-            if isinstance(event_ts_x, np.ndarray) and event_ts_x.ndim > 1:
-                # Multiple tracks: index into array of arrays
-                track_ts_x = np.atleast_1d(event_ts_x[idx])
-                track_ts_y = np.atleast_1d(event_ts_y[idx])
-                track_ts_z = np.atleast_1d(event_ts_z[idx])
-            else:
-                # Single track or awkward array: use directly
-                track_ts_x = np.atleast_1d(event_ts_x)
-                track_ts_y = np.atleast_1d(event_ts_y)
-                track_ts_z = np.atleast_1d(event_ts_z)
+            # Convert to numpy arrays
+            track_ts_x = np.atleast_1d(event_ts_x)
+            track_ts_y = np.atleast_1d(event_ts_y)
+            track_ts_z = np.atleast_1d(event_ts_z)
             
             if has_layer_info:
-                event_ts_vol = ts_volume_id[event_idx]
-                event_ts_lay = ts_layer_id[event_idx]
-                if isinstance(event_ts_vol, np.ndarray) and event_ts_vol.ndim > 1:
-                    track_ts_vol = np.atleast_1d(event_ts_vol[idx])
-                    track_ts_lay = np.atleast_1d(event_ts_lay[idx])
-                else:
-                    track_ts_vol = np.atleast_1d(event_ts_vol)
-                    track_ts_lay = np.atleast_1d(event_ts_lay)
+                event_ts_vol = ts_volume_id[ts_idx]
+                event_ts_lay = ts_layer_id[ts_idx]
+                track_ts_vol = np.atleast_1d(event_ts_vol)
+                track_ts_lay = np.atleast_1d(event_ts_lay)
 
             # Track summary info
             track_summary = {
-                'track_nr': track_nr,
+                'track_key': track_key,
                 'n_measurements': n_meas,
                 'n_states': int(event_n_states[track_idx]),
                 'chi2_sum': float(event_chi2_sum[track_idx]),
@@ -209,7 +197,7 @@ def main():
                 r_pos = np.sqrt(x_pos**2 + y_pos**2)
                 
                 row = {
-                    'track_nr': track_nr,
+                    'track_key': track_key,
                     'measurement_idx': meas_count,
                     'state_idx': state_idx,
                     'volume_id': volume_id,
@@ -224,6 +212,20 @@ def main():
                 meas_count += 1
 
     print(f"Processed {len(all_rows)} measurements from {len(track_summaries)} tracks")
+
+    # Create mapping from (event_nr, track_nr) to sequential track numbers
+    unique_track_keys = sorted(set(row['track_key'] for row in all_rows if 'track_key' in row))
+    track_key_to_nr = {key: i+1 for i, key in enumerate(unique_track_keys)}
+    
+    # Assign sequential track numbers
+    for row in all_rows:
+        if 'track_key' in row:
+            row['track_nr'] = track_key_to_nr[row['track_key']]
+    
+    # Update track summaries with sequential track numbers
+    for summary in track_summaries:
+        if 'track_key' in summary:
+            summary['track_nr'] = track_key_to_nr[summary['track_key']]
 
     # Sort rows by track number, then by z position
     all_rows = sorted(all_rows, key=lambda r: (r['track_nr'], r['z_mm']))

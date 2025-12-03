@@ -464,6 +464,7 @@ def runPerfectSpacepoints(
     ]
     trkSelCfg = cutSets[0]
 
+
     # Setup the track finding algorithm
     trackFinder = acts.examples.TrackFindingAlgorithm(
         level=customLogLevel(),
@@ -495,6 +496,8 @@ def runPerfectSpacepoints(
             trackSelectorCfg=trkSelCfg,
             seedDeduplication=ckf["seedDeduplication"],
             stayOnSeed=ckf["stayOnSeed"],
+            loopProtection= loop_protection,
+            loopFraction= loop_fraction,
         ),
     )
     s.addAlgorithm(trackFinder)
@@ -557,40 +560,33 @@ if "__main__" == __name__:
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Perfect Spacepoints Track Finding")
     parser.add_argument(
-        "--config", 
-        type=str, 
-        default="Examples/Configs/perfect-spacepoints-config.json",
-        help="Path to configuration file"
+        "output_dir",
+        nargs='?',
+        type=str,
+        default=None,
+        help="Output directory for results"
     )
     parser.add_argument(
         "--output-dir", 
         type=str, 
-        default=".",
-        help="Output directory for results"
-    )
-    parser.add_argument(
-        "--input-particles", 
-        type=str, 
         default=None,
-        help="Path to input particles file "
-    )
-    # Loop protection is configured in the JSON config under trackFinding.ckfConfig
-    parser.add_argument(
-        "run_name", 
-        nargs='?',
-        type=str, 
-        default=None,
-        help="Name for the output directory (will create a directory with this name)"
+        dest="output_dir_flag",
+        help="Output directory for results (alternative to positional argument)"
     )
     
     args = parser.parse_args()
     
-    # Load configuration
-    config_file = Path(args.config)
-    if not config_file.is_absolute():
-        srcdir = Path(__file__).resolve().parent.parent.parent.parent
-        config_file = srcdir / config_file
+    # Determine output directory: positional argument takes precedence, then --output-dir, then default
+    if args.output_dir is not None:
+        output_dir = args.output_dir
+    elif args.output_dir_flag is not None:
+        output_dir = args.output_dir_flag
+    else:
+        output_dir = "."
     
+    # Load configuration - use default path
+    srcdir = Path(__file__).resolve().parent.parent.parent.parent
+    config_file = srcdir / "Examples/Configs/perfect-spacepoints-config.json"
     config = load_config(config_file)
     
     # Setup detector
@@ -606,37 +602,22 @@ if "__main__" == __name__:
     ))
     
     # Setup paths
-    srcdir = Path(__file__).resolve().parent.parent.parent.parent
     geometrySelection = srcdir / "Examples/Configs" / detector['geometry']['seedingConfig']
+    #DigiConfigFile = srcdir / "Examples/Configs/generic-digi-smearing-config-with-time.json"
+    DigiConfigFile = srcdir / "Examples/Configs/generic-digi-smearing-config.json"
     
-    #digiConfigFile = srcdir / "Examples/Configs/generic-digi-perfect-config.json"
-    digiConfigFile = srcdir / "Examples/Configs/generic-digi-smearing-config.json"
-    
+    # Input particles not supported via command line - set to None
     inputParticlePath = None
-    if args.input_particles:
-        inputParticlePath = Path(args.input_particles)
-        if not inputParticlePath.exists():
-            print(f"Warning: Input particles file {inputParticlePath} not found")
-            inputParticlePath = None
     
-    # Setup output directory - prompt for run_name if not provided
-    if args.run_name is None:
-        run_name = input("Enter a name for this run (output directory): ").strip()
-        if not run_name:
-            run_name = "output"
-        output_path = Path(run_name)
-    else:
-        output_path = Path(args.run_name)
+    # Setup output directory from command line argument
+    output_path = Path(output_dir)
     
     # Create output directory if it doesn't exist
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"Output will be saved to: {output_path.resolve()}")
     
-    # Read loop-protection settings from the JSON config (if present)
-    tf_cfg = config.get("trackFinding", {})
-    ckf_cfg = tf_cfg.get("ckfConfig", {})
-    loop_protection_cfg = ckf_cfg.get("loopProtection", None)
-    loop_fraction_cfg = ckf_cfg.get("loopFraction", None)
+    # Get simulation config for loop protection parameters
+    sim_config = config.get("simulation", {})
 
     # Run simulation
     sequencer = runPerfectSpacepoints(
@@ -644,12 +625,13 @@ if "__main__" == __name__:
         trackingGeometry=trackingGeometry,
         decorators=decorators,
         geometrySelection=geometrySelection,
-        digiConfigFile=digiConfigFile,
+        digiConfigFile=DigiConfigFile,
         field=field,
         outputDir=output_path,
         inputParticlePath=inputParticlePath,
-        loop_protection=loop_protection_cfg,
-        loop_fraction=loop_fraction_cfg,
+        loop_protection=sim_config.get("loopProtection", None),
+        loop_fraction=sim_config.get("loopFraction", None),
     )
     sequencer.run()
+
 

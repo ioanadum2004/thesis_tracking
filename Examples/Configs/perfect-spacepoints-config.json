@@ -2,7 +2,7 @@
 
 {
   "simulation": {
-    "events": 1,
+    "events": 2,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
@@ -12,13 +12,13 @@
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.2,
-        "max": 0.2,
+        "min": 0.22,     
+        "max": 0.22,
         "transverse": true
       },
       "eta": {
         "min": 0.01,
-        "max": 0.011,
+        "max": 0.1,
         "uniform": true
       },
       "phi": {
@@ -55,7 +55,7 @@
     },
     "measurements": {
       "_comment": "Min (+1) hits for particle to be considered reconstructable (denominator for efficiency)",
-      "min": 3,
+      "min": 4,
       "max": null
     },
     "removeNeutral": true
@@ -137,7 +137,7 @@
   "trackFinding": {
     "selectorConfig": {
       "pt": {
-        "min": 0.1,
+        "min": 0.06,
         "max": null
       },
       "absEta": {
@@ -156,10 +156,8 @@
     "ckfConfig": {
       "chi2CutOffMeasurement": 15.0,
       "chi2CutOffOutlier": 25.0,
-      "loopProtection": true,
-      "loopFraction": 0.5,
-      "_comment": "max number of measurements; If a track accumulates more than .. measurements, the algorithm will stop adding more hits to that track.",
-      "numMeasurementsCutOff": 14,
+      "_comment": "loopProtection and loopFraction now inherited from simulation config. max number of measurements; If a track accumulates more than .. measurements, the algorithm will stop adding more hits to that track.",
+      "numMeasurementsCutOff": 30,
       "seedDeduplication": true,
       "stayOnSeed": true
     }
@@ -173,7 +171,7 @@
   },
   "logging": {
     "comment": "Logging configuration: INFO, DEBUG, VERBOSE (Order by detail), n = number of stppper steps between log",
-    "level":"VERBOSE",
+    "level":"DEBUG",
     "n": 1
   }
 }

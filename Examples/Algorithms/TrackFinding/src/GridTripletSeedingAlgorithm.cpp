@@ -164,7 +164,8 @@ ProcessCode GridTripletSeedingAlgorithm::execute(
       Acts::Experimental::SpacePointColumns::XY |
       Acts::Experimental::SpacePointColumns::ZR |
       Acts::Experimental::SpacePointColumns::VarianceZ |
-      Acts::Experimental::SpacePointColumns::VarianceR);
+      Acts::Experimental::SpacePointColumns::VarianceR |
+      Acts::Experimental::SpacePointColumns::Time);
   coreSpacePoints.reserve(grid.numberOfSpacePoints());
   std::vector<Acts::Experimental::SpacePointIndexRange2> gridSpacePointRanges;
   gridSpacePointRanges.reserve(grid.numberOfBins());
@@ -182,6 +183,8 @@ ProcessCode GridTripletSeedingAlgorithm::execute(
                                         static_cast<float>(sp.r())};
       newSp.varianceZ() = static_cast<float>(sp.varianceZ());
       newSp.varianceR() = static_cast<float>(sp.varianceR());
+      // Copy time information (use NoTime if not available)
+      newSp.time() = sp.t().has_value() ? static_cast<float>(sp.t().value()) : Acts::Experimental::NoTime;
     }
     std::uint32_t end = coreSpacePoints.size();
     gridSpacePointRanges.emplace_back(begin, end);

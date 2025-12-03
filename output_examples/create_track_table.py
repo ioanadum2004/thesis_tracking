@@ -86,7 +86,7 @@ def main():
     t = tree[chosen]
 
     # required branches
-    required = ['volume_id', 'layer_id', 'sensitive_id', 'tx', 'ty', 'tz']
+    required = ['volume_id', 'layer_id', 'sensitive_id', 'tx', 'ty', 'tz', 'tt']
     missing = [r for r in required if r not in t.keys()]
     if missing:
         print('Missing required branches in', chosen, 'missing:', missing)
@@ -98,6 +98,17 @@ def main():
     tx = np.asarray(t['tx'].array())
     ty = np.asarray(t['ty'].array())
     tz = np.asarray(t['tz'].array())
+    tt = np.asarray(t['tt'].array())
+    
+    # Read event_id and particle_id to create unique track identifiers
+    # Each track is uniquely identified by (event_id, particle_id) combination
+    has_event_id = 'event_id' in t.keys()
+    has_particle_id = 'particle_id' in t.keys()
+    
+    if has_event_id:
+        event_id = np.asarray(t['event_id'].array())
+    if has_particle_id:
+        particle_id = np.asarray(t['particle_id'].array())
 
     r = np.sqrt(tx**2 + ty**2)
 
@@ -109,8 +120,19 @@ def main():
 
     rows = []
     for i in range(len(vol)):
+        # Create a unique track identifier from (event_id, particle_id)
+        if has_event_id and has_particle_id:
+            track_key = (int(event_id[i]), int(particle_id[i]))
+        elif has_event_id:
+            track_key = (int(event_id[i]), 0)
+        elif has_particle_id:
+            track_key = (0, int(particle_id[i]))
+        else:
+            track_key = (0, 0)
+            
         rows.append({
             'orig_index': int(i),
+            'track_key': track_key,
             'volume_id': int(vol[i]),
             'layer_id': int(lay[i]),
             'module_id': int(mod[i]),
@@ -118,10 +140,19 @@ def main():
             'y_mm': float(ty[i]),
             'z_mm': float(tz[i]),
             'r_mm': float(r[i]),
+            't_ns': float(tt[i]),
         })
 
-    # Sort by increasing z (low to high)
-    rows = sorted(rows, key=lambda r_: r_['z_mm'], reverse=False)
+    # Create mapping from (event_id, particle_id) to sequential track numbers
+    unique_track_keys = sorted(set(row['track_key'] for row in rows))
+    track_key_to_nr = {key: i+1 for i, key in enumerate(unique_track_keys)}
+    
+    # Assign sequential track numbers
+    for row in rows:
+        row['track_nr'] = track_key_to_nr[row['track_key']]
+
+    # Sort by track number first, then by increasing time (low to high)
+    rows = sorted(rows, key=lambda r_: (r_['track_nr'], r_['t_ns']), reverse=False)
 
     # Unique layer counts per volume (only count entries where module_id != 0)
     uniques = set()
@@ -286,9 +317,10 @@ def main():
         for l in per_vol_lines:
             f.write('  ' + l + '\n')
 
-        f.write('\nPer-measurement table (sorted by z low -> high):\n')
-        hdr = ('vol', 'lay', 'mod', 'r_mm', 'x_mm', 'y_mm', 'z_mm')
-        widths = [5, 5, 7, 9, 9, 9, 9]
+        f.write('\nPer-measurement table (sorted by track number, then time):\n')
+        hdr = ('trk', 'vol', 'lay', 'mod', 'r_mm', 'x_mm', 'y_mm', 'z_mm', 't_ns')
+        widths = [4, 4, 4, 7, 9, 9, 9, 9, 9]
+        
         # header
         header_line = ' '.join(h.center(w) for h, w in zip(hdr, widths))
         f.write(header_line + '\n')
@@ -297,13 +329,15 @@ def main():
         display_rows = [r for r in rows if r['module_id'] != 0]
         for i, rrow in enumerate(display_rows):
             parts = [
-                str(rrow['volume_id']).rjust(widths[0]),
-                str(rrow['layer_id']).rjust(widths[1]),
-                str(rrow['module_id']).rjust(widths[2]),
-                f"{rrow['r_mm']:.1f}".rjust(widths[3]),
-                f"{rrow['x_mm']:.1f}".rjust(widths[4]),
-                f"{rrow['y_mm']:.1f}".rjust(widths[5]),
-                f"{rrow['z_mm']:.1f}".rjust(widths[6]),
+                str(rrow['track_nr']).rjust(widths[0]),
+                str(rrow['volume_id']).rjust(widths[1]),
+                str(rrow['layer_id']).rjust(widths[2]),
+                str(rrow['module_id']).rjust(widths[3]),
+                f"{rrow['r_mm']:.1f}".rjust(widths[4]),
+                f"{rrow['x_mm']:.1f}".rjust(widths[5]),
+                f"{rrow['y_mm']:.1f}".rjust(widths[6]),
+                f"{rrow['z_mm']:.1f}".rjust(widths[7]),
+                f"{rrow['t_ns']:.0f}".rjust(widths[8]),
             ]
             f.write(' '.join(parts) + '\n')
 
