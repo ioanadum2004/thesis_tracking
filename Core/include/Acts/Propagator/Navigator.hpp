@@ -13,6 +13,7 @@
 #include "Acts/Geometry/Layer.hpp"
 #include "Acts/Geometry/TrackingGeometry.hpp"
 #include "Acts/Geometry/TrackingVolume.hpp"
+#include "Acts/Geometry/VolumeBounds.hpp"
 #include "Acts/Navigation/NavigationStream.hpp"
 #include "Acts/Propagator/NavigationTarget.hpp"
 #include "Acts/Propagator/NavigatorError.hpp"
@@ -195,6 +196,11 @@ class Navigator {
     /// Sign indicating radial direction: -1 for inward (toward beam), +1 for outward, 0 for normal navigation
     /// When non-zero, use pure radial direction for layer resolution at turning points
     int radialDirectionSign = 0;
+
+    /// Flag indicating if current volume is barrel (cylindrical layers)
+    /// true = barrel region, false = endcap or unknown
+    /// Only checked/updated when radialDirectionSign < 0
+    bool isInBarrelVolume = false;
 
     NavigatorStatistics statistics;
 
@@ -830,6 +836,17 @@ class Navigator {
                      const Vector3& direction) const {
     ACTS_VERBOSE(volInfo(state) << "Searching for compatible layers.");
 
+    // Debug volume layer structure
+    // ACTS_VERBOSE(volInfo(state) << "Volume layer debug:");
+    // ACTS_VERBOSE(volInfo(state) << "  confinedLayers(): " << (state.currentVolume->confinedLayers() ? "EXISTS" : "nullptr"));
+    // if (state.currentVolume->confinedLayers()) {
+    //   ACTS_VERBOSE(volInfo(state) << "  LayerArray size: " << state.currentVolume->confinedLayers()->arrayObjects().size());
+    // }
+    // ACTS_VERBOSE(volInfo(state) << "  Volume name: " << state.currentVolume->volumeName());
+    // ACTS_VERBOSE(volInfo(state) << "  Current position: " << toString(position));
+    // ACTS_VERBOSE(volInfo(state) << "  Current direction: " << toString(direction));
+    // ACTS_VERBOSE(volInfo(state) << "  Current layer: " << (state.currentLayer ? state.currentLayer->geometryId() : GeometryIdentifier{}));
+
     NavigationOptions<Layer> navOpts;
     navOpts.resolveSensitive = m_cfg.resolveSensitive;
     navOpts.resolveMaterial = m_cfg.resolveMaterial;
@@ -837,14 +854,28 @@ class Navigator {
     navOpts.startObject = state.currentLayer;
     navOpts.nearLimit = state.options.nearLimit;
     navOpts.farLimit = state.options.farLimit;
+    
+    // ACTS_VERBOSE(volInfo(state) << "Navigation options:");
+    // ACTS_VERBOSE(volInfo(state) << "  resolveSensitive=" << navOpts.resolveSensitive);
+    // ACTS_VERBOSE(volInfo(state) << "  resolveMaterial=" << navOpts.resolveMaterial);  
+    // ACTS_VERBOSE(volInfo(state) << "  resolvePassive=" << navOpts.resolvePassive);
+    // ACTS_VERBOSE(volInfo(state) << "  startObject=" << (navOpts.startObject ? navOpts.startObject->geometryId() : GeometryIdentifier{}));
+    // ACTS_VERBOSE(volInfo(state) << "  nearLimit=" << navOpts.nearLimit);
+    // ACTS_VERBOSE(volInfo(state) << "  farLimit=" << navOpts.farLimit);
 
-    // Use pure radial direction for layer resolution when going inward (pr < 0)
-    // This is needed because straight-line approximation fails for inward motion
+    // Use pure radial direction for layer resolution when going inward (pr < 0) in barrel regions. 
     Vector3 effectiveDirection = direction;
+    ACTS_VERBOSE(volInfo(state) << "Direction debug: original=" << toString(direction) 
+               << " radialSign=" << state.radialDirectionSign);
+    
     if (state.radialDirectionSign < 0) {
+      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);        //only cacluate if radialDirectionSign < 0
+      ACTS_VERBOSE(volInfo(state) << "isBarrelVolume=" << (state.isInBarrelVolume ? "true" : "false"));
+      
+      if (state.isInBarrelVolume) {
       double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
       if (r_xy > 1e-6) {
-        // Radial unit vector: r_hat = (x, y) / r_xy
+       // Radial unit vector: r_hat = (x, y) / r_xy
         double r_hat_x = position[0] / r_xy;
         double r_hat_y = position[1] / r_xy;
         
@@ -853,10 +884,20 @@ class Navigator {
         effectiveDirection[1] = -r_hat_y;
         effectiveDirection[2] = 0.0;
         
-        ACTS_VERBOSE("Using pure radial inward direction for layer resolution");
+        ACTS_VERBOSE("Using pure radial inward direction for layer resolution in barrel");
+        ACTS_VERBOSE(volInfo(state) << "Direction modified: effective=" << toString(effectiveDirection));
         
       }
+      } else {
+        ACTS_VERBOSE(volInfo(state) << "Endcap volume - keeping original direction with z-component");
+      }
     }
+    
+    ACTS_VERBOSE(volInfo(state) << "Final effective direction: " << toString(effectiveDirection));
+
+    // Debug: Check what associatedLayer returns for this position
+    const Layer* associatedLayerResult = state.currentVolume->associatedLayer(state.options.geoContext, position);
+    ACTS_VERBOSE(volInfo(state) << "associatedLayer() returned: " << (associatedLayerResult ? associatedLayerResult->geometryId() : GeometryIdentifier{}));
 
     // Request the compatible layers
     state.navLayers = state.currentVolume->compatibleLayers(
@@ -901,21 +942,49 @@ class Navigator {
                  << "Try to find boundaries, we are at: " << toString(position)
                  << ", dir: " << toString(direction));
 
+    // Use pure radial direction for boundary resolution when going inward (pr < 0) in barrel regions.
+    Vector3 effectiveDirection = direction;
+    if (state.radialDirectionSign < 0) {
+      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);
+      if (state.isInBarrelVolume) {
+        double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
+        if (r_xy > 1e-6) {
+          // Radial unit vector: r_hat = (x, y) / r_xy
+          double r_hat_x = position[0] / r_xy;
+          double r_hat_y = position[1] / r_xy;
+
+          // Set to pure radial inward direction (unit vector, no z component)
+          effectiveDirection[0] = -r_hat_x;  // Inward (negative radial)
+          effectiveDirection[1] = -r_hat_y;
+          effectiveDirection[2] = 0.0;
+
+          ACTS_VERBOSE("Using pure radial inward direction for boundary resolution in barrel");
+          // ACTS_VERBOSE("  Original direction: " << toString(direction));
+          // ACTS_VERBOSE("  Effective direction: " << toString(effectiveDirection));
+          // ACTS_VERBOSE("  radialDirectionSign: " << state.radialDirectionSign);
+        }
+      }
+    } else {
+      // ACTS_VERBOSE("Using original direction for boundary resolution");
+      // ACTS_VERBOSE("  radialDirectionSign: " << state.radialDirectionSign);
+    }
+
     if (m_geometryVersion == GeometryVersion::Gen1) {
       // Request the compatible boundaries
       state.navBoundaries = state.currentVolume->compatibleBoundaries(
-          state.options.geoContext, position, direction, navOpts, logger());
+          state.options.geoContext, position, effectiveDirection, navOpts, logger());
       std::ranges::sort(state.navBoundaries, [](const auto& a, const auto& b) {
         return SurfaceIntersection::pathLengthOrder(a.intersection,
                                                     b.intersection);
       });
+        // ...existing code...
     } else {
       // Gen 3 !
       state.stream.reset();
       AppendOnlyNavigationStream appendOnly{state.stream};
       NavigationArguments args;
       args.position = position;
-      args.direction = direction;
+      args.direction = effectiveDirection;
       args.wantsPortals = true;
       args.wantsSurfaces = false;
       state.currentVolume->initializeNavigationCandidates(args, appendOnly,
@@ -925,7 +994,7 @@ class Navigator {
                    << "Found " << state.stream.candidates().size()
                    << " navigation candidates.");
 
-      state.stream.initialize(state.options.geoContext, {position, direction},
+      state.stream.initialize(state.options.geoContext, {position, effectiveDirection},
                               BoundaryTolerance::None(),
                               state.options.surfaceTolerance);
 
@@ -951,6 +1020,49 @@ class Navigator {
         os << bc.intersection.pathLength() << "  ";
       }
       logger().log(Logging::VERBOSE, os.str());
+
+      // // Detailed per-candidate dump (geometry id, type, path length, index)
+      // std::ostringstream ods;
+      // ods << "Detailed boundary candidates: ";
+      // for (auto& bc : state.navBoundaries) {
+      //   const auto& surf = bc.intersection.surface();
+      //   std::string typeStr;
+      //   switch (surf.type()) {
+      //     case Surface::SurfaceType::Cylinder: typeStr = "Cylinder"; break;
+      //     case Surface::SurfaceType::Disc: typeStr = "Disc"; break;
+      //     case Surface::SurfaceType::Plane: typeStr = "Plane"; break;
+      //     case Surface::SurfaceType::Cone: typeStr = "Cone"; break;
+      //     default: typeStr = "Unknown"; break;
+      //   }
+      //   // intersection position
+      //   auto ipos = bc.intersection.position();
+      //   // surface center
+      //   auto center = surf.center(state.options.geoContext);
+      //   // surface normal at intersection (use effectiveDirection for sign)
+      //   Vector3 normalVec = Vector3::Zero();
+      //   try {
+      //     normalVec = surf.normal(state.options.geoContext, ipos, effectiveDirection);
+      //   } catch (...) {
+      //     normalVec = Vector3::Zero();
+      //   }
+
+      //   ods << "geo=" << surf.geometryId() << " ";
+      //   ods << "type=" << typeStr << " ";
+      //   ods << "path=" << bc.intersection.pathLength() << " ";
+      //   ods << "idx=" << bc.intersection.index() << " ";
+      //   ods << "ipos=" << toString(ipos) << " ";
+      //   ods << "center=" << toString(center) << " ";
+      //   // Print shape-specific sizing info: cylinder radius/zBounds or disc rmin/rmax
+      //   auto bvals = surf.bounds().values();
+      //   if (surf.type() == Surface::SurfaceType::Cylinder && bvals.size() >= 2) {
+      //     ods << "radius=" << bvals[0] << " ";
+      //     ods << "halfLengthZ=" << bvals[1] << " ";
+      //   } else if ((surf.type() == Surface::SurfaceType::Disc) && bvals.size() >= 2) {
+      //     ods << "rMin=" << bvals[0] << " rMax=" << bvals[1] << " ";
+      //   }
+      //   ods << "normal=" << toString(normalVec) << " | ";
+      // }
+      // logger().log(Logging::VERBOSE, ods.str());
     }
 
     if (state.navBoundaries.empty()) {
@@ -985,6 +1097,25 @@ class Navigator {
     return (state.currentVolume != nullptr ? state.currentVolume->volumeName()
                                            : "No Volume") +
            " | ";
+  }
+
+  /// @brief Check if volume contains barrel-like (cylindrical) layers
+  /// 
+  /// @param volume The tracking volume to check
+  /// @return true if volume has cylindrical layers (barrel), false otherwise
+  bool isBarrelVolume(const TrackingVolume* volume) const {
+    if (volume == nullptr || volume->confinedLayers() == nullptr) {
+      return false;
+    }
+    
+    const auto& layers = volume->confinedLayers()->arrayObjects();
+    if (layers.empty()) {
+      return false;
+    }
+    
+    // Check first layer's surface type - all layers in a volume are the same type
+    auto surfType = layers.front()->surfaceRepresentation().type();
+    return (surfType == Surface::SurfaceType::Cylinder);
   }
 
   const Logger& logger() const { return *m_logger; }
