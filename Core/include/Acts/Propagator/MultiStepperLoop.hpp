@@ -493,11 +493,12 @@ class MultiStepperLoop : public single_stepper_t {
   /// @param [in] boundaryTolerance The boundary check for this status update
   /// @param [in] surfaceTolerance Surface tolerance used for intersection
   /// @param [in] stype The step size type to be set
+  /// @param [in] isInBarrelVolume Flag indicating if in barrel volume
   /// @param [in] logger A @c Logger instance
   IntersectionStatus updateSurfaceStatus(
       State& state, const Surface& surface, std::uint8_t index,
       Direction navDir, const BoundaryTolerance& boundaryTolerance,
-      double surfaceTolerance, ConstrainedStep::Type stype,
+      double surfaceTolerance, ConstrainedStep::Type stype, bool isInBarrelVolume,
       const Logger& logger = getDummyLogger()) const {
     using Status = IntersectionStatus;
 
@@ -506,7 +507,7 @@ class MultiStepperLoop : public single_stepper_t {
     for (auto& component : state.components) {
       component.status = detail::updateSingleSurfaceStatus<SingleStepper>(
           *this, component.state, surface, index, navDir, boundaryTolerance,
-          surfaceTolerance, stype, logger);
+          surfaceTolerance, stype, isInBarrelVolume, logger);
       ++counts[static_cast<std::size_t>(component.status)];
     }
 

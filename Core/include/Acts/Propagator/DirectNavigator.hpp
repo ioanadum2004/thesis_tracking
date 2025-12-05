@@ -89,6 +89,10 @@ class DirectNavigator {
     /// Navigation state - external interface: the current surface
     const Surface* currentSurface = nullptr;
 
+    /// Flag indicating if current volume is barrel 
+    /// This flag is used by steppers but not managed by DirectNavigator
+    bool isInBarrelVolume = true;
+
     /// Navigation state - external interface: a break has been detected
     bool navigationBreak = false;
 

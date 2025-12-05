@@ -46,6 +46,10 @@ class VoidNavigator {
 
     Options options;
 
+    /// Flag indicating if current volume is barrel 
+    /// This flag is used by steppers but not managed by VoidNavigator
+    bool isInBarrelVolume = true;
+
     /// Navigation statistics
     NavigatorStatistics statistics;
   };

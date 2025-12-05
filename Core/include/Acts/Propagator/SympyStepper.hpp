@@ -215,11 +215,11 @@ class SympyStepper {
   IntersectionStatus updateSurfaceStatus(
       State& state, const Surface& surface, std::uint8_t index,
       Direction navDir, const BoundaryTolerance& boundaryTolerance,
-      double surfaceTolerance, ConstrainedStep::Type stype,
+      double surfaceTolerance, ConstrainedStep::Type stype, bool isInBarrelVolume,
       const Logger& logger = getDummyLogger()) const {
     return detail::updateSingleSurfaceStatus<SympyStepper>(
         *this, state, surface, index, navDir, boundaryTolerance,
-        surfaceTolerance, stype, logger);
+        surfaceTolerance, stype, isInBarrelVolume, logger);
   }
 
   /// Update step size

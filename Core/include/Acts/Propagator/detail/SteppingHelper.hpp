@@ -36,13 +36,14 @@ namespace Acts::detail {
 /// @param boundaryTolerance [in] The boundary check for this status update
 /// @param surfaceTolerance [in] Surface tolerance used for intersection
 /// @param stype [in] The step size type to be set
+/// @param isInBarrelVolume [in] Flag indicating if in barrel volume (for radial direction logic)
 /// @param logger [in] A @c Logger instance
 template <typename stepper_t>
 IntersectionStatus updateSingleSurfaceStatus(
     const stepper_t& stepper, typename stepper_t::State& state,
     const Surface& surface, std::uint8_t index, Direction direction,
     const BoundaryTolerance& boundaryTolerance, double surfaceTolerance,
-    ConstrainedStep::Type stype, const Logger& logger) {
+    ConstrainedStep::Type stype, bool isInBarrelVolume, const Logger& logger) {
   ACTS_VERBOSE("Update single surface status for surface: "
                << surface.geometryId() << " index " << static_cast<int>(index));
 
@@ -81,8 +82,9 @@ IntersectionStatus updateSingleSurfaceStatus(
   // Determine which direction to use for intersection calculation     (note "direction" for calman smoothner?)
   Vector3 intersectionDirection = direction * stepper.direction(state);
   
-  // When going radially inward, use pure radial direction for intersection
-  if (state.pr_sign_previous < 0 && r_xy > 1e-6) {
+  // When going radially inward in barrel regions, use pure radial direction for intersection
+  // This is needed because straight-line approximation fails for inward motion through cylindrical layers
+  if (state.pr_sign_previous < 0 && isInBarrelVolume && r_xy > 1e-6) {
     // Radial unit vector: r_hat = (x, y) / r_xy
     double r_hat_x = position[0] / r_xy;
     double r_hat_y = position[1] / r_xy;
@@ -92,7 +94,7 @@ IntersectionStatus updateSingleSurfaceStatus(
     intersectionDirection[1] = -r_hat_y;
     intersectionDirection[2] = 0.0;
     
-    ACTS_VERBOSE("Using pure radial inward direction for intersection calculation");
+    ACTS_VERBOSE("Using pure radial inward direction for intersection calculation in barrel");
   }
 
   auto sIntersection =

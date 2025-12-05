@@ -184,23 +184,23 @@ class Impl final : public DoubletSeedFinder {
         const float cotTheta = deltaZ * iDeltaR;
 
         // Time ordering cut (for seeds resulting from loops): bottom doublet must have time <= middle, top doublet must have time >= middle
-        float tM = middleSp.time();
-        float tO = container[indexO].time();
-        if (isBottomCandidate) {
-          if (tO > tM) {
-            continue;  
-          }
-        } else {
-          if (tO < tM) {
-            continue;  
-          }
-        }
+        // float tM = middleSp.time();
+        // float tO = container[indexO].time();
+        // if (isBottomCandidate) {
+        //   if (tO > tM) {
+        //     continue;  
+        //   }
+        // } else {
+        //   if (tO < tM) {
+        //     continue;  
+        //   }
+        // }
         
-        // Doublet passed time check - print it
-        std::cout << "ACCEPTED doublet: isBottomCandidate=" << isBottomCandidate 
-                  << ", tM=" << tM << ", tO=" << tO 
-                  << ", rM=" << rM << ", rO=" << rO
-                  << ", zM=" << zM << ", zO=" << zO << std::endl;
+        // // Doublet passed time check - print it
+        // std::cout << "ACCEPTED doublet: isBottomCandidate=" << isBottomCandidate 
+        //           << ", tM=" << tM << ", tO=" << tO 
+        //           << ", rM=" << rM << ", rO=" << rO
+        //           << ", zM=" << zM << ", zO=" << zO << std::endl;
 
         const float er =
             calculateError(varianceZO, varianceRO, iDeltaR2, cotTheta);

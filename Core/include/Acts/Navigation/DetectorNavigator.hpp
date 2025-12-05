@@ -69,6 +69,9 @@ class DetectorNavigator {
     /// Navigation state : a break has been detected
     bool navigationBreak = false;
 
+    /// Flag indicating if current volume is barrel (used for loops)
+    bool isInBarrelVolume = true;
+
     /// Navigation statistics
     NavigatorStatistics statistics;
   };

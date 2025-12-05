@@ -240,11 +240,11 @@ class EigenStepper {
   IntersectionStatus updateSurfaceStatus(
       State& state, const Surface& surface, std::uint8_t index,
       Direction propDir, const BoundaryTolerance& boundaryTolerance,
-      double surfaceTolerance, ConstrainedStep::Type stype,
+      double surfaceTolerance, ConstrainedStep::Type stype, bool isInBarrelVolume,
       const Logger& logger = getDummyLogger()) const {
     return detail::updateSingleSurfaceStatus<EigenStepper>(
         *this, state, surface, index, propDir, boundaryTolerance,
-        surfaceTolerance, stype, logger);
+        surfaceTolerance, stype, isInBarrelVolume, logger);
   }
 
   /// Update step size

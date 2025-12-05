@@ -54,7 +54,8 @@ Acts::Result<void> Acts::Propagator<S, N>::propagate(
           state.stepping, *nextTarget.surface,
           nextTarget.surfaceIntersectionIndex, state.options.direction,
           nextTarget.boundaryTolerance, state.options.surfaceTolerance,
-          ConstrainedStep::Type::Navigator, logger());
+          ConstrainedStep::Type::Navigator, state.navigation.isInBarrelVolume,
+          logger());
       if (preStepSurfaceStatus == IntersectionStatus::onSurface) {
         // This indicates a geometry overlap which is not handled by the
         // navigator, so we skip this target.
@@ -125,7 +126,8 @@ Acts::Result<void> Acts::Propagator<S, N>::propagate(
           state.stepping, *nextTarget.surface,
           nextTarget.surfaceIntersectionIndex, state.options.direction,
           nextTarget.boundaryTolerance, state.options.surfaceTolerance,
-          ConstrainedStep::Type::Navigator, logger());
+          ConstrainedStep::Type::Navigator, state.navigation.isInBarrelVolume,
+          logger());
       if (postStepSurfaceStatus == IntersectionStatus::onSurface) {
         m_navigator.handleSurfaceReached(state.navigation, state.position,
                                          state.direction, *nextTarget.surface);

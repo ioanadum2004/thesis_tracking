@@ -11,7 +11,7 @@ def create_hit_efficiency_plot(output_filename):
 
     # Define histogram binning variables
     pt_bins = 100
-    pt_min = 0.29
+    pt_min = 0.06
     pt_max = 0.5
 
     particle_info = {}

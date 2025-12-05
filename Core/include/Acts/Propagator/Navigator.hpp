@@ -753,6 +753,8 @@ class Navigator {
                      << " overlapping surfaces.");
       }
       state.navSurfaces.erase(toBeRemoved.begin(), toBeRemoved.end());
+
+      
     } else {
       // @TODO: What to do with external surfaces?
       // Gen 3 !
@@ -836,17 +838,7 @@ class Navigator {
                      const Vector3& direction) const {
     ACTS_VERBOSE(volInfo(state) << "Searching for compatible layers.");
 
-    // Debug volume layer structure
-    // ACTS_VERBOSE(volInfo(state) << "Volume layer debug:");
-    // ACTS_VERBOSE(volInfo(state) << "  confinedLayers(): " << (state.currentVolume->confinedLayers() ? "EXISTS" : "nullptr"));
-    // if (state.currentVolume->confinedLayers()) {
-    //   ACTS_VERBOSE(volInfo(state) << "  LayerArray size: " << state.currentVolume->confinedLayers()->arrayObjects().size());
-    // }
-    // ACTS_VERBOSE(volInfo(state) << "  Volume name: " << state.currentVolume->volumeName());
-    // ACTS_VERBOSE(volInfo(state) << "  Current position: " << toString(position));
-    // ACTS_VERBOSE(volInfo(state) << "  Current direction: " << toString(direction));
-    // ACTS_VERBOSE(volInfo(state) << "  Current layer: " << (state.currentLayer ? state.currentLayer->geometryId() : GeometryIdentifier{}));
-
+   
     NavigationOptions<Layer> navOpts;
     navOpts.resolveSensitive = m_cfg.resolveSensitive;
     navOpts.resolveMaterial = m_cfg.resolveMaterial;
@@ -855,13 +847,7 @@ class Navigator {
     navOpts.nearLimit = state.options.nearLimit;
     navOpts.farLimit = state.options.farLimit;
     
-    // ACTS_VERBOSE(volInfo(state) << "Navigation options:");
-    // ACTS_VERBOSE(volInfo(state) << "  resolveSensitive=" << navOpts.resolveSensitive);
-    // ACTS_VERBOSE(volInfo(state) << "  resolveMaterial=" << navOpts.resolveMaterial);  
-    // ACTS_VERBOSE(volInfo(state) << "  resolvePassive=" << navOpts.resolvePassive);
-    // ACTS_VERBOSE(volInfo(state) << "  startObject=" << (navOpts.startObject ? navOpts.startObject->geometryId() : GeometryIdentifier{}));
-    // ACTS_VERBOSE(volInfo(state) << "  nearLimit=" << navOpts.nearLimit);
-    // ACTS_VERBOSE(volInfo(state) << "  farLimit=" << navOpts.farLimit);
+
 
     // Use pure radial direction for layer resolution when going inward (pr < 0) in barrel regions. 
     Vector3 effectiveDirection = direction;
@@ -965,8 +951,7 @@ class Navigator {
         }
       }
     } else {
-      // ACTS_VERBOSE("Using original direction for boundary resolution");
-      // ACTS_VERBOSE("  radialDirectionSign: " << state.radialDirectionSign);
+
     }
 
     if (m_geometryVersion == GeometryVersion::Gen1) {
@@ -1012,62 +997,62 @@ class Navigator {
     }
 
     // Print boundary information
-    if (logger().doPrint(Logging::VERBOSE)) {
-      std::ostringstream os;
-      os << state.navBoundaries.size();
-      os << " boundary candidates found at path(s): ";
-      for (auto& bc : state.navBoundaries) {
-        os << bc.intersection.pathLength() << "  ";
-      }
-      logger().log(Logging::VERBOSE, os.str());
+    // if (logger().doPrint(Logging::VERBOSE)) {
+    //   std::ostringstream os;
+    //   os << state.navBoundaries.size();
+    //   os << " boundary candidates found at path(s): ";
+    //   for (auto& bc : state.navBoundaries) {
+    //     os << bc.intersection.pathLength() << "  ";
+    //   }
+    //   logger().log(Logging::VERBOSE, os.str());
 
-      // // Detailed per-candidate dump (geometry id, type, path length, index)
-      // std::ostringstream ods;
-      // ods << "Detailed boundary candidates: ";
-      // for (auto& bc : state.navBoundaries) {
-      //   const auto& surf = bc.intersection.surface();
-      //   std::string typeStr;
-      //   switch (surf.type()) {
-      //     case Surface::SurfaceType::Cylinder: typeStr = "Cylinder"; break;
-      //     case Surface::SurfaceType::Disc: typeStr = "Disc"; break;
-      //     case Surface::SurfaceType::Plane: typeStr = "Plane"; break;
-      //     case Surface::SurfaceType::Cone: typeStr = "Cone"; break;
-      //     default: typeStr = "Unknown"; break;
-      //   }
-      //   // intersection position
-      //   auto ipos = bc.intersection.position();
-      //   // surface center
-      //   auto center = surf.center(state.options.geoContext);
-      //   // surface normal at intersection (use effectiveDirection for sign)
-      //   Vector3 normalVec = Vector3::Zero();
-      //   try {
-      //     normalVec = surf.normal(state.options.geoContext, ipos, effectiveDirection);
-      //   } catch (...) {
-      //     normalVec = Vector3::Zero();
-      //   }
+    //   // Detailed per-candidate dump (geometry id, type, path length, index)
+    //   std::ostringstream ods;
+    //   ods << "Detailed boundary candidates: ";
+    //   for (auto& bc : state.navBoundaries) {
+    //     const auto& surf = bc.intersection.surface();
+    //     std::string typeStr;
+    //     switch (surf.type()) {
+    //       case Surface::SurfaceType::Cylinder: typeStr = "Cylinder"; break;
+    //       case Surface::SurfaceType::Disc: typeStr = "Disc"; break;
+    //       case Surface::SurfaceType::Plane: typeStr = "Plane"; break;
+    //       case Surface::SurfaceType::Cone: typeStr = "Cone"; break;
+    //       default: typeStr = "Unknown"; break;
+    //     }
+    //     // intersection position
+    //     auto ipos = bc.intersection.position();
+    //     // surface center
+    //     auto center = surf.center(state.options.geoContext);
+    //     // surface normal at intersection (use effectiveDirection for sign)
+    //     Vector3 normalVec = Vector3::Zero();
+    //     try {
+    //       normalVec = surf.normal(state.options.geoContext, ipos, effectiveDirection);
+    //     } catch (...) {
+    //       normalVec = Vector3::Zero();
+    //     }
 
-      //   ods << "geo=" << surf.geometryId() << " ";
-      //   ods << "type=" << typeStr << " ";
-      //   ods << "path=" << bc.intersection.pathLength() << " ";
-      //   ods << "idx=" << bc.intersection.index() << " ";
-      //   ods << "ipos=" << toString(ipos) << " ";
-      //   ods << "center=" << toString(center) << " ";
-      //   // Print shape-specific sizing info: cylinder radius/zBounds or disc rmin/rmax
-      //   auto bvals = surf.bounds().values();
-      //   if (surf.type() == Surface::SurfaceType::Cylinder && bvals.size() >= 2) {
-      //     ods << "radius=" << bvals[0] << " ";
-      //     ods << "halfLengthZ=" << bvals[1] << " ";
-      //   } else if ((surf.type() == Surface::SurfaceType::Disc) && bvals.size() >= 2) {
-      //     ods << "rMin=" << bvals[0] << " rMax=" << bvals[1] << " ";
-      //   }
-      //   ods << "normal=" << toString(normalVec) << " | ";
-      // }
-      // logger().log(Logging::VERBOSE, ods.str());
-    }
+    //     ods << "geo=" << surf.geometryId() << " ";
+    //     ods << "type=" << typeStr << " ";
+    //     ods << "path=" << bc.intersection.pathLength() << " ";
+    //     ods << "idx=" << bc.intersection.index() << " ";
+    //     ods << "ipos=" << toString(ipos) << " ";
+    //     ods << "center=" << toString(center) << " ";
+    //     // Print shape-specific sizing info: cylinder radius/zBounds or disc rmin/rmax
+    //     auto bvals = surf.bounds().values();
+    //     if (surf.type() == Surface::SurfaceType::Cylinder && bvals.size() >= 2) {
+    //       ods << "radius=" << bvals[0] << " ";
+    //       ods << "halfLengthZ=" << bvals[1] << " ";
+    //     } else if ((surf.type() == Surface::SurfaceType::Disc) && bvals.size() >= 2) {
+    //       ods << "rMin=" << bvals[0] << " rMax=" << bvals[1] << " ";
+    //     }
+    //     ods << "normal=" << toString(normalVec) << " | ";
+    //   }
+    //   logger().log(Logging::VERBOSE, ods.str());
+    // }
 
-    if (state.navBoundaries.empty()) {
-      ACTS_VERBOSE(volInfo(state) << "No boundary candidates found.");
-    }
+    // if (state.navBoundaries.empty()) {
+    //   ACTS_VERBOSE(volInfo(state) << "No boundary candidates found.");
+    // }
   }
 
   /// @brief Check if the navigator is inactive

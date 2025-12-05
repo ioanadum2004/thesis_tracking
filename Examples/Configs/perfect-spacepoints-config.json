@@ -2,22 +2,22 @@
 
 {
   "simulation": {
-    "events": 2,
+    "events": 1000,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
-  "maxSteps": 1000,
+  "maxSteps": 10000,
   "loopProtection": true,
-  "loopFraction": 1,
+  "loopFraction": 2,
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.22,     
-        "max": 0.22,
+        "min": 0.07,     
+        "max": 0.5,
         "transverse": true
       },
       "eta": {
-        "min": 0.01,
+        "min": -0.1,
         "max": 0.1,
         "uniform": true
       },
@@ -43,7 +43,7 @@
     }
   },
   "simulation_physics": {
-    "enableInteractions": false,
+    "enableInteractions": true,
     "Comment": "note: total momentum (not P_T). Units are in GeV particle stops propagating in simulation after this limit. also affects effieciency",
     "pMin": 0.01
   },
@@ -156,7 +156,6 @@
     "ckfConfig": {
       "chi2CutOffMeasurement": 15.0,
       "chi2CutOffOutlier": 25.0,
-      "_comment": "loopProtection and loopFraction now inherited from simulation config. max number of measurements; If a track accumulates more than .. measurements, the algorithm will stop adding more hits to that track.",
       "numMeasurementsCutOff": 30,
       "seedDeduplication": true,
       "stayOnSeed": true
@@ -171,7 +170,7 @@
   },
   "logging": {
     "comment": "Logging configuration: INFO, DEBUG, VERBOSE (Order by detail), n = number of stppper steps between log",
-    "level":"DEBUG",
-    "n": 1
+    "level":"INFO",
+    "n": 0
   }
 }
