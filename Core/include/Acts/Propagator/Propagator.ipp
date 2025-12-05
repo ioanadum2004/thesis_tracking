@@ -140,7 +140,8 @@ Acts::Result<void> Acts::Propagator<S, N>::propagate(
           if (state.stepping.turningPointDetected) {
             if constexpr (requires { state.navigation.navLayers; }) {
               // pr_sign_previous now contains the NEW sign after flip
-              state.navigation.radialDirectionSign = state.stepping.pr_sign_previous;
+              // Set radiallyInward = true if moving inward (pr_sign_previous < 0)
+              state.navigation.radiallyInward = (state.stepping.pr_sign_previous < 0);
               
               // Reset navigation state to clear lists
               state.navigation.resetAfterVolumeSwitch();

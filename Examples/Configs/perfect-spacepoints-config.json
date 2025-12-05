@@ -2,13 +2,13 @@
 
 {
   "simulation": {
-    "events": 1000,
+    "events": 10000,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
   "maxSteps": 10000,
   "loopProtection": true,
-  "loopFraction": 2,
+  "loopFraction": 1,
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",

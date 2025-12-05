@@ -193,13 +193,13 @@ class Navigator {
     bool navigationBreak = false;
     Stage navigationStage = Stage::initial;
 
-    /// Sign indicating radial direction: -1 for inward (toward beam), +1 for outward, 0 for normal navigation
-    /// When non-zero, use pure radial direction for layer resolution at turning points
-    int radialDirectionSign = 0;
+    /// Flag indicating radial inward motion (toward beam axis)
+    /// When true, use pure radial direction for layer/boundary resolution at turning points
+    bool radiallyInward = false;
 
     /// Flag indicating if current volume is barrel (cylindrical layers)
     /// true = barrel region, false = endcap or unknown
-    /// Only checked/updated when radialDirectionSign < 0
+    /// Only checked/updated when radiallyInward is true
     bool isInBarrelVolume = false;
 
     NavigatorStatistics statistics;
@@ -852,10 +852,10 @@ class Navigator {
     // Use pure radial direction for layer resolution when going inward (pr < 0) in barrel regions. 
     Vector3 effectiveDirection = direction;
     ACTS_VERBOSE(volInfo(state) << "Direction debug: original=" << toString(direction) 
-               << " radialSign=" << state.radialDirectionSign);
+               << " radiallyInward=" << state.radiallyInward);
     
-    if (state.radialDirectionSign < 0) {
-      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);        //only cacluate if radialDirectionSign < 0
+    if (state.radiallyInward) {
+      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);        //only calculate if radiallyInward is true
       ACTS_VERBOSE(volInfo(state) << "isBarrelVolume=" << (state.isInBarrelVolume ? "true" : "false"));
       
       if (state.isInBarrelVolume) {
@@ -930,7 +930,7 @@ class Navigator {
 
     // Use pure radial direction for boundary resolution when going inward (pr < 0) in barrel regions.
     Vector3 effectiveDirection = direction;
-    if (state.radialDirectionSign < 0) {
+    if (state.radiallyInward) {
       state.isInBarrelVolume = isBarrelVolume(state.currentVolume);
       if (state.isInBarrelVolume) {
         double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
@@ -945,9 +945,6 @@ class Navigator {
           effectiveDirection[2] = 0.0;
 
           ACTS_VERBOSE("Using pure radial inward direction for boundary resolution in barrel");
-          // ACTS_VERBOSE("  Original direction: " << toString(direction));
-          // ACTS_VERBOSE("  Effective direction: " << toString(effectiveDirection));
-          // ACTS_VERBOSE("  radialDirectionSign: " << state.radialDirectionSign);
         }
       }
     } else {
