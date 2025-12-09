@@ -185,8 +185,8 @@ def main():
     # Define a color map for common detector types (fall back to gray)
     color_map = {
         'Pixel Barrel': 'blue',
-        'ShortStrip Barrel': 'green',
-        'LongStrip Barrel': 'orange',
+        'ShortStrip Barrel': 'red',
+        'LongStrip Barrel': 'green',
         'Pixel Endcap': 'magenta',
         'ShortStrip Endcap': 'cyan',
         'LongStrip Endcap': 'purple',

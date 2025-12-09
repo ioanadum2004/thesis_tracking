@@ -53,38 +53,29 @@ IntersectionStatus updateSingleSurfaceStatus(
   
   // projection on radial direction p_r = p(cartesian) dot r_hat = (p_x * x + p_y * y) / sqrt(x^2 + y^2)
   double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]); 
-  int pr_sign_current = 0;
+  bool radiallyInward_current = false;
   if (r_xy > 1e-6) {  // Avoid division by zero
     double pr = (position[0] *dir[0] +position[1]*dir[1]) / r_xy;
-    if (pr > 0.) {
-      pr_sign_current = 1;      // Positive: outward
-    } else if (pr < 0.) {
-      pr_sign_current = -1;     // Negative:inward
-    } else {
-      pr_sign_current = 0;      // Zero: tangential or undefined or initial (no flip yet) (maybe better to init with 1?? )
-    }
+    radiallyInward_current = (pr <= 0.0);  // Inward or tangential (use radial direction)
   }
-  
-  // Detect sign flip in radial momentum (particle reached turning point)
-  if (state.pr_sign_previous != 0 && pr_sign_current != 0 && 
-      pr_sign_current != state.pr_sign_previous) {
-    ACTS_VERBOSE("Radial momentum flip detected (turning point): sign changed from " << state.pr_sign_previous << " to " << pr_sign_current);
-    state.pr_sign_previous = pr_sign_current;
-    state.turningPointDetected = true;  // Set flag for propagator & navigotor
+
+  // Detect change in radial direction (turning point)
+  if (radiallyInward_current != state.radiallyInward_previous) {
+    ACTS_VERBOSE("Turning point detected: radiallyInward changed from " << state.radiallyInward_previous << " to " << radiallyInward_current);
+    state.radiallyInward_previous = radiallyInward_current;
+    state.turningPointDetected = true;  // Set flag for propagator & navigator
     return IntersectionStatus::unreachable;
   }
   
-  // Update previous radial momentum sign for next step
-  if (pr_sign_current != 0) {
-    state.pr_sign_previous = pr_sign_current;
-  }
+  // Update for next step
+  state.radiallyInward_previous = radiallyInward_current;
 
   // Determine which direction to use for intersection calculation     (note "direction" for calman smoothner?)
   Vector3 intersectionDirection = direction * stepper.direction(state);
   
   // When going radially inward in barrel regions, use pure radial direction for intersection
   // This is needed because straight-line approximation fails for inward motion through cylindrical layers
-  if (state.pr_sign_previous < 0 && isInBarrelVolume && r_xy > 1e-6) {
+  if (state.radiallyInward_previous && isInBarrelVolume && r_xy > 1e-6) {
     // Radial unit vector: r_hat = (x, y) / r_xy
     double r_hat_x = position[0] / r_xy;
     double r_hat_y = position[1] / r_xy;

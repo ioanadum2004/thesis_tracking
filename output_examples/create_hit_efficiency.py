@@ -11,13 +11,14 @@ def create_hit_efficiency_plot(output_filename):
 
     # Define histogram binning variables
     pt_bins = 100
-    pt_min = 0
+    pt_min = 0.0
     pt_max = 0.5
 
     particle_info = {}
     canvas = ROOT.TCanvas("canvas", "Measurement Efficiency Plots", 1200, 450)
     canvas.Divide(3,1)
     ROOT.gStyle.SetPalette(ROOT.kBird)
+    ROOT.gStyle.SetOptStat(0)  # Disable statistics box
    
     for i in range(particles_tree.GetEntries()):
         particles_tree.GetEntry(i)
@@ -118,11 +119,23 @@ def create_hit_efficiency_plot(output_filename):
     
     matching_file.Close()
     particles_file.Close()
+    return canvas
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python create_hit_efficiency.py <output_filename_without_extension>")
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print("Usage: python create_hit_efficiency.py <output_filename_without_extension> [pdf]")
         sys.exit(1)
-    
+
     output_filename = sys.argv[1]
-    create_hit_efficiency_plot(output_filename)
+    save_pdf = False
+    if len(sys.argv) == 3 and sys.argv[2].lower() == "pdf":
+        save_pdf = True
+
+    canvas = create_hit_efficiency_plot(output_filename)
+
+    if save_pdf:
+        if canvas:
+            canvas.SaveAs(f"{output_filename}.pdf")
+            print(f"PDF plot also saved as '{output_filename}.pdf'")
+        else:
+            print("Warning: Could not find canvas to save as PDF.")

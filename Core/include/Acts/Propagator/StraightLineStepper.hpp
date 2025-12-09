@@ -110,10 +110,10 @@ class StraightLineStepper {
     /// Statistics of the stepper
     StepperStatistics statistics;
 
-    /// Sign of previous radial momentum (+1 outward, -1 inward, 0 uninitialized)
+    /// Flag indicating if particle was moving radially inward at previous step
     /// Used for detecting turning points in spiraling particle trajectories
-    int pr_sign_previous = 0;    
-    /// Flag set when radial momentum flip detected (particle reached turning point)
+    bool radiallyInward_previous = false;    
+    /// Flag set when radial direction changes (particle reached turning point)
     bool turningPointDetected = false;
   };
 

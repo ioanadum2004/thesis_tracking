@@ -6,19 +6,18 @@
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
-  "maxSteps": 10000,
-  "loopProtection": true,
-  "loopFraction": 1,
+    "maxSteps": 10000,
+    "loopFraction": 1,
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.07,     
+        "min": 0.06,     
         "max": 0.5,
         "transverse": true
       },
       "eta": {
-        "min": -0.1,
-        "max": 0.1,
+        "min": -0.14,
+        "max": 0.14,
         "uniform": true
       },
       "phi": {
@@ -43,14 +42,14 @@
     }
   },
   "simulation_physics": {
-    "enableInteractions": true,
+    "enableInteractions": false,
     "Comment": "note: total momentum (not P_T). Units are in GeV particle stops propagating in simulation after this limit. also affects effieciency",
     "pMin": 0.01
   },
   "particleSelection": {
     "pt": {
       "Comment": "Minimal energy in the denominator of the efficiency calculation (considered reconstructable)",
-      "min": 0.05,
+      "min": 0.06,
       "max": null
     },
     "measurements": {
@@ -63,7 +62,7 @@
   "seeding": {
     "truthSmearedSeeded": false  ,
     "truthEstimatedSeeded": false, 
-    "comment ": "set truthEstimatedSeeded",
+    "comment ": "to use set truthEstimatedSeeded = true",
     "smearing": {
       "loc0": 0.0,
       "loc0PtA": 0.0,
@@ -94,7 +93,7 @@
         "min": -2000.0,
         "max": 2000.0
       },
-      "maxSeedsPerSpM": 2,
+      "maxSeedsPerSpM": 5,
       "sigmaScattering": 5.0,
       "radLengthPerSeed": 0.1,
       "minPt": 0.06,
@@ -149,14 +148,14 @@
         "max": 4.0
       },
       "_comment": "Min hits for reconstructed track to be kept, note should be less than or equal to nMeasurementsMin in fitting",
-      "nMeasurementsMin": 3,
+      "nMeasurementsMin": 5,
       "maxHoles": 2,
       "maxOutliers": 2
     },
     "ckfConfig": {
       "chi2CutOffMeasurement": 15.0,
       "chi2CutOffOutlier": 25.0,
-      "numMeasurementsCutOff": 30,
+      "numMeasurementsCutOff": 1,
       "seedDeduplication": true,
       "stayOnSeed": true
     }

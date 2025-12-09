@@ -260,7 +260,6 @@ def runPerfectSpacepoints(
         pMin=pMin,
         # forward optional simulation hyperparameters from JSON if present
         maxSteps=sim.get("maxSteps", None),
-        loopProtection=sim.get("loopProtection", None),
         loopFraction=sim.get("loopFraction", None),
         debugStepInterval=logging_cfg.get("n", None),
         outputDirRoot=outputDir,
@@ -629,7 +628,6 @@ if "__main__" == __name__:
         field=field,
         outputDir=output_path,
         inputParticlePath=inputParticlePath,
-        loop_protection=sim_config.get("loopProtection", None),
         loop_fraction=sim_config.get("loopFraction", None),
     )
     sequencer.run()

@@ -45,22 +45,65 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.Divide(4, 5)
 
     pt_bins = 100
-    pt_max = 4 # Auto-range - let ROOT determine from data
+    pt_max = 0.5 # Auto-range - let ROOT determine from data
     p_bins = 100
-    p_max = 4 # Total momentum range
+    p_max = 8 # Total momentum range
     eta_bins = 100
-    eta_min = -3.0
-    eta_max = 3.0
+    eta_min = -0.15
+    eta_max = 0.15
 
-    # --- First row: Particle-based efficiency (nMatchedParticles/nTrueParticles) ---
+    # --- Load matchingdetails to get reconstructable particles ---
+    matching_file_path = "performance_finding_ckf_matchingdetails.root"
+    reconstructable_particles = set()
+    matched_particles_from_matching = set()
+    
+    if os.path.exists(matching_file_path):
+        matching_file = ROOT.TFile.Open(matching_file_path)
+        matching_tree = matching_file.Get("matchingdetails")
+        if matching_tree:
+            for entry in matching_tree:
+                event_nr = entry.event_nr
+                pid = entry.particle_id
+                key = (event_nr, pid)
+                reconstructable_particles.add(key)
+                if entry.matched:
+                    matched_particles_from_matching.add(key)
+            matching_file.Close()
+            print(f"Loaded {len(reconstructable_particles)} reconstructable particles from matchingdetails")
+            print(f"Of which {len(matched_particles_from_matching)} are matched ({len(matched_particles_from_matching)/len(reconstructable_particles)*100:.2f}%)")
+    else:
+        print(f"Warning: {matching_file_path} not found, using all particles")
+    
+    # --- First row: Particle-based efficiency (nMatchedParticles/nReconstructableParticles) ---
+    # Build particle info map: (event_id, particle_id) -> (pt, eta, p)
+    particle_map = {}
+    for event_idx, event in enumerate(particles_tree):
+        for i in range(len(event.particle_id)):
+            pid = event.particle_id[i]
+            key = (event_idx, pid)
+            particle_map[key] = {
+                'pt': event.pt[i],
+                'eta': event.eta[i],
+                'p': event.p[i]
+            }
+    
     canvas.cd(1)
     ROOT.gPad.SetLeftMargin(0.15)
     
-    # Use truth particles as denominator for efficiency
-    h_den_pt = ROOT.TH1F("h_den_pt", "Truth Particles vs. pT", pt_bins, 0, pt_max)
+    # Use reconstructable particles as denominator for efficiency
+    h_den_pt = ROOT.TH1F("h_den_pt", "Reconstructable Particles vs. pT", pt_bins, 0, pt_max)
     h_num_pt = ROOT.TH1F("h_num_pt", "Matched Particles vs. pT", pt_bins, 0, pt_max)
-    particles_tree.Draw("pt>>h_den_pt", "", "goff")
-    track_tree.Draw("t_pT>>h_num_pt", "trackClassification == 1", "goff")
+    
+    # Fill denominator with reconstructable particles
+    for key in reconstructable_particles:
+        if key in particle_map:
+            h_den_pt.Fill(particle_map[key]['pt'])
+    
+    # Fill numerator with matched particles using their TRUTH pt
+    for key in matched_particles_from_matching:
+        if key in particle_map:
+            h_num_pt.Fill(particle_map[key]['pt'])
+    
     efficiency_plot_pt = ROOT.TEfficiency(h_num_pt, h_den_pt)
     efficiency_plot_pt.SetTitle("Particle Efficiency (nMatchedParticles/nTrueParticles);p_{T} [GeV];Efficiency")
     efficiency_plot_pt.Draw("AP")
@@ -76,42 +119,28 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.cd(2)
     ROOT.gPad.SetLeftMargin(0.15)
     h_clone_pt = ROOT.TH1F("h_clone_pt", "Clone Tracks vs. pT", pt_bins, 0, pt_max)
-    # Manually fill histogram for jagged arrays
+    h_all_tracks_pt_for_clone = ROOT.TH1F("h_all_tracks_pt_for_clone", "All Tracks vs. pT", pt_bins, 0, pt_max)
+    # Manually fill histograms for jagged arrays
     for event in track_tree:
         for i in range(len(event.trackClassification)):
+            pt = event.t_pT[i]
+            h_all_tracks_pt_for_clone.Fill(pt)
             if event.trackClassification[i] == 2:
-                h_clone_pt.Fill(event.t_pT[i])
-    if particles_tree:
-        clone_rate_plot_pt = ROOT.TEfficiency(h_clone_pt, h_den_pt)
-        clone_rate_plot_pt.SetTitle("Duplicate Rate vs. pT;p_{T} [GeV];Duplicate Rate")
-    else:
-        # Use reconstructed tracks denominator if particles not available
-        h_den_pt_reco = ROOT.TH1F("h_den_pt_reco", "Total Tracks vs. pT", pt_bins, 0, pt_max)
-        for event in track_tree:
-            for pt in event.t_pT:
-                h_den_pt_reco.Fill(pt)
-        clone_rate_plot_pt = ROOT.TEfficiency(h_clone_pt, h_den_pt_reco)
-        clone_rate_plot_pt.SetTitle("Clone Fraction vs. pT;p_{T} [GeV];Clone Fraction")
+                h_clone_pt.Fill(pt)
+    clone_rate_plot_pt = ROOT.TEfficiency(h_clone_pt, h_all_tracks_pt_for_clone)
+    clone_rate_plot_pt.SetTitle("Duplicate Rate vs. pT (nClones/nTracks);p_{T} [GeV];Duplicate Rate")
     clone_rate_plot_pt.Draw("AP")
 
     canvas.cd(3)
     ROOT.gPad.SetLeftMargin(0.15)
     h_fake_pt = ROOT.TH1F("h_fake_pt", "Fake Tracks vs. pT", pt_bins, 0, pt_max)
-    # Manually fill histogram for jagged arrays
+    # Use the same denominator as clone rate
     for event in track_tree:
         for i in range(len(event.trackClassification)):
             if event.trackClassification[i] == 0:  # Unknown/Fake
                 h_fake_pt.Fill(event.t_pT[i])
-    if particles_tree:
-        fake_rate_plot_pt = ROOT.TEfficiency(h_fake_pt, h_den_pt)
-        fake_rate_plot_pt.SetTitle("Fake Rate vs. pT;p_{T} [GeV];Fake Rate")
-    else:
-        h_den_pt_reco = ROOT.TH1F("h_den_pt_reco2", "Total Tracks vs. pT", pt_bins, 0, pt_max)
-        for event in track_tree:
-            for pt in event.t_pT:
-                h_den_pt_reco.Fill(pt)
-        fake_rate_plot_pt = ROOT.TEfficiency(h_fake_pt, h_den_pt_reco)
-        fake_rate_plot_pt.SetTitle("Fake Fraction vs. pT;p_{T} [GeV];Fake Fraction")
+    fake_rate_plot_pt = ROOT.TEfficiency(h_fake_pt, h_all_tracks_pt_for_clone)
+    fake_rate_plot_pt.SetTitle("Fake Rate vs. pT (nFakes/nTracks);p_{T} [GeV];Fake Rate")
     fake_rate_plot_pt.Draw("AP")
 
     canvas.cd(4)
@@ -126,12 +155,21 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.cd(5)
     ROOT.gPad.SetLeftMargin(0.15)
     if particles_tree:
-        h_den_eta = ROOT.TH1F("h_den_eta", "Truth Particles vs. eta", eta_bins, eta_min, eta_max)
+        h_den_eta = ROOT.TH1F("h_den_eta", "Reconstructable Particles vs. eta", eta_bins, eta_min, eta_max)
         h_num_eta = ROOT.TH1F("h_num_eta", "Matched Particles vs. eta", eta_bins, eta_min, eta_max)
-        particles_tree.Draw("eta>>h_den_eta", "", "goff")
-        track_tree.Draw("t_eta>>h_num_eta", "trackClassification == 1", "goff")
+        
+        # Fill denominator with reconstructable particles
+        for key in reconstructable_particles:
+            if key in particle_map:
+                h_den_eta.Fill(particle_map[key]['eta'])
+        
+        # Fill numerator with matched particles using their TRUTH eta
+        for key in matched_particles_from_matching:
+            if key in particle_map:
+                h_num_eta.Fill(particle_map[key]['eta'])
+        
         efficiency_plot_eta = ROOT.TEfficiency(h_num_eta, h_den_eta)
-        efficiency_plot_eta.SetTitle("Particle Efficiency (nMatchedParticles/nTrueParticles);#eta;Efficiency")
+        efficiency_plot_eta.SetTitle("Particle Efficiency (nMatchedParticles/nReconstructableParticles);#eta;Efficiency")
         efficiency_plot_eta.Draw("AP")
     else:
         h_den_eta = ROOT.TH1F("h_den_eta", "Total Tracks vs. eta", eta_bins, eta_min, eta_max)
@@ -145,20 +183,15 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.cd(6)
     ROOT.gPad.SetLeftMargin(0.15)
     h_clone_eta = ROOT.TH1F("h_clone_eta", "Clone Tracks vs. eta", eta_bins, eta_min, eta_max)
+    h_all_tracks_eta_for_clone = ROOT.TH1F("h_all_tracks_eta_for_clone", "All Tracks vs. eta", eta_bins, eta_min, eta_max)
     for event in track_tree:
         for i in range(len(event.trackClassification)):
+            eta = event.t_eta[i]
+            h_all_tracks_eta_for_clone.Fill(eta)
             if event.trackClassification[i] == 2:
-                h_clone_eta.Fill(event.t_eta[i])
-    if particles_tree:
-        clone_rate_plot_eta = ROOT.TEfficiency(h_clone_eta, h_den_eta)
-        clone_rate_plot_eta.SetTitle("Duplicate Rate vs. eta;#eta;Duplicate Rate")
-    else:
-        h_den_eta_reco = ROOT.TH1F("h_den_eta_reco", "Total Tracks vs. eta", eta_bins, eta_min, eta_max)
-        for event in track_tree:
-            for eta in event.t_eta:
-                h_den_eta_reco.Fill(eta)
-        clone_rate_plot_eta = ROOT.TEfficiency(h_clone_eta, h_den_eta_reco)
-        clone_rate_plot_eta.SetTitle("Clone Fraction vs. eta;#eta;Clone Fraction")
+                h_clone_eta.Fill(eta)
+    clone_rate_plot_eta = ROOT.TEfficiency(h_clone_eta, h_all_tracks_eta_for_clone)
+    clone_rate_plot_eta.SetTitle("Duplicate Rate vs. eta (nClones/nTracks);#eta;Duplicate Rate")
     clone_rate_plot_eta.Draw("AP")
 
     canvas.cd(7)
@@ -168,16 +201,8 @@ def create_combined_efficiency_and_pt_plot(output_filename):
         for i in range(len(event.trackClassification)):
             if event.trackClassification[i] == 0:
                 h_fake_eta.Fill(event.t_eta[i])
-    if particles_tree:
-        fake_rate_plot_eta = ROOT.TEfficiency(h_fake_eta, h_den_eta)
-        fake_rate_plot_eta.SetTitle("Fake Rate vs. eta;#eta;Fake Rate")
-    else:
-        h_den_eta_reco = ROOT.TH1F("h_den_eta_reco2", "Total Tracks vs. eta", eta_bins, eta_min, eta_max)
-        for event in track_tree:
-            for eta in event.t_eta:
-                h_den_eta_reco.Fill(eta)
-        fake_rate_plot_eta = ROOT.TEfficiency(h_fake_eta, h_den_eta_reco)
-        fake_rate_plot_eta.SetTitle("Fake Fraction vs. eta;#eta;Fake Fraction")
+    fake_rate_plot_eta = ROOT.TEfficiency(h_fake_eta, h_all_tracks_eta_for_clone)
+    fake_rate_plot_eta.SetTitle("Fake Rate vs. eta (nFakes/nTracks);#eta;Fake Rate")
     fake_rate_plot_eta.Draw("AP")
 
     canvas.cd(8)
@@ -192,12 +217,21 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.cd(9)
     ROOT.gPad.SetLeftMargin(0.15)
     if particles_tree:
-        h_den_p = ROOT.TH1F("h_den_p", "Truth Particles vs. p", p_bins, 0, p_max)
+        h_den_p = ROOT.TH1F("h_den_p", "Reconstructable Particles vs. p", p_bins, 0, p_max)
         h_num_p = ROOT.TH1F("h_num_p", "Matched Particles vs. p", p_bins, 0, p_max)
-        particles_tree.Draw("p>>h_den_p", "", "goff")
-        track_tree.Draw("t_p>>h_num_p", "trackClassification == 1", "goff")
+        
+        # Fill denominator with reconstructable particles
+        for key in reconstructable_particles:
+            if key in particle_map:
+                h_den_p.Fill(particle_map[key]['p'])
+        
+        # Fill numerator with matched particles using their TRUTH p
+        for key in matched_particles_from_matching:
+            if key in particle_map:
+                h_num_p.Fill(particle_map[key]['p'])
+        
         efficiency_plot_p = ROOT.TEfficiency(h_num_p, h_den_p)
-        efficiency_plot_p.SetTitle("Particle Efficiency (nMatchedParticles/nTrueParticles);p [GeV];Efficiency")
+        efficiency_plot_p.SetTitle("Particle Efficiency (nMatchedParticles/nReconstructableParticles);p [GeV];Efficiency")
         efficiency_plot_p.Draw("AP")
     else:
         h_den_p = ROOT.TH1F("h_den_p", "Total Tracks vs. p", p_bins, 0, p_max)
@@ -211,20 +245,15 @@ def create_combined_efficiency_and_pt_plot(output_filename):
     canvas.cd(10)
     ROOT.gPad.SetLeftMargin(0.15)
     h_clone_p = ROOT.TH1F("h_clone_p", "Clone Tracks vs. p", p_bins, 0, p_max)
+    h_all_tracks_p_for_clone = ROOT.TH1F("h_all_tracks_p_for_clone", "All Tracks vs. p", p_bins, 0, p_max)
     for event in track_tree:
         for i in range(len(event.trackClassification)):
+            p = event.t_p[i]
+            h_all_tracks_p_for_clone.Fill(p)
             if event.trackClassification[i] == 2:
-                h_clone_p.Fill(event.t_p[i])
-    if particles_tree:
-        clone_rate_plot_p = ROOT.TEfficiency(h_clone_p, h_den_p)
-        clone_rate_plot_p.SetTitle("Duplicate Rate vs. p;p [GeV];Duplicate Rate")
-    else:
-        h_den_p_reco = ROOT.TH1F("h_den_p_reco", "Total Tracks vs. p", p_bins, 0, p_max)
-        for event in track_tree:
-            for p in event.t_p:
-                h_den_p_reco.Fill(p)
-        clone_rate_plot_p = ROOT.TEfficiency(h_clone_p, h_den_p_reco)
-        clone_rate_plot_p.SetTitle("Clone Fraction vs. p;p [GeV];Clone Fraction")
+                h_clone_p.Fill(p)
+    clone_rate_plot_p = ROOT.TEfficiency(h_clone_p, h_all_tracks_p_for_clone)
+    clone_rate_plot_p.SetTitle("Duplicate Rate vs. p (nClones/nTracks);p [GeV];Duplicate Rate")
     clone_rate_plot_p.Draw("AP")
 
     canvas.cd(11)
@@ -234,16 +263,8 @@ def create_combined_efficiency_and_pt_plot(output_filename):
         for i in range(len(event.trackClassification)):
             if event.trackClassification[i] == 0:
                 h_fake_p.Fill(event.t_p[i])
-    if particles_tree:
-        fake_rate_plot_p = ROOT.TEfficiency(h_fake_p, h_den_p)
-        fake_rate_plot_p.SetTitle("Fake Rate vs. p;p [GeV];Fake Rate")
-    else:
-        h_den_p_reco = ROOT.TH1F("h_den_p_reco2", "Total Tracks vs. p", p_bins, 0, p_max)
-        for event in track_tree:
-            for p in event.t_p:
-                h_den_p_reco.Fill(p)
-        fake_rate_plot_p = ROOT.TEfficiency(h_fake_p, h_den_p_reco)
-        fake_rate_plot_p.SetTitle("Fake Fraction vs. p;p [GeV];Fake Fraction")
+    fake_rate_plot_p = ROOT.TEfficiency(h_fake_p, h_all_tracks_p_for_clone)
+    fake_rate_plot_p.SetTitle("Fake Rate vs. p (nFakes/nTracks);p [GeV];Fake Rate")
     fake_rate_plot_p.Draw("AP")
 
     canvas.cd(12)
@@ -287,8 +308,20 @@ def create_combined_efficiency_and_pt_plot(output_filename):
 
     canvas.cd(16)
     ROOT.gPad.SetLeftMargin(0.15)
-    # Empty pad or could add another metric
-    ROOT.gPad.DrawFrame(0, 0, 1, 1).SetTitle("Reserved;;");
+    # Duplication rate among successfully reconstructed tracks (clones/(matched+clones))
+    h_clone_vs_matched_pt = ROOT.TH1F("h_clone_vs_matched_pt", "Clone Tracks vs. pT", pt_bins, 0, pt_max)
+    h_matched_plus_clone_pt = ROOT.TH1F("h_matched_plus_clone_pt", "Matched+Clone Tracks vs. pT", pt_bins, 0, pt_max)
+    for event in track_tree:
+        for i in range(len(event.trackClassification)):
+            pt = event.t_pT[i]
+            if event.trackClassification[i] == 1:  # Matched
+                h_matched_plus_clone_pt.Fill(pt)
+            elif event.trackClassification[i] == 2:  # Clone
+                h_clone_vs_matched_pt.Fill(pt)
+                h_matched_plus_clone_pt.Fill(pt)  # Also add to denominator
+    dup_among_good_pt = ROOT.TEfficiency(h_clone_vs_matched_pt, h_matched_plus_clone_pt)
+    dup_among_good_pt.SetTitle("Duplication Among Good Tracks (nClones/(nMatched+nClones));p_{T} [GeV];Duplication Rate")
+    dup_among_good_pt.Draw("AP")
 
     # --- Fifth row: Reconstructable tracks and Simulated tracks plots ---
     # Pad 17: Reconstructable Tracks vs. pT
