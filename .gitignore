@@ -44,3 +44,6 @@ codegen/src/codegen.egg-info/
 # allow config JSONs
 !Examples/Configs/*.json
 !Examples/Configs/**/*.json
+
+# ignore output_examples folder
+/output_examples/
