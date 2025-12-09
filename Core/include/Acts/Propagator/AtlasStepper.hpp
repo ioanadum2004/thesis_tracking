@@ -136,6 +136,8 @@ class AtlasStepper {
     
     /// Flag set when radial momentum flip detected (particle reached turning point)
     bool turningPointDetected = false;
+    /// Track whether particle was moving radially inward in previous step
+    bool radiallyInward_previous = false;
   };
 
   explicit AtlasStepper(std::shared_ptr<const MagneticFieldProvider> bField)

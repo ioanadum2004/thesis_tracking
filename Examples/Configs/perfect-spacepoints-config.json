@@ -2,7 +2,7 @@
 
 {
   "simulation": {
-    "events": 10000,
+    "events": 100000,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
@@ -11,7 +11,7 @@
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.06,     
+        "min": 0.1,     
         "max": 0.5,
         "transverse": true
       },
@@ -42,19 +42,19 @@
     }
   },
   "simulation_physics": {
-    "enableInteractions": false,
+    "enableInteractions": true,
     "Comment": "note: total momentum (not P_T). Units are in GeV particle stops propagating in simulation after this limit. also affects effieciency",
     "pMin": 0.01
   },
   "particleSelection": {
     "pt": {
       "Comment": "Minimal energy in the denominator of the efficiency calculation (considered reconstructable)",
-      "min": 0.06,
+      "min": 0.1,
       "max": null
     },
     "measurements": {
       "_comment": "Min (+1) hits for particle to be considered reconstructable (denominator for efficiency)",
-      "min": 4,
+      "min": 5,
       "max": null
     },
     "removeNeutral": true
@@ -96,7 +96,7 @@
       "maxSeedsPerSpM": 5,
       "sigmaScattering": 5.0,
       "radLengthPerSeed": 0.1,
-      "minPt": 0.06,
+      "minPt": 0.1,
       "impactMax": 3.0
     },
     "finderOptions": {
@@ -136,7 +136,7 @@
   "trackFinding": {
     "selectorConfig": {
       "pt": {
-        "min": 0.06,
+        "min": 0.1,
         "max": null
       },
       "absEta": {

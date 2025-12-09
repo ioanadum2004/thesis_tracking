@@ -141,6 +141,8 @@ class EigenStepper {
     int pr_sign_previous = 0;
     /// Flag set when radial momentum flip detected (particle reached turning point)
     bool turningPointDetected = false;
+    /// Track whether particle was moving radially inward in previous step
+    bool radiallyInward_previous = false;
   };
 
   /// Constructor requires knowledge of the detector's magnetic field
