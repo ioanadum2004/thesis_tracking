@@ -2,7 +2,7 @@
 
 {
   "simulation": {
-    "events": 100000,
+    "events": 100,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
@@ -11,13 +11,13 @@
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.1,     
-        "max": 0.5,
+        "min": 0.2,     
+        "max": 2,
         "transverse": true
       },
       "eta": {
-        "min": -0.14,
-        "max": 0.14,
+        "min": -4,
+        "max": 4,
         "uniform": true
       },
       "phi": {

@@ -70,11 +70,10 @@ IntersectionStatus updateSingleSurfaceStatus(
   // Update for next step
   state.radiallyInward_previous = radiallyInward_current;
 
-  // Determine which direction to use for intersection calculation     (note "direction" for calman smoothner?)
+  // Determine which direction to use for intersection calculation     
   Vector3 intersectionDirection = direction * stepper.direction(state);
   
   // When going radially inward in barrel regions, use pure radial direction for intersection
-  // This is needed because straight-line approximation fails for inward motion through cylindrical layers
   if (state.radiallyInward_previous && isInBarrelVolume && r_xy > 1e-6) {
     // Radial unit vector: r_hat = (x, y) / r_xy
     double r_hat_x = position[0] / r_xy;

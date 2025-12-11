@@ -153,7 +153,7 @@ Acts::Result<void> Acts::Propagator<S, N>::propagate(
             state.stepping.turningPointDetected = false;  // Reset flag
           }
         }
-      }
+      }  
     }
 
     state.options.actorList.act(state, m_stepper, m_navigator, logger());
