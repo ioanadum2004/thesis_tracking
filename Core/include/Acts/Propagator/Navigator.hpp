@@ -847,39 +847,9 @@ class Navigator {
     navOpts.nearLimit = state.options.nearLimit;
     navOpts.farLimit = state.options.farLimit;
     
-
-
-    // Use pure radial direction for layer resolution when going inward (pr < 0) in barrel regions. 
-    Vector3 effectiveDirection = direction;
-    ACTS_VERBOSE(volInfo(state) << "Direction debug: original=" << toString(direction) 
-               << " radiallyInward=" << state.radiallyInward);
+    // Use pure radial direction for layer resolution when going inward in barrel regions
+    Vector3 effectiveDirection = computeEffectiveDirection(state, position, direction);
     
-    if (state.radiallyInward) {
-      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);        //only calculate if radiallyInward is true
-      ACTS_VERBOSE(volInfo(state) << "isBarrelVolume=" << (state.isInBarrelVolume ? "true" : "false"));
-      
-      if (state.isInBarrelVolume) {
-      double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
-      if (r_xy > 1e-6) {
-       // Radial unit vector: r_hat = (x, y) / r_xy
-        double r_hat_x = position[0] / r_xy;
-        double r_hat_y = position[1] / r_xy;
-        
-        // Set to pure radial inward direction (unit vector, no z component)
-        effectiveDirection[0] = -r_hat_x;  // Inward (negative radial)
-        effectiveDirection[1] = -r_hat_y;
-        effectiveDirection[2] = 0.0;
-        
-        ACTS_VERBOSE("Using pure radial inward direction for layer resolution in barrel");
-        ACTS_VERBOSE(volInfo(state) << "Direction modified: effective=" << toString(effectiveDirection));
-        
-      }
-      } else {
-        ACTS_VERBOSE(volInfo(state) << "Endcap volume - keeping original direction with z-component");
-      }
-    }
-    
-    ACTS_VERBOSE(volInfo(state) << "Final effective direction: " << toString(effectiveDirection));
 
     // Debug: Check what associatedLayer returns for this position
     const Layer* associatedLayerResult = state.currentVolume->associatedLayer(state.options.geoContext, position);
@@ -928,28 +898,8 @@ class Navigator {
                  << "Try to find boundaries, we are at: " << toString(position)
                  << ", dir: " << toString(direction));
 
-    // Use pure radial direction for boundary resolution when going inward (pr < 0) in barrel regions.
-    Vector3 effectiveDirection = direction;
-    if (state.radiallyInward) {
-      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);
-      if (state.isInBarrelVolume) {
-        double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
-        if (r_xy > 1e-6) {
-          // Radial unit vector: r_hat = (x, y) / r_xy
-          double r_hat_x = position[0] / r_xy;
-          double r_hat_y = position[1] / r_xy;
-
-          // Set to pure radial inward direction (unit vector, no z component)
-          effectiveDirection[0] = -r_hat_x;  // Inward (negative radial)
-          effectiveDirection[1] = -r_hat_y;
-          effectiveDirection[2] = 0.0;
-
-          ACTS_VERBOSE("Using pure radial inward direction for boundary resolution in barrel");
-        }
-      }
-    } else {
-
-    }
+    // Use pure radial direction for boundary resolution when going inward in barrel regions
+    Vector3 effectiveDirection = computeEffectiveDirection(state, position, direction);
 
     if (m_geometryVersion == GeometryVersion::Gen1) {
       // Request the compatible boundaries
@@ -1098,6 +1048,44 @@ class Navigator {
     // Check first layer's surface type - all layers in a volume are the same type
     auto surfType = layers.front()->surfaceRepresentation().type();
     return (surfType == Surface::SurfaceType::Cylinder);
+  }
+
+  /// @brief Compute effective direction for navigation at turning points
+  ///
+  /// When particles turn inward in barrel regions, use pure radial direction
+  /// instead of momentum direction for geometry intersection calculations.
+  ///
+  /// @param state The navigation state
+  /// @param position Current position
+  /// @param direction Original propagation direction
+  /// @return Effective direction for intersection calculations
+  Vector3 computeEffectiveDirection(State& state, const Vector3& position,
+                                    const Vector3& direction) const {
+    Vector3 effectiveDirection = direction;
+    
+    if (state.radiallyInward) {
+      state.isInBarrelVolume = isBarrelVolume(state.currentVolume);
+      
+      if (state.isInBarrelVolume) {
+        double r_xy = std::sqrt(position[0] * position[0] + position[1] * position[1]);
+        if (r_xy > 1e-6) {
+          // Radial unit vector: r_hat = (x, y) / r_xy
+          double r_hat_x = position[0] / r_xy;
+          double r_hat_y = position[1] / r_xy;
+          
+          // Set to pure radial inward direction (unit vector, no z component)
+          effectiveDirection[0] = -r_hat_x;  // Inward (negative radial)
+          effectiveDirection[1] = -r_hat_y;
+          effectiveDirection[2] = 0.0;
+          
+          ACTS_VERBOSE("Using pure radial inward direction in barrel");
+        }
+      } else {
+        ACTS_VERBOSE(volInfo(state) << "Endcap volume - keeping original direction with z-component");
+      }
+    }
+    
+    return effectiveDirection;
   }
 
   const Logger& logger() const { return *m_logger; }
