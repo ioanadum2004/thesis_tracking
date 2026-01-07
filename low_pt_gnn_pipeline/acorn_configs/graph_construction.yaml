@@ -1,0 +1,52 @@
+# Combined pipeline configuration for data reading and graph construction
+# This file is used by build_simple_graphs.py to run the complete preprocessing pipeline
+# Contains both Stage 1 (ActsReader) and Stage 2 (Graph Construction) settings
+
+# ============================================================================
+# STAGE 1: Data Reading (ActsReader)
+# ============================================================================
+
+input_dir: data/csv  # Path to ACTS CSV output
+stage_dir: data/feature_store/  # Output directory for processed data
+detector_path: data/csv/detectors.csv  # Detector geometry file
+
+
+# Use truth hits (not measurements) for initial testing
+use_truth_hits: true
+simhit_stem: hits  
+
+# Data split: [train, val, test] - number of events in each set
+data_split: [8, 1, 1]  # 8 train, 1 val, 1 test
+input_sets: [trainset, valset]  # Which datasets to process
+
+# Feature Configurations
+feature_sets:
+    hit_features: [hit_id, x, y, z, r, phi, eta, region_id, volume_id, layer_id, module_id]
+    track_features: [particle_id, pt, radius, nhits, particle_eta]
+
+# Region labels - Based on ACTS Generic detector volume map
+region_labels:
+    1: {volume_id: [7, 9]}    # Pixel endcap
+    2: {volume_id: 8}         # Pixel barrel
+    3: {volume_id: [12, 14]}  # ShortStrip endcap
+    4: {volume_id: 13}        # ShortStrip barrel
+    5: {volume_id: [16, 18]}  # LongStrip endcap
+    6: {volume_id: 17}        # LongStrip barrel
+
+# Hard cuts - remove particles/hits that don't meet these criteria
+hard_cuts:
+    pt: [0.5, .inf]  # Keep particles with pt > 0.5 GeV
+    nhits: [3, .inf]  # Keep particles with at least 3 hits
+
+max_workers: 16  # Number of parallel workers for data processing
+
+# ============================================================================
+# STAGE 2: Graph Construction (Simple radius + KNN)
+# ============================================================================
+graph_construction:
+    r_max: 0.7      # Maximum radius to connect hits (units: x 1000 mm  )
+    k_max: 500      # Maximum number of neighbors per hit
+    input_dir: data/feature_store/   # Where ActsReader outputs go
+    output_dir: data/graph_constructed/  # Where graph files go
+    datasets: [trainset, valset, testset]  # Which datasets to process
+

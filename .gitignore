@@ -1,49 +1,11 @@
-installed
-*~*
-._*
-#cmt
-cmt/*.sh
-cmt/Make*
-cmt/install*
-cmt/*.csh
-=======
-# temporary Athena files
-# ======================
-InstallArea
-WorkArea
-genConf
-x86_64-slc6-gcc48-opt
-x86_64-slc6-gcc49-opt
-.*
-/build*
-.asetup.save
+# Top-level ignores for bkuipers directory
+conda_config/
+miniconda3/
 
-#json output
-*.json
-#root output
-*.root
-#csv output
-*.csv
-*.pyc
-/cmake_cmd
-/cleanup.sh
+# IDE and editor files
+.cache/
+.cursor-server/
+.vscode-server/
 
-#codegen related
-codegen/build/
-codegen/src/codegen.egg-info/
-
-# dont ignore hidden configs
-!.clang-format
-!.github
-!.gitignore
-!.gitlab-ci.yml
-!.clang-tidy
-!.oclint
-!.devcontainer
-
-# allow config JSONs
-!Examples/Configs/*.json
-!Examples/Configs/**/*.json
-
-# ignore output_examples folder
-/output_examples/
+# Data files
+low_pt_gnn_pipeline/data/

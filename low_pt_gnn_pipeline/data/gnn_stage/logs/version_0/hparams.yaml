@@ -1,0 +1,44 @@
+input_dir: data/graph_constructed
+stage_dir: data/gnn_stage/
+project: MinimalGNN_Test
+accelerator: cpu
+devices: 1
+nodes: 1
+logger: false
+data_split:
+- 8
+- 1
+- 1
+edge_cut: 0.5
+undirected: true
+undirected_message_passing: true
+node_features:
+- hit_r
+- hit_phi
+- hit_z
+node_scales:
+- 1000
+- 3.14
+- 1000
+hidden: 32
+n_graph_iters: 4
+nb_node_layer: 2
+nb_edge_layer: 2
+emb_channels: 0
+layernorm: true
+batchnorm: false
+aggregation:
+- sum
+- mean
+- max
+hidden_activation: SiLU
+output_activation: Tanh
+warmup: 2
+lr: 0.001
+factor: 0.9
+patience: 5
+max_epochs: 100
+log_every_n_steps: 1
+node_net_recurrent: true
+edge_net_recurrent: true
+track_running_stats: false

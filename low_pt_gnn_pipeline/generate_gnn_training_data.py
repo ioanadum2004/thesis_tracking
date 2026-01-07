@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""
+Script to generate minimal training data for GNN using ACTS simulation.
+This creates CSV files compatible with acorn's ActsReader.
+
+Configuration is loaded from acorn_configs/acts_simulation.yaml
+"""
+
+from pathlib import Path
+import yaml
+import acts
+from acts import UnitConstants as u
+from acts.examples import GenericDetector
+
+# Import simulation functions
+from acts.examples.simulation import (
+    addParticleGun,
+    MomentumConfig,
+    EtaConfig,
+    PhiConfig,
+    ParticleConfig,
+    addFatras,
+    addDigitization,
+)
+
+
+def load_simulation_config(config_path=None):
+    """Load ACTS simulation configuration from YAML file"""
+    if config_path is None:
+        script_dir = Path(__file__).resolve().parent
+        config_path = script_dir / "acorn_configs" / "acts_simulation.yaml"
+    
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    return config
+
+
+def get_particle_type(particle_name):
+    """Map particle name to ACTS PDG particle type"""
+    particle_map = {
+        'muon': acts.PdgParticle.eMuon,
+        'mu': acts.PdgParticle.eMuon,
+        'pion': acts.PdgParticle.ePionPlus,
+        'pi': acts.PdgParticle.ePionPlus,
+        'electron': acts.PdgParticle.eElectron,
+        'e': acts.PdgParticle.eElectron,
+        'proton': acts.PdgParticle.eProton,
+        'p': acts.PdgParticle.eProton,
+        'kaon': acts.PdgParticle.eKaonPlus,
+        'k': acts.PdgParticle.eKaonPlus,
+        'photon': acts.PdgParticle.eGamma,
+        'gamma': acts.PdgParticle.eGamma,
+    }
+    
+    particle_name_lower = particle_name.lower()
+    if particle_name_lower not in particle_map:
+        raise ValueError(
+            f"Unknown particle type: {particle_name}. "
+            f"Available types: {', '.join(particle_map.keys())}"
+        )
+    
+    return particle_map[particle_name_lower]
+
+
+def get_log_level(level_name):
+    """Map log level name to ACTS logging level"""
+    level_map = {
+        'VERBOSE': acts.logging.VERBOSE,
+        'DEBUG': acts.logging.DEBUG,
+        'INFO': acts.logging.INFO,
+        'WARNING': acts.logging.WARNING,
+        'ERROR': acts.logging.ERROR,
+        'FATAL': acts.logging.FATAL,
+    }
+    return level_map.get(level_name.upper(), acts.logging.INFO)
+
+
+def generate_minimal_training_data(config=None):
+    """
+    Generate dataset for GNN training using ACTS FATRAS simulation.
+    
+    Parameters
+    ----------
+    config : dict, optional
+        Configuration dictionary. If None, loads from acts_simulation.yaml
+    """
+    
+    # Load configuration
+    if config is None:
+        config = load_simulation_config()
+    
+    # Extract configuration values
+    num_events = config['num_events']
+    particles_per_event = config['particles_per_event']
+    random_seed = config['random_seed']
+    
+    # Extract particle gun configuration
+    gun_config = config['particle_gun']
+    
+    # Setup output directory
+    output_dir = Path(config['output']['base_dir'])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_dir = output_dir / "csv"
+    csv_dir.mkdir(exist_ok=True)
+    
+    print("="*80)
+    print("ACTS DATA GENERATION")
+    print("="*80)
+    print(f"Configuration: acorn_configs/acts_simulation.yaml")
+    print(f"Events: {num_events}")
+    print(f"Particles per event: {particles_per_event}")
+    print(f"Particle type: {gun_config['particle_type']}")
+    print(f"pT range: {gun_config['momentum']['min']}-{gun_config['momentum']['max']} GeV")
+    print(f"Eta range: {gun_config['eta']['min']} to {gun_config['eta']['max']}")
+    print(f"Output directory: {output_dir}")
+    print("="*80 + "\n")
+    
+    # Setup detector
+    detector = GenericDetector()
+    trackingGeometry = detector.trackingGeometry()
+    
+    # Setup magnetic field (solenoid field along z-axis)
+    field_strength = config['magnetic_field']['strength']
+    field = acts.ConstantBField(acts.Vector3(0, 0, field_strength * u.T))
+    
+    # Create sequencer
+    sim_config = config['simulation']
+    s = acts.examples.Sequencer(
+        events=num_events,
+        numThreads=sim_config['num_threads'],
+        logLevel=get_log_level(sim_config['log_level']),
+    )
+    
+    # Add random number generator
+    rnd = acts.examples.RandomNumbers(seed=random_seed)
+    
+    # Add particle gun
+    print("Adding particle gun...")
+    mom_config = gun_config['momentum']
+    eta_config = gun_config['eta']
+    phi_config = gun_config['phi']
+    
+    particle_type = get_particle_type(gun_config['particle_type'])
+    
+    addParticleGun(
+        s,
+        MomentumConfig(
+            mom_config['min'] * u.GeV,
+            mom_config['max'] * u.GeV,
+            transverse=mom_config['transverse']
+        ),
+        EtaConfig(
+            eta_config['min'],
+            eta_config['max'],
+            uniform=eta_config['uniform']
+        ),
+        PhiConfig(
+            phi_config['min'] * u.degree,
+            phi_config['max'] * u.degree
+        ),
+        ParticleConfig(
+            particles_per_event,
+            particle_type,
+            randomizeCharge=gun_config['randomize_charge']
+        ),
+        multiplicity=1,  # Single vertex - FATRAS propagates all particles regardless
+        rnd=rnd,
+    )
+    
+    # Write initial particles to CSV (optional)
+    if config['output']['write_particles_initial']:
+        s.addWriter(
+            acts.examples.CsvParticleWriter(
+                level=get_log_level(sim_config['log_level']),
+                inputParticles="particles_generated",
+                outputDir=str(csv_dir),
+                outputStem="particles_initial",
+            )
+        )
+    
+    # Add FATRAS simulation
+    print("Adding FATRAS simulation...")
+    addFatras(
+        s,
+        trackingGeometry,
+        field,
+        rnd=rnd,
+        outputDirCsv=csv_dir,
+        enableInteractions=sim_config['enable_interactions'],
+        loopFraction=sim_config.get('loop_fraction', None),
+        maxSteps=sim_config.get('max_steps', None),
+    )
+    
+    # Add digitization
+    print("Adding digitization...")
+    digi_config = config['digitization']
+    
+    # ACTS is in the parent directory of this pipeline folder
+    srcdir = Path(__file__).resolve().parent.parent / "acts"
+    digiConfigFile = srcdir / digi_config['config_file'] if digi_config['config_file'] else None
+    
+    if digiConfigFile and not digiConfigFile.exists():
+        print(f"Warning: Config file not found at {digiConfigFile}")
+        print("Using default digitization config")
+        digiConfigFile = None
+    
+    addDigitization(
+        s,
+        trackingGeometry,
+        field,
+        digiConfigFile=digiConfigFile,
+        outputDirCsv=csv_dir,
+        rnd=rnd,
+    )
+    
+    # Write detector geometry
+    if config['output']['write_geometry']:
+        print("Writing detector geometry...")
+        s.addWriter(
+            acts.examples.CsvTrackingGeometryWriter(
+                level=get_log_level(sim_config['log_level']),
+                trackingGeometry=trackingGeometry,
+                outputDir=str(csv_dir),
+                writePerEvent=False,
+            )
+        )
+    
+    # Run the simulation
+    print("Running simulation...")
+    s.run()
+    
+    print(f"\n✓ Data generation complete!")
+    print(f"Output files in: {csv_dir}")
+    print("\nGenerated files:")
+    for f in sorted(csv_dir.glob("*.csv")):
+        print(f"  - {f.name}")
+    
+    return csv_dir
+
+
+if __name__ == "__main__":
+    # Load configuration from YAML file
+    config = load_simulation_config()
+    
+    # Generate data using config file settings
+    generate_minimal_training_data(config=config)
+
