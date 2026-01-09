@@ -1,14 +1,14 @@
 input_dir: data/graph_constructed
 stage_dir: data/gnn_stage/
 project: MinimalGNN_Test
-accelerator: cpu
-devices: 1
+accelerator: gpu
+devices: -1
 nodes: 1
 logger: false
 data_split:
-- 8
-- 1
-- 1
+- 95
+- 50
+- 0
 edge_cut: 0.5
 undirected: true
 undirected_message_passing: true
@@ -33,12 +33,18 @@ aggregation:
 - max
 hidden_activation: SiLU
 output_activation: Tanh
+batch_size: 64
+num_workers:
+- 8
+- 8
+- 0
+max_epochs: 10
 warmup: 2
 lr: 0.001
 factor: 0.9
-patience: 5
-max_epochs: 100
+patience: 3
 log_every_n_steps: 1
+check_val_every_n_epoch: 1
 node_net_recurrent: true
 edge_net_recurrent: true
 track_running_stats: false

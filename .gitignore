@@ -9,3 +9,5 @@ miniconda3/
 
 # Data files
 low_pt_gnn_pipeline/data/
+# Job files 
+jobs/

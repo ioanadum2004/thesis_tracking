@@ -39,7 +39,7 @@ except ImportError:
 def load_graph(graph_path):
     """Load a PyTorch Geometric graph from file."""
     try:
-        graph = torch.load(graph_path)
+        graph = torch.load(graph_path, weights_only=False)
     except Exception as e:
         raise RuntimeError(f"Error loading graph file: {e}")
     

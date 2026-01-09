@@ -1,41 +1,42 @@
 
 # Paths are relative to low_pt_gnn_pipeline directory
-# Note: stage and model are hardcoded in train_with_loss_logging.py (InteractionGNN)
-input_dir: data/graph_constructed  # Output from graph construction
-stage_dir: data/gnn_stage/  # Where to save training results
-project: MinimalGNN_Test  # Project name for logging
-accelerator: cpu  # Using CPU since no GPU available
-devices: 1
+input_dir: data/graph_constructed  
+stage_dir: data/gnn_stage/ 
+project: MinimalGNN_Test 
+accelerator: gpu       #set to "cpu" when running small local experiments..
+devices: -1
 nodes: 1
-logger: false  # Disable wandb logging for minimal test
+logger: false  
 
-# Dataset parameters
-data_split: [8, 1, 1]  # [training, validation, testing] - 8 train, 1 val, 1 test
-
+data_split: [900, 50, 50]  # [training, validation, testing] 
 
 
 # Model architecture parameters
 edge_cut: 0.5  # Threshold for edge classification (0-1)
 undirected: True
 undirected_message_passing: True
-node_features: [r, phi, z]  # Use cylindrical coordinates
-node_scales: [1000, 3.14, 1000]  # Scale factors for normalization
-hidden: 32  # Hidden layer size (reduced from 128 for faster testing)
-n_graph_iters: 4  # Number of message passing iterations (reduced from 8)
+node_features: [r, phi, z] 
+node_scales: [1000, 3.14, 1000]  
+hidden: 32  # 128 
+n_graph_iters: 5  #  8
 nb_node_layer: 2
 nb_edge_layer: 2
 emb_channels: 0
 layernorm: True
 batchnorm: False
-aggregation: [sum, mean, max]  # Aggregation methods for message passing
+aggregation: [sum, mean, max]  # Aggregation methods  in message 
 hidden_activation: SiLU
 output_activation: Tanh
 
 # Training parameters
-warmup: 2  # Warmup epochs with higher learning rate
-lr: 0.001  # Learning rate
-factor: 0.9  # Learning rate decay factor (5 epochs no improvement -> decay)
-patience: 5  # Patience for learning rate scheduler
-max_epochs: 100  # Maximum training epochs
-log_every_n_steps: 1  # Log loss after every batch (default is 50)
+batch_size: 64                # 64 fits on GPU   ( will depend on graph size and GPU memory)
+num_workers: [8, 8, 0]        # Workers for [train, val, test] dataloaders.   (current bottle neck next time, set to 16 ) 
+
+max_epochs: 25
+warmup: 2       #lineair increse from o to lr over warup epoch 
+lr: 0.001          #find ~0.001 forks well
+factor: 0.8  
+patience: 3
+log_every_n_steps: 1  # Log loss
+check_val_every_n_epoch: 1  # Run validation every N epochs 
 

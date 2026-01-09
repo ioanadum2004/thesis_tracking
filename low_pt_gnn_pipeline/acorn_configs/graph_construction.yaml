@@ -1,22 +1,20 @@
 # Combined pipeline configuration for data reading and graph construction
-# This file is used by build_simple_graphs.py to run the complete preprocessing pipeline
-# Contains both Stage 1 (ActsReader) and Stage 2 (Graph Construction) settings
 
 # ============================================================================
 # STAGE 1: Data Reading (ActsReader)
 # ============================================================================
 
-input_dir: data/csv  # Path to ACTS CSV output
-stage_dir: data/feature_store/  # Output directory for processed data
-detector_path: data/csv/detectors.csv  # Detector geometry file
+input_dir: data/csv  
+stage_dir: data/feature_store/ 
+detector_path: data/csv/detectors.csv 
 
 
 # Use truth hits (not measurements) for initial testing
 use_truth_hits: true
 simhit_stem: hits  
 
-# Data split: [train, val, test] - number of events in each set
-data_split: [8, 1, 1]  # 8 train, 1 val, 1 test
+# Data split: 
+data_split: [900, 50, 50]  # 
 input_sets: [trainset, valset]  # Which datasets to process
 
 # Feature Configurations
@@ -35,18 +33,18 @@ region_labels:
 
 # Hard cuts - remove particles/hits that don't meet these criteria
 hard_cuts:
-    pt: [0.5, .inf]  # Keep particles with pt > 0.5 GeV
-    nhits: [3, .inf]  # Keep particles with at least 3 hits
+    pt: [0.5, .inf]  
+    nhits: [3, .inf]  
 
-max_workers: 16  # Number of parallel workers for data processing
+max_workers: 8   #stet to requested cpus 
 
 # ============================================================================
 # STAGE 2: Graph Construction (Simple radius + KNN)
 # ============================================================================
 graph_construction:
     r_max: 0.7      # Maximum radius to connect hits (units: x 1000 mm  )
-    k_max: 500      # Maximum number of neighbors per hit
-    input_dir: data/feature_store/   # Where ActsReader outputs go
-    output_dir: data/graph_constructed/  # Where graph files go
-    datasets: [trainset, valset, testset]  # Which datasets to process
+    k_max: 500     
+    input_dir: data/feature_store/   
+    output_dir: data/graph_constructed/  
+    datasets: [trainset, valset, testset]  
 

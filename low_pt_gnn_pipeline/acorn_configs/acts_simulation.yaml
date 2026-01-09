@@ -1,80 +1,61 @@
-# ACTS Data Generation Configuration
-# This file controls the particle simulation and data generation parameters
-
 # ============================================================================
 # EVENT CONFIGURATION
 # ============================================================================
-num_events: 10              # Number of collision events to simulate
-particles_per_event: 10     # Total number of particles to generate per event
-random_seed: 42             # Random seed for reproducibility
+num_events: 1000
+particles_per_event: 20
+random_seed: 42           
 
 # ============================================================================
 # PARTICLE GUN CONFIGURATION
 # ============================================================================
 particle_gun:
-  particle_type: "muon"     # Particle type: muon, pion, electron, etc.
-  randomize_charge: true    
+  particle_type: "muon"
+  randomize_charge: true
   
-  # Momentum configuration (transverse momentum)
   momentum:
-    min: 1.0                # Minimum pT in GeV
-    max: 10.0               # Maximum pT in GeV
-    transverse: true        # Use transverse momentum (pT) vs total momentum
+    min: 1.0
+    max: 10.0
+    transverse: true
   
   eta:
-    min: -2.5               # Minimum eta (forward direction)
-    max: 2.5                # Maximum eta (backward direction)
-    uniform: true           # Uniform distribution across range
+    min: -2.5
+    max: 2.5
+    uniform: true
   
-  # Azimuthal angle (phi) configuration
   phi:
-    min: 0.0                # Minimum phi in degrees
-    max: 360.0              # Maximum phi in degrees
+    min: 0.0
+    max: 360.0
   
 
 # ============================================================================
 # DETECTOR & FIELD CONFIGURATION
 # ============================================================================
 detector:
-  type: "GenericDetector"   # Detector type (GenericDetector, ODD, etc.)
+  type: "GenericDetector"
   
 magnetic_field:
-  strength: 2.0            # Magnetic field strength in Tesla (solenoid field along z-axis)
+  strength: 2.0
 
 # ============================================================================
 # SIMULATION CONFIGURATION
 # ============================================================================
 simulation:
-  enable_interactions: true # Enable particle interactions (energy loss, scattering)
-  num_threads: -1           # Number of CPU threads (-1 = use all available cores)
-  log_level: "INFO"         # Logging level: DEBUG, INFO, WARNING, ERROR
-  loop_fraction: 1.0        # Loop protection: fraction of helix loop allowed (0.5 = half loop, 1.0 = full loop)
-  max_steps: 10000          # Maximum propagation steps per particle (prevents infinite loops)
+  enable_interactions: true
+  num_threads: -1
+  log_level: "INFO"
+  loop_fraction: 0.5
+  max_steps: 10000
 
 # ============================================================================
 # DIGITIZATION CONFIGURATION
 # ============================================================================
 digitization:
-  # Path to digitization config (relative to acts/ directory)
   config_file: "Examples/Configs/generic-digi-smearing-config.json"
-  # If null, uses default ACTS digitization
 
 # ============================================================================
 # OUTPUT CONFIGURATION
 # ============================================================================
 output:
-  base_dir: "./data"        # Base output directory
-  write_particles_initial: true   # Write initial particle states
-  write_geometry: true      # Write detector geometry (detectors.csv)
-
-# ============================================================================
-# PARTICLE TYPE MAPPING (for reference)
-# ============================================================================
-# Available particle types (case-insensitive):
-# - muon (mu-, mu+)      : PDG ±13
-# - pion (pi-, pi+)      : PDG ±211
-# - electron (e-, e+)    : PDG ±11
-# - proton (p, p-bar)    : PDG ±2212
-# - kaon (K-, K+)        : PDG ±321
-# - photon (gamma)       : PDG 22
-
+  base_dir: "./data"
+  write_particles_initial: true
+  write_geometry: true

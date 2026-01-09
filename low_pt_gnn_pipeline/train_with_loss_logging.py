@@ -3,6 +3,7 @@ import os
 import sys
 import yaml
 from pathlib import Path
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import CSVLogger
@@ -29,17 +30,38 @@ class LossPrinterCallback(Callback):
         if 'train_loss' in trainer.callback_metrics:
             loss = trainer.callback_metrics['train_loss'].item()
             self.train_losses.append(loss)
+            
+            # rapport GPU memory usage for finsing optimal settings 
+            # if torch.cuda.is_available():
+            #     mem_allocated = torch.cuda.memory_allocated(0) / 1024**3
+            #     mem_reserved = torch.cuda.memory_reserved(0) / 1024**3
+            #     mem_max = torch.cuda.max_memory_allocated(0) / 1024**3
+            # else:
+            #     mem_allocated = mem_reserved = mem_max = 0
+            
             print(f"\n{'='*70}")
             print(f"Epoch {trainer.current_epoch} Training Loss: {loss:.6f}")
-            print(f"{'='*70}\n")
+            # if torch.cuda.is_available():
+            #     print(f"GPU Memory: Allocated={mem_allocated:.2f}GB, Reserved={mem_reserved:.2f}GB, Peak={mem_max:.2f}GB")
+            # print(f"{'='*70}\n")
     
     def on_validation_epoch_end(self, trainer, pl_module):
         # Get the validation loss
         if 'val_loss' in trainer.callback_metrics:
             loss = trainer.callback_metrics['val_loss'].item()
             self.val_losses.append(loss)
+            
+            # GPU memory usage
+            # if torch.cuda.is_available():
+            #     mem_allocated = torch.cuda.memory_allocated(0) / 1024**3
+            #     mem_reserved = torch.cuda.memory_reserved(0) / 1024**3
+            # else:
+            #     mem_allocated = mem_reserved = 0
+                
             print(f"\n{'='*70}")
             print(f"Epoch {trainer.current_epoch} Validation Loss: {loss:.6f}")
+            # if torch.cuda.is_available():
+            #     print(f"GPU Memory: Allocated={mem_allocated:.2f}GB, Reserved={mem_reserved:.2f}GB")
             print(f"{'='*70}\n")
     
     def on_train_end(self, trainer, pl_module):
@@ -54,6 +76,10 @@ class LossPrinterCallback(Callback):
 
 
 def main():
+    
+    # Enable Tensor Cores for faster matrix operations on L40S GPU if available.    (GPU optimization)
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision('high')  # or 'high' for even more speed
 
     SCRIPT_DIR = Path(__file__).resolve().parent
     config_file = SCRIPT_DIR / 'acorn_configs' / 'minimal_gnn_train.yaml'
@@ -107,6 +133,7 @@ def main():
         callbacks=[loss_printer],
         logger=logger,
         log_every_n_steps=1,  # Log every batch
+        check_val_every_n_epoch=config.get("check_val_every_n_epoch", 1),
         enable_progress_bar=True,
         enable_model_summary=True,
     )
