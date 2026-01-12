@@ -1,6 +1,6 @@
 
 # Paths are relative to low_pt_gnn_pipeline directory
-input_dir: data/graph_constructed  
+input_dir: data/graph_constructed_latent  
 stage_dir: data/gnn_stage/ 
 project: MinimalGNN_Test 
 accelerator: gpu       #set to "cpu" when running small local experiments..
@@ -8,7 +8,7 @@ devices: -1
 nodes: 1
 logger: false  
 
-data_split: [900, 50, 50]  # [training, validation, testing] 
+data_split: [8, 1, 1]  # trainset, valset, testset  # [training, validation, testing] 
 
 
 # Model architecture parameters
@@ -18,7 +18,7 @@ undirected_message_passing: True
 node_features: [r, phi, z] 
 node_scales: [1000, 3.14, 1000]  
 hidden: 32  # 128 
-n_graph_iters: 5  #  8
+n_graph_iters: 4  #  8
 nb_node_layer: 2
 nb_edge_layer: 2
 emb_channels: 0
@@ -34,7 +34,7 @@ num_workers: [8, 8, 0]        # Workers for [train, val, test] dataloaders.   (c
 
 max_epochs: 25
 warmup: 2       #lineair increse from o to lr over warup epoch 
-lr: 0.001          #find ~0.001 forks well
+lr: 0.001          # find on initial data ~ 0.001
 factor: 0.8  
 patience: 3
 log_every_n_steps: 1  # Log loss

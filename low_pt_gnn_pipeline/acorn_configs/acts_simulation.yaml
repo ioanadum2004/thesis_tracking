@@ -1,8 +1,9 @@
 # ============================================================================
 # EVENT CONFIGURATION
 # ============================================================================
-num_events: 1000
-particles_per_event: 20
+num_events: 10000
+particles_per_vertex: 20  # Particles generated at each collision vertex
+multiplicity: 1           # Number of collision vertices per event (pileup)
 random_seed: 42           
 
 # ============================================================================
@@ -13,13 +14,13 @@ particle_gun:
   randomize_charge: true
   
   momentum:
-    min: 1.0
-    max: 10.0
+    min: 0.5
+    max: 5
     transverse: true
   
   eta:
-    min: -2.5
-    max: 2.5
+    min: -3
+    max: 3
     uniform: true
   
   phi:
@@ -43,7 +44,7 @@ simulation:
   enable_interactions: true
   num_threads: -1
   log_level: "INFO"
-  loop_fraction: 0.5
+  loop_fraction: 1
   max_steps: 10000
 
 # ============================================================================

@@ -82,7 +82,7 @@ def main():
         torch.set_float32_matmul_precision('high')  # or 'high' for even more speed
 
     SCRIPT_DIR = Path(__file__).resolve().parent
-    config_file = SCRIPT_DIR / 'acorn_configs' / 'minimal_gnn_train.yaml'
+    config_file = SCRIPT_DIR / 'acorn_configs' / 'gnn_train.yaml'
     
     if not config_file.exists():
         raise FileNotFoundError(f"Config file not found: {config_file}")

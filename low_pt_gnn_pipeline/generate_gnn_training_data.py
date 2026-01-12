@@ -92,7 +92,8 @@ def generate_minimal_training_data(config=None):
     
     # Extract configuration values
     num_events = config['num_events']
-    particles_per_event = config['particles_per_event']
+    particles_per_vertex = config['particles_per_vertex']
+    multiplicity = config['multiplicity']
     random_seed = config['random_seed']
     
     # Extract particle gun configuration
@@ -109,7 +110,9 @@ def generate_minimal_training_data(config=None):
     print("="*80)
     print(f"Configuration: acorn_configs/acts_simulation.yaml")
     print(f"Events: {num_events}")
-    print(f"Particles per event: {particles_per_event}")
+    print(f"Particles per vertex: {particles_per_vertex}")
+    print(f"Multiplicity (vertices per event): {multiplicity}")
+    print(f"Total particles per event: {particles_per_vertex * multiplicity}")
     print(f"Particle type: {gun_config['particle_type']}")
     print(f"pT range: {gun_config['momentum']['min']}-{gun_config['momentum']['max']} GeV")
     print(f"Eta range: {gun_config['eta']['min']} to {gun_config['eta']['max']}")
@@ -160,11 +163,11 @@ def generate_minimal_training_data(config=None):
             phi_config['max'] * u.degree
         ),
         ParticleConfig(
-            particles_per_event,
+            particles_per_vertex,
             particle_type,
             randomizeCharge=gun_config['randomize_charge']
         ),
-        multiplicity=1,  # Single vertex - FATRAS propagates all particles regardless
+        multiplicity=multiplicity,  
         rnd=rnd,
     )
     

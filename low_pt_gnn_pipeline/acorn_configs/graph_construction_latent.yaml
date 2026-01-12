@@ -1,0 +1,30 @@
+# Configuration for learned latent space graph construction
+
+# ============================================================================
+# MODEL CONFIGURATION
+# ============================================================================
+checkpoint: latentmodel_val_loss=0.0034.ckpt # Checkpoint file in saved_models/
+
+
+# ============================================================================
+# GRAPH CONSTRUCTION PARAMETERS
+# ============================================================================
+k_max: 20  # Maximum number of neighbors per hit in latent space (KNN)
+
+# Device configuration
+device: gpu  # Device to run inference on (cuda/cpu)
+
+# ============================================================================
+# INPUT/OUTPUT DIRECTORIES
+# ============================================================================
+input_dir: data/feature_store/  # Input graphs (from ActsReader)
+output_dir: data/graph_constructed_latent/  # Output graphs with learned edges
+
+# Datasets to process
+datasets: [trainset, valset, testset]
+
+# ============================================================================
+# ADVANCED OPTIONS
+# ============================================================================
+store_embeddings: true  # Store learned embeddings on graph objects for analysis
+batch_size: 1  # Process one event at a time (graphs have variable sizes)

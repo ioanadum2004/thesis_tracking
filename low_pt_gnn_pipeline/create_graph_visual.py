@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-create_graph_visual.py <dataset> <index> [--output OUTPUT]
+create_graph_visual.py <dataset> <index> [latent] [--output OUTPUT]
 create_graph_visual.py <graph_file.pyg> [--output OUTPUT]
 
 Creates an interactive 3D HTML visualization of a graph from the GNN pipeline.
@@ -10,10 +10,13 @@ Displays all nodes (hits) and edges, with edges colored by their truth labels:
 
 Usage examples:
   python create_graph_visual.py trainset 1
-    # Visualizes the 1st graph in trainset
+    # Visualizes the 1st graph in trainset (simple radius+KNN graphs)
   
-  python create_graph_visual.py valset 3
-    # Visualizes the 3rd graph in valset
+  python create_graph_visual.py trainset 1 latent
+    # Visualizes the 1st graph in trainset (learned latent space graphs)
+  
+  python create_graph_visual.py valset 3 latent
+    # Visualizes the 3rd graph in valset (learned latent space graphs)
   
   python create_graph_visual.py data/graph_constructed/trainset/event000000001-graph.pyg
     # Can still use full path if needed
@@ -219,6 +222,9 @@ Examples:
   python create_graph_visual.py trainset 1
     # Visualizes the 1st graph in data/graph_constructed/trainset/
   
+  python create_graph_visual.py trainset 1 latent
+    # Visualizes the 1st graph in data/graph_constructed_latent/trainset/
+  
   python create_graph_visual.py valset 3
     # Visualizes the 3rd graph in data/graph_constructed/valset/
   
@@ -239,6 +245,13 @@ Examples:
         help='Index number (if first argument is dataset name). Ignored if first argument is a file path.'
     )
     parser.add_argument(
+        'mode',
+        type=str,
+        nargs='?',
+        default=None,
+        help='Optional: "latent" to use graph_constructed_latent directory instead of graph_constructed'
+    )
+    parser.add_argument(
         '--output', '-o',
         type=str,
         default=None,
@@ -247,9 +260,19 @@ Examples:
     
     args = parser.parse_args()
     
+    # Determine if using latent graphs
+    use_latent = False
+    if args.mode is not None and args.mode.lower() == 'latent':
+        use_latent = True
+    
     # Determine graph file path
     script_dir = Path(__file__).resolve().parent
-    graph_constructed_dir = script_dir / 'data' / 'graph_constructed'
+    if use_latent:
+        graph_constructed_dir = script_dir / 'data' / 'graph_constructed_latent'
+        config_file = 'graph_construction_latent.yaml'
+    else:
+        graph_constructed_dir = script_dir / 'data' / 'graph_constructed'
+        config_file = 'graph_construction.yaml'
     
     # Check if input is "<dataset> <index>" format
     if args.index is not None:
@@ -298,6 +321,8 @@ Examples:
         # Default: save to data/visuals/ preserving dataset structure
         # e.g., data/graph_constructed/trainset/event000000001-graph.pyg 
         #   -> data/visuals/trainset/event000000001-graph.html
+        # or data/graph_constructed_latent/trainset/event000000001-graph.pyg
+        #   -> data/visuals/trainset/event000000001-graph_latent.html
         visuals_dir = script_dir / 'data' / 'visuals'
         
         # Try to preserve dataset structure (trainset/valset/testset)
@@ -305,10 +330,18 @@ Examples:
         try:
             relative_path = graph_path.relative_to(graph_constructed_dir)
             # relative_path will be like: trainset/event000000001-graph.pyg
-            output_path = visuals_dir / relative_path.with_suffix('.html')
+            base_output = visuals_dir / relative_path.with_suffix('.html')
+            # Add _latent suffix if using latent graphs
+            if use_latent:
+                output_path = base_output.with_stem(base_output.stem + '_latent')
+            else:
+                output_path = base_output
         except ValueError:
             # If not in expected structure, just use filename
-            output_path = visuals_dir / graph_path.name.replace('.pyg', '.html')
+            base_name = graph_path.name.replace('.pyg', '.html')
+            if use_latent:
+                base_name = base_name.replace('.html', '_latent.html')
+            output_path = visuals_dir / base_name
         
         # Create visuals directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,16 +359,22 @@ Examples:
     print(f"  • True edges: {graph.edge_y.sum().item()} ({100*graph.edge_y.sum().item()/graph.edge_y.shape[0]:.1f}%)")
     
     # Load graph construction parameters from config
-    config_path = script_dir / 'acorn_configs' / 'graph_construction.yaml'
+    config_path = script_dir / 'acorn_configs' / config_file
     r_max = None
     k_max = None
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-            if 'graph_construction' in config:
-                r_max = config['graph_construction'].get('r_max')
-                k_max = config['graph_construction'].get('k_max')
-                print(f"  • Graph construction params: r_max={r_max}, k_max={k_max}")
+            if use_latent:
+                # Latent config has k_max directly
+                k_max = config.get('k_max')
+                print(f"  • Graph construction: Learned latent space, k_max={k_max}")
+            else:
+                # Simple config has graph_construction section
+                if 'graph_construction' in config:
+                    r_max = config['graph_construction'].get('r_max')
+                    k_max = config['graph_construction'].get('k_max')
+                    print(f"  • Graph construction: Simple radius+KNN, r_max={r_max}, k_max={k_max}")
     except Exception as e:
         print(f"  • Warning: Could not load graph construction params from config: {e}")
     

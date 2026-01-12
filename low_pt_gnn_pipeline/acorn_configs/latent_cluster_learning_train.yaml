@@ -1,0 +1,68 @@
+# Metric Learning Training Configuration
+# Trains a model to map hit features to a latent space where hits from the same 
+# particle are close together. This learned embedding can then be used to build
+# graphs more intelligently than simple radius + KNN.
+
+stage: graph_construction
+model: MetricLearning
+
+# Data directories
+input_dir: data/feature_store/  # PyG graphs from ActsReader (has r, phi, z, particle_id)
+stage_dir: data/metric_learning/  # Output directory for trained model
+project: LowPt_MetricLearning
+accelerator: gpu
+devices: 1
+nodes: 1
+
+# Dataset split
+data_split: [900, 500, 500]  # [training, validation, testing]
+
+# Edge weighting for training
+# Simplified weighting - only uses edge truth (y) which is always available
+weighting:
+  - weight: 1.0
+    conditions: 
+      edge_y: False  
+  - weight: 2.0
+    conditions:
+      edge_y: True  
+
+
+
+# Model architecture
+undirected: True  
+train_undirected: True
+node_features: [hit_r, hit_phi, hit_z]  # ActsReader adds 'hit_' prefix
+node_scales: [1000, 3.14, 1000]  
+emb_hidden: 64   #512    
+nb_layer: 4  # depth        eg 3 -> emb_hoidden -> emb_hidden -> emb_dim...x(nb_layer times)--> emb_dim
+emb_dim: 8  # Final latent dimension 
+activation: Tanh 
+
+# Training sampling parameters
+randomisation: 1  # Add random negative pairs (number = randomisation * points_per_batch)
+points_per_batch: 1000
+r_train: 0.15  
+knn: 50  
+knn_val: 500  # Max neighbors during validation (larger for better edge building)
+
+# Optimization parameters
+warmup: 1  
+margin: 0.1  # Margin for contrastive loss
+lr: 0.001  
+factor: 0.5 # LR decay factor
+patience: 3  
+max_epochs: 50  
+early_stopping_patience: 7  
+check_val_every_n_epoch: 1 
+
+
+# Monitoring
+metric_to_monitor: val_loss  # Monitor validation loss.  (you could do f1, with metric mode "max" )
+metric_mode: min 
+num_workers: [8, 8, 0]
+
+# Checkpointing 
+checkpoint_filename: "latentmodel_{val_loss:.4f}"  # Filename template with val_loss
+save_top_k: 1  # Only save the single best model
+save_last: false  # Don't save last.ckpt  
