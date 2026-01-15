@@ -1,0 +1,36 @@
+/data/alice/bkuipers/miniconda3/envs/acorn/lib/python3.10/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:639: Checkpoint directory data/gnn_stage/checkpoints exists and is not empty.
+/data/alice/bkuipers/acorn/acorn/utils/loading_utils.py:90: UserWarning: OPTIONAL feature [track_particle_primary] not found in data
+  warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+/data/alice/bkuipers/acorn/acorn/utils/loading_utils.py:90: UserWarning: OPTIONAL feature [track_particle_pdgId] not found in data
+  warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+Defining figures of merit
+/data/alice/bkuipers/acorn/acorn/stages/edge_classifier/edge_classifier_stage.py:102: UserWarning: Failed to define figures of merit, due to logger unavailable
+  warnings.warn(
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [GPU-569990fd-2b62-0adb-f587-bbb820db7247]
+
+  | Name                   | Type             | Params
+------------------------------------------------------------
+0 | aggregation            | MultiAggregation | 0
+1 | node_encoder           | Sequential       | 336
+2 | edge_encoder           | Sequential       | 800
+3 | edge_network           | Sequential       | 1.1 K
+4 | node_network           | Sequential       | 2.1 K
+5 | output_edge_classifier | Sequential       | 1.1 K
+------------------------------------------------------------
+5.3 K     Trainable params
+0         Non-trainable params
+5.3 K     Total params
+0.021     Total estimated model params size (MB)
+Sanity Checking DataLoader 0: 100%|█████████████████████████████████████| 2/2 [00:01<00:00,  1.14it/s]
+======================================================================
+Epoch 0 Validation Loss: 0.775933
+Training: |                                                                     | 0/? [00:00<?, ?it/s] Learning Rate: 0.001000
+Epoch 0: 100%|██████████████████████████████████████████| 900/900 [02:32<00:00,  5.90it/s, v_num=24vf]
+======================================================================500/500 [01:18<00:00,  6.41it/s]
+Epoch 0 Validation Loss: 0.110102
+Epoch 0: 100%|██████████████████████████████████████████| 900/900 [03:51<00:00,  3.88it/s, v_num=24vf]
+======================================================================                                
+Epoch 0 Training Loss: 0.254226
+Epoch 0: 100%|██████████████████████████████████████████| 900/900 [03:51<00:00,  3.88it/s, v_num=24vf] Learning Rate: 0.001000
+Epoch 0, global step 900: 'val_loss' reached 0.11010 (best 0.11010), saving model to 'data/gnn_stage/checkpoints/gnn_best_val_loss_val_loss=0.1101.ckpt' as top 1
+Epoch 1:  63%|██████████████████████████▍               | 567/900 [01:40<00:59,  5.63it/s, v_num=24vf]

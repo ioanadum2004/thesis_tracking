@@ -184,6 +184,11 @@ def generate_minimal_training_data(config=None):
     
     # Add FATRAS simulation
     print("Adding FATRAS simulation...")
+    # Get pMin from config (default to 0.01 GeV for low pT particles)
+    p_min = sim_config.get('p_min', 0.01)
+    if p_min is not None:
+        p_min = p_min * u.GeV  # Convert to ACTS units
+    
     addFatras(
         s,
         trackingGeometry,
@@ -191,6 +196,7 @@ def generate_minimal_training_data(config=None):
         rnd=rnd,
         outputDirCsv=csv_dir,
         enableInteractions=sim_config['enable_interactions'],
+        pMin=p_min,
         loopFraction=sim_config.get('loop_fraction', None),
         maxSteps=sim_config.get('max_steps', None),
     )

@@ -1,0 +1,8 @@
+{"time":"2026-01-14T13:46:26.15358843+01:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2026-01-14T13:46:26.780466401+01:00","level":"INFO","msg":"stream: created new stream","id":"e405twlb"}
+{"time":"2026-01-14T13:46:26.780910843+01:00","level":"INFO","msg":"handler: started","stream_id":"e405twlb"}
+{"time":"2026-01-14T13:46:26.781868389+01:00","level":"INFO","msg":"stream: started","id":"e405twlb"}
+{"time":"2026-01-14T13:46:26.782050384+01:00","level":"INFO","msg":"writer: started","stream_id":"e405twlb"}
+{"time":"2026-01-14T13:46:26.782067159+01:00","level":"INFO","msg":"sender: started","stream_id":"e405twlb"}
+{"time":"2026-01-14T15:03:43.646267581+01:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/files/bart_kuipers-nikhef/MinimalGNN_Test/e405twlb/file_stream"}
+{"time":"2026-01-14T15:03:43.646574705+01:00","level":"ERROR+4","msg":"filestream: fatal error: filestream: failed to upload: 404 Not Found path=files/bart_kuipers-nikhef/MinimalGNN_Test/e405twlb/file_stream: {\"error\":\"run MinimalGNN_Test/e405twlb not found while streaming file\"}"}

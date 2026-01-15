@@ -2,6 +2,7 @@ import os
 import logging
 import pandas as pd
 import numpy as np
+import torch
 from torch.utils.data import random_split
 
 from ..data_reading_stage import EventReader
@@ -60,6 +61,10 @@ class ActsReader(EventReader):
         num_events = sum(self.config["data_split"])
         assert num_events <= len(self.raw_events)
 
+        # Set random seed for reproducible splits (default: 42)
+        split_seed = self.config.get("split_seed", 42)
+        torch.manual_seed(split_seed)
+        
         self.trainset, self.valset, self.testset = random_split(
             self.raw_events[:num_events], self.config["data_split"]
         )
@@ -122,6 +127,14 @@ class ActsReader(EventReader):
 
             assert len(np.unique(cells.hit_id)) == len(truth)
             truth = trackml_utils.add_cell_info(truth, cells, self.detector_dims)
+
+        # Ensure DataFrame has proper index before adding region labels
+        # Reset index to ensure clean RangeIndex (fixes pandas assignment issues)
+        if len(truth) > 0:
+            truth = truth.reset_index(drop=True)
+        else:
+            logging.warning(f"Empty truth DataFrame for event {event_id}, skipping")
+            return
 
         # Add module_id and region_id
         truth = trackml_utils.add_region_labels(truth, self.config["region_labels"])

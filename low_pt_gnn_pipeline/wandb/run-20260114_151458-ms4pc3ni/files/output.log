@@ -1,0 +1,28 @@
+/data/alice/bkuipers/miniconda3/envs/acorn/lib/python3.10/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:639: Checkpoint directory data/gnn_stage/checkpoints exists and is not empty.
+/data/alice/bkuipers/acorn/acorn/utils/loading_utils.py:90: UserWarning: OPTIONAL feature [track_particle_primary] not found in data
+  warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+/data/alice/bkuipers/acorn/acorn/utils/loading_utils.py:90: UserWarning: OPTIONAL feature [track_particle_pdgId] not found in data
+  warnings.warn(f"OPTIONAL feature [{feature}] not found in data")
+Defining figures of merit
+/data/alice/bkuipers/acorn/acorn/stages/edge_classifier/edge_classifier_stage.py:102: UserWarning: Failed to define figures of merit, due to logger unavailable
+  warnings.warn(
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [GPU-569990fd-2b62-0adb-f587-bbb820db7247]
+
+  | Name                   | Type             | Params
+------------------------------------------------------------
+0 | aggregation            | MultiAggregation | 0
+1 | node_encoder           | Sequential       | 4.4 K
+2 | edge_encoder           | Sequential       | 12.4 K
+3 | edge_network           | Sequential       | 16.5 K
+4 | node_network           | Sequential       | 32.9 K
+5 | output_edge_classifier | Sequential       | 16.6 K
+------------------------------------------------------------
+82.8 K    Trainable params
+0         Non-trainable params
+82.8 K    Total params
+0.331     Total estimated model params size (MB)
+Sanity Checking DataLoader 0: 100%|█████████████████████████████████████| 2/2 [00:00<00:00,  3.01it/s]
+======================================================================
+Epoch 0 Validation Loss: 0.669908
+Training: |                                                                     | 0/? [00:00<?, ?it/s] Learning Rate: 0.001000
+Epoch 0:  74%|█████████████████████████████▍          | 6619/9000 [06:54<02:29, 15.96it/s, v_num=c3ni]

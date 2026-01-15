@@ -15,7 +15,7 @@ devices: 1
 nodes: 1
 
 # Dataset split
-data_split: [900, 500, 500]  # [training, validation, testing]
+data_split: [9000, 500, 500]  # [training, validation, testing]
 
 # Edge weighting for training
 # Simplified weighting - only uses edge truth (y) which is always available
@@ -23,7 +23,7 @@ weighting:
   - weight: 1.0
     conditions: 
       edge_y: False  
-  - weight: 2.0
+  - weight: 2.0.           #note KLook after latent map what the data distrivution tru,false is....
     conditions:
       edge_y: True  
 
@@ -44,25 +44,28 @@ randomisation: 1  # Add random negative pairs (number = randomisation * points_p
 points_per_batch: 1000
 r_train: 0.15  
 knn: 50  
-knn_val: 500  # Max neighbors during validation (larger for better edge building)
+knn_val: 200  # Max neighbors during validation (larger for better edge building)
 
 # Optimization parameters
 warmup: 1  
 margin: 0.1  # Margin for contrastive loss
 lr: 0.001  
-factor: 0.5 # LR decay factor
-patience: 3  
+factor: 0.1 # LR decay factor
+patience: 2  
 max_epochs: 50  
-early_stopping_patience: 7  
-check_val_every_n_epoch: 1 
+early_stopping_patience: 10 
+check_val_every_n_epoch: 1
 
 
 # Monitoring
-metric_to_monitor: val_loss  # Monitor validation loss.  (you could do f1, with metric mode "max" )
-metric_mode: min 
-num_workers: [8, 8, 0]
+metric_to_monitor: f1  # Monitor F1 score (harmonic mean of efficiency and purity)
+metric_mode: max  # Higher F1 is better
+num_workers: [16, 16, 0]  # Parallel data loading
+
+# GPU optimizations
+precision: 16-mixed  # Mixed precision training for 2x speedup
 
 # Checkpointing 
-checkpoint_filename: "latentmodel_{val_loss:.4f}"  # Filename template with val_loss
+checkpoint_filename: "latentmodel_f1_{f1:.4f}"  # Filename template with F1 score
 save_top_k: 1  # Only save the single best model
 save_last: false  # Don't save last.ckpt  

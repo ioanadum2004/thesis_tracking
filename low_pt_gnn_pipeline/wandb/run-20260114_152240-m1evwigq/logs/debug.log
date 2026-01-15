@@ -1,0 +1,22 @@
+2026-01-14 15:22:40,794 INFO    MainThread:119923 [wandb_setup.py:_flush():80] Current SDK version is 0.23.1
+2026-01-14 15:22:40,794 INFO    MainThread:119923 [wandb_setup.py:_flush():80] Configure stats pid to 119923
+2026-01-14 15:22:40,794 INFO    MainThread:119923 [wandb_setup.py:_flush():80] Loading settings from /user/bkuipers/.config/wandb/settings
+2026-01-14 15:22:40,794 INFO    MainThread:119923 [wandb_setup.py:_flush():80] Loading settings from /data/alice/bkuipers/low_pt_gnn_pipeline/wandb/settings
+2026-01-14 15:22:40,794 INFO    MainThread:119923 [wandb_setup.py:_flush():80] Loading settings from environment variables
+2026-01-14 15:22:40,795 INFO    MainThread:119923 [wandb_init.py:setup_run_log_directory():714] Logging user logs to wandb/run-20260114_152240-m1evwigq/logs/debug.log
+2026-01-14 15:22:40,795 INFO    MainThread:119923 [wandb_init.py:setup_run_log_directory():715] Logging internal logs to wandb/run-20260114_152240-m1evwigq/logs/debug-internal.log
+2026-01-14 15:22:40,795 INFO    MainThread:119923 [wandb_init.py:init():841] calling init triggers
+2026-01-14 15:22:40,795 INFO    MainThread:119923 [wandb_init.py:init():846] wandb.init called with sweep_config: {}
+config: {'input_dir': 'data/graph_constructed_latent', 'stage_dir': 'data/gnn_stage/', 'project': 'MinimalGNN_Test', 'accelerator': 'cuda', 'devices': 1, 'nodes': 1, 'logger': False, 'use_wandb': True, 'wandb_entity': 'bart_kuipers-nikhef', 'wandb_log_every_n_batches': 100, 'data_split': [9000, 500, 500], 'edge_cut': 0.5, 'undirected': True, 'undirected_message_passing': True, 'node_features': ['hit_r', 'hit_phi', 'hit_z'], 'node_scales': [1000, 3.14, 1000], 'hidden': 128, 'n_graph_iters': 5, 'nb_node_layer': 2, 'nb_edge_layer': 2, 'emb_channels': 0, 'layernorm': True, 'batchnorm': False, 'aggregation': ['sum', 'mean', 'max'], 'hidden_activation': 'SiLU', 'output_activation': 'Tanh', 'num_workers': [8, 8, 0], 'max_epochs': 50, 'warmup': 0, 'lr': 0.001, 'scheduler': 'ReduceLROnPlateau', 'factor': 0.5, 'patience': 1, 'log_every_n_steps': 1, 'check_val_every_n_epoch': 1, 'pos_weight': 1, 'node_net_recurrent': True, 'edge_net_recurrent': True, 'track_running_stats': False, '_wandb': {}}
+2026-01-14 15:22:40,795 INFO    MainThread:119923 [wandb_init.py:init():889] starting backend
+2026-01-14 15:22:41,122 INFO    MainThread:119923 [wandb_init.py:init():892] sending inform_init request
+2026-01-14 15:22:41,139 INFO    MainThread:119923 [wandb_init.py:init():900] backend started and connected
+2026-01-14 15:22:41,142 INFO    MainThread:119923 [wandb_init.py:init():970] updated telemetry
+2026-01-14 15:22:41,179 INFO    MainThread:119923 [wandb_init.py:init():994] communicating run to backend with 90.0 second timeout
+2026-01-14 15:22:42,022 INFO    MainThread:119923 [wandb_init.py:init():1041] starting run threads in backend
+2026-01-14 15:22:42,328 INFO    MainThread:119923 [wandb_run.py:_console_start():2521] atexit reg
+2026-01-14 15:22:42,328 INFO    MainThread:119923 [wandb_run.py:_redirect():2369] redirect: wrap_raw
+2026-01-14 15:22:42,328 INFO    MainThread:119923 [wandb_run.py:_redirect():2438] Wrapping output streams.
+2026-01-14 15:22:42,328 INFO    MainThread:119923 [wandb_run.py:_redirect():2461] Redirects installed.
+2026-01-14 15:22:42,335 INFO    MainThread:119923 [wandb_init.py:init():1081] run started, returning control to user process
+2026-01-14 15:22:43,695 INFO    MainThread:119923 [wandb_run.py:_config_callback():1396] config_cb None None {'input_dir': 'data/graph_constructed_latent', 'stage_dir': 'data/gnn_stage/', 'project': 'MinimalGNN_Test', 'accelerator': 'cuda', 'devices': 1, 'nodes': 1, 'logger': False, 'use_wandb': True, 'wandb_entity': 'bart_kuipers-nikhef', 'wandb_log_every_n_batches': 100, 'data_split': [9000, 500, 500], 'edge_cut': 0.5, 'undirected': True, 'undirected_message_passing': True, 'node_features': ['hit_r', 'hit_phi', 'hit_z'], 'node_scales': [1000, 3.14, 1000], 'hidden': 128, 'n_graph_iters': 5, 'nb_node_layer': 2, 'nb_edge_layer': 2, 'emb_channels': 0, 'layernorm': True, 'batchnorm': False, 'aggregation': ['sum', 'mean', 'max'], 'hidden_activation': 'SiLU', 'output_activation': 'Tanh', 'num_workers': [8, 8, 0], 'max_epochs': 50, 'warmup': 0, 'lr': 0.001, 'scheduler': 'ReduceLROnPlateau', 'factor': 0.5, 'patience': 1, 'log_every_n_steps': 1, 'check_val_every_n_epoch': 1, 'pos_weight': 1, 'node_net_recurrent': True, 'edge_net_recurrent': True, 'track_running_stats': False}

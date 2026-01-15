@@ -3,13 +3,15 @@
 input_dir: data/graph_constructed_latent  
 stage_dir: data/gnn_stage/ 
 project: MinimalGNN_Test 
-accelerator: gpu       #set to "cpu" when running small local experiments..
-devices: -1
+accelerator: cuda      #cpu vs cuda 
+devices: 1             
 nodes: 1
 logger: false  
+use_wandb: true  # Enable W&B tracking
+wandb_entity: bart_kuipers-nikhef  # W&B entity/username
+wandb_log_every_n_batches: 500  #
 
-data_split: [8, 1, 1]  # trainset, valset, testset  # [training, validation, testing] 
-
+data_split: [9000, 500, 500]  # [training, validation, testing] 
 
 # Model architecture parameters
 edge_cut: 0.5  # Threshold for edge classification (0-1)
@@ -17,8 +19,8 @@ undirected: True
 undirected_message_passing: True
 node_features: [r, phi, z] 
 node_scales: [1000, 3.14, 1000]  
-hidden: 32  # 128 
-n_graph_iters: 4  #  8
+hidden: 128  # 128 
+n_graph_iters: 5  #  8
 nb_node_layer: 2
 nb_edge_layer: 2
 emb_channels: 0
@@ -29,14 +31,17 @@ hidden_activation: SiLU
 output_activation: Tanh
 
 # Training parameters
-batch_size: 64                # 64 fits on GPU   ( will depend on graph size and GPU memory)
-num_workers: [8, 8, 0]        # Workers for [train, val, test] dataloaders.   (current bottle neck next time, set to 16 ) 
-
-max_epochs: 25
-warmup: 2       #lineair increse from o to lr over warup epoch 
-lr: 0.001          # find on initial data ~ 0.001
-factor: 0.8  
-patience: 3
+# batch_size: Hardcoded to 1 in ACORN (full-event training, one graph at a time)
+num_workers: [8, 8, 0]        # Workers [train, val, test] 8 seems fine for this gpu for now 
+max_epochs: 50
+warmup: 0          #lineair increse from o to lr over warup epoch 
+lr: 0.001          # find on initial data ~ 0.001 seems to big   --- try 0,0001
+scheduler: ReduceLROnPlateau  # Reduce LR only when val_loss doesn't improve
+factor: 0.5  
+patience: 1     # Reduce LR after val_loss hasn't improved for this many epochs 
 log_every_n_steps: 1  # Log loss
-check_val_every_n_epoch: 1  # Run validation every N epochs 
+check_val_every_n_epoch: 1  # Run validation every N epochs
+
+# Class imbalance handling
+pos_weight: 1  # Adjust based on your class imbalance ratio 
 

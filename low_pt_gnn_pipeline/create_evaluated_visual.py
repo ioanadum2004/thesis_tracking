@@ -10,16 +10,19 @@ edges in a test graph. Edges are colored by classification correctness:
   - Orange: Incorrectly classified false edges (False Positives - false connections)
 
 Usage:
-  python create_evaluated_visual.py <model_name> <test_index> [--edge-cut THRESHOLD] [--output FILE]
+  python create_evaluated_visual.py <model_name> <dataset> <index> [--edge-cut THRESHOLD] [--output FILE]
 
 Examples:
-  python create_evaluated_visual.py epoch9_900 1
+  python create_evaluated_visual.py epoch9_900 testset 1
     # Evaluates 1st test graph with model epoch9_900
   
-  python create_evaluated_visual.py epoch23_900 5 --edge-cut 0.3
-    # Evaluates 5th test graph with threshold 0.3
+  python create_evaluated_visual.py epoch9_900 valset 3
+    # Evaluates 3rd validation graph
   
-  python create_evaluated_visual.py epoch9_900 1 --output results/graph1.html
+  python create_evaluated_visual.py epoch23_900 trainset 5 --edge-cut 0.3
+    # Evaluates 5th training graph with threshold 0.3
+  
+  python create_evaluated_visual.py epoch9_900 testset 1 --output results/graph1.html
     # Custom output location
 """
 
@@ -58,21 +61,26 @@ def cylindrical_to_cartesian(r, phi, z):
     return x, y, z
 
 
-def evaluate_and_visualize(model_name, test_index, edge_cut=0.5, config_file='acorn_configs/minimal_gnn_train.yaml', output_path=None):
+def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config_file='acorn_configs/gnn_train.yaml', output_path=None):
     """
-    Load model, evaluate on a specific test graph, and create visualization.
+    Load model, evaluate on a specific graph, and create visualization.
     
     Args:
         model_name: Name of model checkpoint
-        test_index: Index of test graph (1-based)
+        dataset_name: Name of dataset ('trainset', 'valset', or 'testset')
+        index: Index of graph in dataset (1-based)
         edge_cut: Classification threshold
         config_file: Path to config file
         output_path: Output HTML file path
     """
     print("=" * 70)
-    print(f"EVALUATING MODEL: {model_name} on test graph #{test_index}")
+    print(f"EVALUATING MODEL: {model_name} on {dataset_name} graph #{index}")
     print("=" * 70)
     print()
+    
+    # Validate dataset name
+    if dataset_name not in ['trainset', 'valset', 'testset']:
+        raise ValueError(f"Dataset must be 'trainset', 'valset', or 'testset', got '{dataset_name}'")
     
     # Load config
     with open(config_file, 'r') as f:
@@ -89,26 +97,56 @@ def evaluate_and_visualize(model_name, test_index, edge_cut=0.5, config_file='ac
         map_location='cuda' if torch.cuda.is_available() else 'cpu'
     )
     
-    # Setup data
-    test_data_dir = Path(__file__).parent / "data" / "graph_constructed"
-    model.hparams['input_dir'] = str(test_data_dir)
-    model.hparams['stage_dir'] = str(test_data_dir)
+    # Setup data - use input_dir from config
+    input_dir = Path(__file__).parent / config['input_dir']
+    model.hparams['input_dir'] = str(input_dir)
+    model.hparams['stage_dir'] = str(input_dir)
     model.hparams['data_split'] = config['data_split']
     
-    print(f"Loading test data from: {test_data_dir}/testset")
-    model.setup(stage='test')
+    # Load graph file directly from disk (sorted by filename) to match create_graph_visual.py
+    dataset_dir = input_dir / dataset_name
+    if not dataset_dir.exists():
+        raise ValueError(f"Dataset directory not found: {dataset_dir}")
     
-    # Get test dataset
-    test_loader = model.test_dataloader()
-    test_dataset = test_loader.dataset
+    # Get all .pyg files sorted (matching create_graph_visual.py behavior)
+    graph_files = sorted([f for f in dataset_dir.glob('*.pyg')])
+    if len(graph_files) == 0:
+        raise ValueError(f"No graph files found in {dataset_dir}")
     
-    # Validate index
-    if test_index < 1 or test_index > len(test_dataset):
-        raise ValueError(f"Test index {test_index} out of range. Available: 1-{len(test_dataset)}")
+    if index < 1 or index > len(graph_files):
+        raise ValueError(f"Index {index} out of range. Available: 1-{len(graph_files)}")
     
-    # Get specific graph (convert to 0-indexed)
-    graph = test_dataset[test_index - 1]
-    print(f"Loaded test graph #{test_index}")
+    # Select the graph file at the specified index (convert to 0-indexed)
+    graph_path = graph_files[index - 1]
+    print(f"Loading {dataset_name} graph #{index} from: {graph_path.name}")
+    
+    # Load the graph file
+    graph = torch.load(graph_path, map_location='cpu', weights_only=False)
+    
+    # Setup model to get dataset for preprocessing
+    if dataset_name == 'testset':
+        model.setup(stage='test')
+        loader = model.test_dataloader()
+    else:
+        model.setup(stage='fit')
+        if dataset_name == 'trainset':
+            loader = model.train_dataloader()
+        else:  # valset
+            loader = model.val_dataloader()
+    
+    dataset = loader.dataset
+    
+    # Apply preprocessing that the dataset would normally do
+    # (matching GraphDataset.get() and preprocess_event() behavior)
+    from acorn.utils.loading_utils import add_variable_name_prefix_in_pyg, infer_num_nodes
+    
+    if (not model.hparams.get("variable_with_prefix")) or model.hparams.get("add_variable_name_prefix_in_pyg"):
+        graph = add_variable_name_prefix_in_pyg(graph)
+    
+    if dataset.preprocess:
+        graph = dataset.preprocess_event(graph)
+    
+    print(f"Loaded {dataset_name} graph #{index}")
     print(f"  Nodes: {graph.num_nodes}")
     print(f"  Edges: {graph.edge_index.shape[1]}")
     print()
@@ -166,15 +204,17 @@ def evaluate_and_visualize(model_name, test_index, edge_cut=0.5, config_file='ac
         false_negatives, 
         false_positives,
         model_name,
-        test_index,
-        edge_cut
+        dataset_name,
+        index,
+        edge_cut,
+        hparams=model.hparams
     )
     
     # Determine output path
     if output_path is None:
-        visuals_dir = Path(__file__).parent / 'data' / 'visuals' / 'evaluated' / 'testset'
+        visuals_dir = Path(__file__).parent / 'data' / 'visuals' / 'evaluated' / dataset_name
         visuals_dir.mkdir(parents=True, exist_ok=True)
-        output_path = visuals_dir / f"{model_name}_test{test_index:03d}_threshold{edge_cut}.html"
+        output_path = visuals_dir / f"{model_name}_{dataset_name}{index:03d}_threshold{edge_cut}.html"
     else:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -191,24 +231,56 @@ def evaluate_and_visualize(model_name, test_index, edge_cut=0.5, config_file='ac
     return output_path
 
 
-def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mask, model_name, test_index, edge_cut):
+def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mask, model_name, dataset_name, index, edge_cut, hparams=None):
     """
     Create interactive Plotly visualization with edges colored by classification.
     
     Args:
-        graph: PyTorch Geometric Data object
+        graph: PyTorch Geometric Data object (may have scaled features)
         tp_mask: Boolean mask for true positives
         tn_mask: Boolean mask for true negatives
         fn_mask: Boolean mask for false negatives
         fp_mask: Boolean mask for false positives
         model_name: Name of the model
-        test_index: Index of test graph
+        dataset_name: Name of dataset ('trainset', 'valset', or 'testset')
+        index: Index of graph in dataset
         edge_cut: Classification threshold
+        hparams: Model hyperparameters (to check if features are scaled)
     """
-    # Extract node positions
-    r = graph.hit_r.cpu().numpy()
-    phi = graph.hit_phi.cpu().numpy()
-    z = graph.hit_z.cpu().numpy()
+    # Extract node positions - unscale if they were scaled during preprocessing
+    # Check what feature names are actually in the graph (may be prefixed or not)
+    if hasattr(graph, 'hit_r'):
+        r = graph.hit_r.cpu().numpy()
+        phi = graph.hit_phi.cpu().numpy()
+        z = graph.hit_z.cpu().numpy()
+    else:
+        r = graph.r.cpu().numpy()
+        phi = graph.phi.cpu().numpy()
+        z = graph.z.cpu().numpy()
+    
+    # Unscale coordinates if they were scaled during preprocessing
+    # The scale_features function scales based on node_features in config, which may or may not have prefix
+    if hparams is not None and "node_scales" in hparams and "node_features" in hparams:
+        node_features = hparams["node_features"]
+        node_scales = hparams["node_scales"]
+        
+        # Find which features correspond to r, phi, z and unscale them
+        for i, feature_name in enumerate(node_features):
+            if i >= len(node_scales):
+                continue
+            
+            scale = node_scales[i]
+            
+            # Check if this feature corresponds to r, phi, or z
+            # Handle both prefixed (hit_r) and non-prefixed (r) names
+            base_name = feature_name.replace("hit_", "").replace("_hit", "")
+            
+            if base_name == "r":
+                r = r * scale
+            elif base_name == "phi":
+                phi = phi * scale
+            elif base_name == "z":
+                z = z * scale
     
     # Convert to Cartesian
     x, y, z_cart = cylindrical_to_cartesian(r, phi, z)
@@ -233,7 +305,7 @@ def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mas
         fig.add_trace(go.Scatter3d(
             x=edge_x, y=edge_y, z=edge_z,
             mode='lines',
-            line=dict(color='lightgray', width=0.5),
+            line=dict(color='#A9A9A9', width=0.5),
             opacity=0.05,
             name=f'True Negatives ({tn_mask.sum()})',
             hoverinfo='skip',
@@ -326,7 +398,7 @@ def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mas
     recall = tp_mask.sum() / (tp_mask.sum() + fn_mask.sum()) if (tp_mask.sum() + fn_mask.sum()) > 0 else 0
     
     # Update layout
-    title_text = f"Model: {model_name} | Test Graph #{test_index} | Threshold: {edge_cut}<br>"
+    title_text = f"Model: {model_name} | {dataset_name.capitalize()} Graph #{index} | Threshold: {edge_cut}<br>"
     title_text += f"Accuracy: {accuracy:.3f} | Precision: {precision:.3f} | Recall: {recall:.3f}"
     
     fig.update_layout(
@@ -362,13 +434,16 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python create_evaluated_visual.py epoch9_900 1
+  python create_evaluated_visual.py epoch9_900 testset 1
     # Evaluate 1st test graph with model epoch9_900
   
-  python create_evaluated_visual.py epoch23_900 5 --edge-cut 0.3
-    # Evaluate 5th test graph with threshold 0.3
+  python create_evaluated_visual.py epoch9_900 valset 3
+    # Evaluate 3rd validation graph
   
-  python create_evaluated_visual.py epoch9_900 1 --output results/graph1.html
+  python create_evaluated_visual.py epoch23_900 trainset 5 --edge-cut 0.3
+    # Evaluate 5th training graph with threshold 0.3
+  
+  python create_evaluated_visual.py epoch9_900 testset 1 --output results/graph1.html
     # Save to custom location
 
 Edge colors:
@@ -384,9 +459,15 @@ Edge colors:
         help='Name of the model checkpoint (e.g., epoch9_900)'
     )
     parser.add_argument(
-        'test_index',
+        'dataset',
+        type=str,
+        choices=['trainset', 'valset', 'testset'],
+        help='Dataset to visualize: trainset, valset, or testset'
+    )
+    parser.add_argument(
+        'index',
         type=int,
-        help='Index of test graph to visualize (1-based, e.g., 1 for first test graph)'
+        help='Index of graph to visualize (1-based, e.g., 1 for first graph)'
     )
     parser.add_argument(
         '--edge-cut',
@@ -397,7 +478,7 @@ Edge colors:
     parser.add_argument(
         '--config',
         type=str,
-        default='acorn_configs/minimal_gnn_train.yaml',
+        default='acorn_configs/gnn_train.yaml',
         help='Path to config file'
     )
     parser.add_argument(
@@ -412,7 +493,8 @@ Edge colors:
     try:
         evaluate_and_visualize(
             args.model_name,
-            args.test_index,
+            args.dataset,
+            args.index,
             args.edge_cut,
             args.config,
             args.output

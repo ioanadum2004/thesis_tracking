@@ -18,7 +18,7 @@ Usage examples:
   python create_graph_visual.py valset 3 latent
     # Visualizes the 3rd graph in valset (learned latent space graphs)
   
-  python create_graph_visual.py data/graph_constructed/trainset/event000000001-graph.pyg
+  python create_graph_visual.py data/graph_constructed_latent/trainset/event000000001-graph.pyg
     # Can still use full path if needed
   
 Dependencies: torch, torch_geometric, plotly, pandas, numpy
@@ -220,15 +220,15 @@ def main():
         epilog="""
 Examples:
   python create_graph_visual.py trainset 1
-    # Visualizes the 1st graph in data/graph_constructed/trainset/
+    # Visualizes the 1st graph in data/graph_constructed_latent/trainset/
   
   python create_graph_visual.py trainset 1 latent
     # Visualizes the 1st graph in data/graph_constructed_latent/trainset/
   
   python create_graph_visual.py valset 3
-    # Visualizes the 3rd graph in data/graph_constructed/valset/
+    # Visualizes the 3rd graph in data/graph_constructed_latent/valset/
   
-  python create_graph_visual.py data/graph_constructed/trainset/event000000003-graph.pyg
+  python create_graph_visual.py data/graph_constructed_latent/trainset/event000000003-graph.pyg
     # Can still use full path if needed
         """
     )
@@ -249,7 +249,7 @@ Examples:
         type=str,
         nargs='?',
         default=None,
-        help='Optional: "latent" to use graph_constructed_latent directory instead of graph_constructed'
+        help='Optional: "simple" to use graph_constructed directory instead of graph_constructed_latent (default: latent)'
     )
     parser.add_argument(
         '--output', '-o',
@@ -260,10 +260,10 @@ Examples:
     
     args = parser.parse_args()
     
-    # Determine if using latent graphs
-    use_latent = False
-    if args.mode is not None and args.mode.lower() == 'latent':
-        use_latent = True
+    # Determine if using latent graphs (default is True now)
+    use_latent = True
+    if args.mode is not None and args.mode.lower() == 'simple':
+        use_latent = False
     
     # Determine graph file path
     script_dir = Path(__file__).resolve().parent
@@ -319,14 +319,14 @@ Examples:
         output_path = Path(args.output)
     else:
         # Default: save to data/visuals/ preserving dataset structure
-        # e.g., data/graph_constructed/trainset/event000000001-graph.pyg 
+        # e.g., data/graph_constructed_latent/trainset/event000000001-graph.pyg 
         #   -> data/visuals/trainset/event000000001-graph.html
-        # or data/graph_constructed_latent/trainset/event000000001-graph.pyg
-        #   -> data/visuals/trainset/event000000001-graph_latent.html
+        # or data/graph_constructed/trainset/event000000001-graph.pyg
+        #   -> data/visuals/trainset/event000000001-graph_simple.html
         visuals_dir = script_dir / 'data' / 'visuals'
         
         # Try to preserve dataset structure (trainset/valset/testset)
-        # Check if graph_path is inside data/graph_constructed/
+        # Check if graph_path is inside data/graph_constructed_latent/ or data/graph_constructed/
         try:
             relative_path = graph_path.relative_to(graph_constructed_dir)
             # relative_path will be like: trainset/event000000001-graph.pyg

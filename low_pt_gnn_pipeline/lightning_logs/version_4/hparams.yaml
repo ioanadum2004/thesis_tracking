@@ -1,0 +1,55 @@
+stage: graph_construction
+model: MetricLearning
+input_dir: data/feature_store/
+stage_dir: data/metric_learning/
+project: LowPt_MetricLearning
+accelerator: gpu
+devices: 1
+nodes: 1
+data_split:
+- 900
+- 500
+- 500
+weighting:
+- weight: 1.0
+  conditions:
+    edge_y: false
+- weight: 2.0
+  conditions:
+    edge_y: true
+undirected: true
+train_undirected: true
+node_features:
+- hit_r
+- hit_phi
+- hit_z
+node_scales:
+- 1000
+- 3.14
+- 1000
+emb_hidden: 64
+nb_layer: 4
+emb_dim: 8
+activation: Tanh
+randomisation: 1
+points_per_batch: 1000
+r_train: 0.15
+knn: 50
+knn_val: 500
+warmup: 1
+margin: 0.1
+lr: 0.001
+factor: 0.5
+patience: 3
+max_epochs: 50
+early_stopping_patience: 7
+check_val_every_n_epoch: 1
+metric_to_monitor: val_loss
+metric_mode: min
+num_workers:
+- 8
+- 8
+- 0
+checkpoint_filename: latentmodel_{val_loss:.4f}
+save_top_k: 1
+save_last: false

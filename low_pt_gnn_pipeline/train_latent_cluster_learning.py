@@ -19,6 +19,9 @@ import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
 
+# Enable Tensor Cores for L40S GPU
+torch.set_float32_matmul_precision('medium')
+
 # Add acorn to path
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
