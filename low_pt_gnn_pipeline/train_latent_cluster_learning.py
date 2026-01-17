@@ -18,6 +18,7 @@ import yaml
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 
 # Enable Tensor Cores for L40S GPU
 torch.set_float32_matmul_precision('medium')
@@ -28,6 +29,59 @@ WORKSPACE_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(WORKSPACE_ROOT / 'acorn'))
 
 from acorn.stages.graph_construction.models.metric_learning import MetricLearning
+import torch.optim.lr_scheduler as lr_scheduler
+
+
+class MetricLearningWithReduceLROnPlateau(MetricLearning):
+    """Subclass that overrides configure_optimizers to use ReduceLROnPlateau"""
+    
+    def configure_optimizers(self):
+        optimizer = [
+            torch.optim.AdamW(
+                self.parameters(),
+                lr=(self.hparams["lr"]),
+                betas=(0.9, 0.999),
+                eps=1e-08,
+                amsgrad=True,
+            )
+        ]
+        
+        # Use ReduceLROnPlateau (decreases LR only when validation metric doesn't improve)
+        scheduler_type = self.hparams.get("scheduler", "ReduceLROnPlateau")
+        
+        if scheduler_type == "ReduceLROnPlateau":
+            metric_mode = self.hparams.get("metric_mode", "min")
+            metric_to_monitor = self.hparams.get("metric_to_monitor", "val_loss")
+            scheduler = [
+                {
+                    "scheduler": lr_scheduler.ReduceLROnPlateau(
+                        optimizer[0],
+                        mode=metric_mode,
+                        factor=self.hparams["factor"],
+                        patience=self.hparams["patience"],
+                        verbose=True,
+                    ),
+                    "interval": "epoch",
+                    "frequency": 1,
+                    "monitor": metric_to_monitor,
+                }
+            ]
+        elif scheduler_type == "StepLR":
+            scheduler = [
+                {
+                    "scheduler": lr_scheduler.StepLR(
+                        optimizer[0],
+                        step_size=self.hparams["patience"],
+                        gamma=self.hparams["factor"],
+                    ),
+                    "interval": "epoch",
+                    "frequency": 1,
+                }
+            ]
+        else:
+            raise ValueError(f"Unknown scheduler: {scheduler_type}")
+        
+        return optimizer, scheduler
 
 
 class LossPrinterCallback(Callback):
@@ -82,8 +136,8 @@ def main():
     print("="*80)
     print()
     
-    # Create model
-    stage_module = MetricLearning(config)
+    # Create model (use subclass that supports ReduceLROnPlateau)
+    stage_module = MetricLearningWithReduceLROnPlateau(config)
     
     # Setup output directory
     output_dir = SCRIPT_DIR / config['stage_dir']
@@ -114,6 +168,17 @@ def main():
     
     loss_printer = LossPrinterCallback()
     
+    # Setup loggers
+    loggers = [CSVLogger(save_dir=config["stage_dir"], name="logs")]
+    
+    # Add W&B logger if enabled
+    if config.get("use_wandb", False):
+        loggers.append(WandbLogger(
+            project=config.get("project", "Low_pt_latent_map_MLP"),
+            entity=config.get("wandb_entity"),
+            config=config,
+        ))
+    
     print("="*80)
     print("MODEL ARCHITECTURE")
     print("="*80)
@@ -141,9 +206,10 @@ def main():
         accelerator=accelerator,
         devices=config.get('devices', 1),
         callbacks=[checkpoint_callback, early_stop_callback, loss_printer],
-        log_every_n_steps=config.get('log_every_n_steps', 50),
+        logger=loggers,
+        log_every_n_steps=config.get('wandb_log_every_n_batches', config.get('log_every_n_steps', 50)),
         check_val_every_n_epoch=config.get('check_val_every_n_epoch', 1),
-        enable_progress_bar=False,  # Clean output
+        enable_progress_bar=True,  # Show progress bar
         enable_model_summary=True,
     )
     

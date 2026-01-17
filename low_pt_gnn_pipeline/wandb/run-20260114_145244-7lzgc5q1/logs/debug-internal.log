@@ -1,8 +1,0 @@
-{"time":"2026-01-14T14:52:44.794584778+01:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
-{"time":"2026-01-14T14:52:45.158819714+01:00","level":"INFO","msg":"stream: created new stream","id":"7lzgc5q1"}
-{"time":"2026-01-14T14:52:45.159129673+01:00","level":"INFO","msg":"handler: started","stream_id":"7lzgc5q1"}
-{"time":"2026-01-14T14:52:45.160538731+01:00","level":"INFO","msg":"stream: started","id":"7lzgc5q1"}
-{"time":"2026-01-14T14:52:45.160739444+01:00","level":"INFO","msg":"writer: started","stream_id":"7lzgc5q1"}
-{"time":"2026-01-14T14:52:45.160820286+01:00","level":"INFO","msg":"sender: started","stream_id":"7lzgc5q1"}
-{"time":"2026-01-14T15:31:32.368550216+01:00","level":"INFO","msg":"api: retrying HTTP error","status":502,"url":"https://api.wandb.ai/files/bart_kuipers-nikhef/MinimalGNN_Test/7lzgc5q1/file_stream","body":"\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>502 Server Error</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Server Error</h1>\n<h2>The server encountered a temporary error and could not complete your request.<p>Please try again in 30 seconds.</h2>\n<h2></h2>\n</body></html>\n"}
-{"time":"2026-01-14T16:45:33.525995534+01:00","level":"INFO","msg":"api: retrying HTTP error","status":502,"url":"https://api.wandb.ai/files/bart_kuipers-nikhef/MinimalGNN_Test/7lzgc5q1/file_stream","body":"\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>502 Server Error</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Server Error</h1>\n<h2>The server encountered a temporary error and could not complete your request.<p>Please try again in 30 seconds.</h2>\n<h2></h2>\n</body></html>\n"}

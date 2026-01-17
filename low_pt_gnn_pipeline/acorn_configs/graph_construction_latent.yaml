@@ -1,7 +1,7 @@
-checkpoint: latentmodel_val_loss=0.0048.ckpt
+checkpoint: low_pt_latentmodel_f1_f1=0.0097.ckpt
 
 
-k_max: 15  # Maximum number of neighbors per hit in latent space (KNN)
+k_max: 30  # Maximum number of neighbors per hit in latent space (KNN)
 
 
 device: "cuda"  # Device to run inference on (cuda/cpu)

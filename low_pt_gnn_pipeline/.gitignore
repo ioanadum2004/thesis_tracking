@@ -1,0 +1,6 @@
+# Ignore "All data" directory
+all_data/
+
+saved_models/
+
+wandb/

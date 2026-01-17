@@ -14,7 +14,7 @@ use_truth_hits: true
 simhit_stem: hits  
 
 # Data split: 
-data_split: [900, 50, 50]  # 
+data_split: [9000, 500, 500]  # 
 input_sets: [trainset, valset]  # Which datasets to process
 
 # Feature Configurations

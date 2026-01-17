@@ -10,13 +10,13 @@ Displays all nodes (hits) and edges, with edges colored by their truth labels:
 
 Usage examples:
   python create_graph_visual.py trainset 1
+    # Visualizes the 1st graph in trainset (learned latent space graphs - DEFAULT)
+  
+  python create_graph_visual.py trainset 1 simple
     # Visualizes the 1st graph in trainset (simple radius+KNN graphs)
   
-  python create_graph_visual.py trainset 1 latent
-    # Visualizes the 1st graph in trainset (learned latent space graphs)
-  
-  python create_graph_visual.py valset 3 latent
-    # Visualizes the 3rd graph in valset (learned latent space graphs)
+  python create_graph_visual.py valset 3
+    # Visualizes the 3rd graph in valset (learned latent space graphs - DEFAULT)
   
   python create_graph_visual.py data/graph_constructed_latent/trainset/event000000001-graph.pyg
     # Can still use full path if needed

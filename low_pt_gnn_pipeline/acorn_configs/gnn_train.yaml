@@ -2,7 +2,7 @@
 # Paths are relative to low_pt_gnn_pipeline directory
 input_dir: data/graph_constructed_latent  
 stage_dir: data/gnn_stage/ 
-project: MinimalGNN_Test 
+project: low_pt_GNN 
 accelerator: cuda      #cpu vs cuda 
 devices: 1             
 nodes: 1
