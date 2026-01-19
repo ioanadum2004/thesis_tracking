@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 import yaml
 import torch
+from torch.utils.data import DataLoader
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
@@ -34,6 +35,26 @@ import torch.optim.lr_scheduler as lr_scheduler
 
 class MetricLearningWithReduceLROnPlateau(MetricLearning):
     """Subclass that overrides configure_optimizers to use ReduceLROnPlateau"""
+    
+    def train_dataloader(self):
+        """Override to add shuffle=True for better training"""
+        if self.trainset is None:
+            return None
+        num_workers = (
+            16
+            if (
+                "num_workers" not in self.hparams or self.hparams["num_workers"] is None
+            )
+            else self.hparams["num_workers"][0]
+        )
+        # With batch_size=1, collate_fn just returns the first (and only) element
+        return DataLoader(
+            self.trainset, 
+            batch_size=1, 
+            num_workers=num_workers, 
+            shuffle=True,
+            collate_fn=lambda lst: lst[0]  # Required for PyG Data objects with batch_size=1
+        )
     
     def configure_optimizers(self):
         optimizer = [

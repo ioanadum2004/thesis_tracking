@@ -36,9 +36,10 @@ weighting:
 # Model architecture
 undirected: True  
 train_undirected: True
-node_features: [hit_r, hit_phi, hit_z]  # ActsReader adds 'hit_' prefix
-node_scales: [1000, 3.14, 1000]  
-emb_hidden:   #512    
+node_features: [hit_r, hit_phi, hit_z]  
+node_scales: [1000, 3.14, 3000]  # z scale: NEW dataset ~[-3000,3000]mm (high-pT), OLD dataset ~[-364,235]mm (low-pT)
+                                  # For OLD dataset, use scale=500 instead 
+emb_hidden: 128  #512    
 nb_layer: 5  # depth        eg 3 -> emb_hoidden -> emb_hidden -> emb_dim...x(nb_layer times)--> emb_dim
 emb_dim: 8  # Final latent dimension 
 activation: Tanh 
@@ -46,14 +47,15 @@ activation: Tanh
 # Training sampling parameters
 randomisation: 1  # Add random negative pairs (number = randomisation * points_per_batch)
 points_per_batch: 5000
-r_train: 0.15  
+r_train: 0.1  
 knn: 50  
-knn_val: 100  # Max neighbors during validation (larger for better edge building)
+knn_val: 50  # Max neighbors during validation (larger for better edge building)
 
 # Optimization parameters
-warmup: 1  
-margin: 0.1  # Margin for contrastive loss
-lr: 0.001  
+warmup: 1  # Examples use 5
+margin: 0.1  # Hinge loss margin (paper uses d=1, but examples use 0.1. Margin^2 is used in loss: 0.1^2=0.01)
+             # Paper's margin=1 would be much larger - might be too aggressive for low-pT data
+lr: 0.01  # Examples use 0.01 (was 0.001 - too conservative)
 scheduler: ReduceLROnPlateau  # Decrease LR only when validation metric doesn't improve
 factor: 0.5 # LR decay factor (multiply LR by this when reducing)
 patience: 1  # Number of epochs with no improvement before reducing LR
@@ -63,8 +65,16 @@ check_val_every_n_epoch: 1
 
 
 # Monitoring
-metric_to_monitor: val_loss  # Monitor validation loss for checkpointing and LR scheduling
-metric_mode: min  # Lower loss is better
+# NOTE: With knn_val=100, f1 will be low (~0.01-0.05) due to many false edges
+# This is expected - graph construction prioritizes high recall (efficiency)
+# Purity can be improved later by edge filter + GNN
+# Options:
+#   - signal_eff: Efficiency = Recall = TP/(TP+FN) - finding all true edges (RECOMMENDED)
+#   - signal_pur: Purity = Precision = TP/(TP+FP) - predictions are correct (less important here)
+#   - f1: Harmonic mean of efficiency and purity (examples use this, but will be low with high knn_val)
+#   - val_loss: Training loss (less interpretable)
+metric_to_monitor: signal_eff  # Efficiency (same as Recall) - most important for graph construction
+metric_mode: max  # Higher efficiency/recall is better (find more true edges)
 num_workers: [16, 16, 0]  # Parallel data loading
 
 # GPU optimizations

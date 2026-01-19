@@ -103,6 +103,9 @@ def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config
     model.hparams['stage_dir'] = str(input_dir)
     model.hparams['data_split'] = config['data_split']
     
+    # CRITICAL: Ensure preprocessing is enabled for test stage to match validation preprocessing
+    model.hparams['reprocess_classifier'] = True    #normalization 
+    
     # Load graph file directly from disk (sorted by filename) to match create_graph_visual.py
     dataset_dir = input_dir / dataset_name
     if not dataset_dir.exists():

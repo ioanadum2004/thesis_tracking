@@ -15,6 +15,7 @@
 #include "Acts/Surfaces/SurfaceArray.hpp"
 #include "Acts/Utilities/Helpers.hpp"
 #include "Acts/Utilities/Intersection.hpp"
+#include "Acts/Utilities/StringHelpers.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -156,30 +157,52 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
   auto processSurface = [&](const Surface& sf, bool sensitive = false) {
     // veto if it's start surface
     if (options.startObject == &sf) {
+      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (is startObject)");
       return;
     }
     // veto if it doesn't fit the prescription
     if (!acceptSurface(sf, sensitive)) {
+      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (doesn't match resolve options)");
       return;
     }
     BoundaryTolerance boundaryTolerance = options.boundaryTolerance;
     if (rangeContainsValue(options.externalSurfaces, sf.geometryId())) {
       boundaryTolerance = BoundaryTolerance::Infinite();
+    } else if (sensitive) {
+      // For sensitive surfaces, use infinite boundary tolerance to handle cases
+      // where intersections computed from approach surface position are slightly
+      // outside bounds. 
+      boundaryTolerance = BoundaryTolerance::Infinite();
     }
     // the surface intersection
     SurfaceIntersection sfi =
         sf.intersect(gctx, position, direction, boundaryTolerance).closest();
-    if (sfi.isValid() &&
-        detail::checkPathLength(sfi.pathLength(), nearLimit, farLimit) &&
-        isUnique(sfi)) {
-      sIntersections.push_back(sfi);
-      // Small debug hint for instrumentation: print accepted surface
-      // candidates under ACTS_DEBUG so this can be enabled at runtime.
-      ACTS_DEBUG("Layer::compatibleSurfaces: accepted candidate "
-                 << sfi.surface().geometryId() << " idx=" << sfi.index()
-                 << " path=" << sfi.pathLength()
-                 << " material=" << (sfi.surface().surfaceMaterial() != nullptr));
+    
+    if (!sfi.isValid()) {
+      return;
     }
+    
+    bool pathLengthOk = detail::checkPathLength(sfi.pathLength(), nearLimit, farLimit);
+    if (!pathLengthOk) {
+      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() 
+                   << " (pathLength=" << sfi.pathLength() 
+                   << " not within limits: nearLimit=" << nearLimit 
+                   << " farLimit=" << farLimit << ")");
+      return;
+    }
+    
+    if (!isUnique(sfi)) {
+      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (duplicate)");
+      return;
+    }
+    
+    sIntersections.push_back(sfi);
+    // Small debug hint for instrumentation: print accepted surface
+    // candidates under ACTS_DEBUG so this can be enabled at runtime.
+    ACTS_DEBUG("Layer::compatibleSurfaces: accepted candidate "
+               << sfi.surface().geometryId() << " idx=" << sfi.index()
+               << " path=" << sfi.pathLength()
+               << " material=" << (sfi.surface().surfaceMaterial() != nullptr));
   };
 
   // (A) approach descriptor section
@@ -218,13 +241,25 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
     }
 
     // get the candidates
+    // Original version: neighbors() returns surfaces from bin + neighboring bins (typically 9 surfaces)
+    // const std::vector<const Surface*>& sensitiveSurfaces =
+    //     m_surfaceArray->neighbors(lookupPosition);
+    
+    // New version: at() returns only surfaces in bin containing intersection point (typically 1-2 surfaces)
     const std::vector<const Surface*>& sensitiveSurfaces =
-        m_surfaceArray->neighbors(lookupPosition);
+        m_surfaceArray->at(lookupPosition);
+    
     // loop through and veto
     // - if the approach surface is the parameter surface
     // - if the surface is not compatible with the type(s) that are collected
     for (auto& sSurface : sensitiveSurfaces) {
       processSurface(*sSurface, true);
+    }
+  } else {
+    if (!m_surfaceArray) {
+      ACTS_DEBUG("Layer::compatibleSurfaces: no surfaceArray available");
+    } else {
+      ACTS_DEBUG("Layer::compatibleSurfaces: surfaceArray exists but resolve options don't match");
     }
   }
 

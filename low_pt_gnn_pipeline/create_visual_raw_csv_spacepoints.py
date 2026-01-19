@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-visualize_spacepoints.py <event_prefix> [--output OUTPUT] [--color-by COLOR_BY] [--max-points MAX]
+create_visual_raw_csv_spacepoints.py <event_prefix> [--output OUTPUT] [--color-by COLOR_BY] [--max-points MAX]
 
 Creates an interactive 3D HTML visualization of spacepoints from CSV files.
 Supports two data formats:
@@ -8,16 +8,16 @@ Supports two data formats:
   2. ACTS format: tx,ty,tz columns, particle_id already in hits file
 
 Usage examples:
-  python visualize_spacepoints.py ML_data_trainSamples_100_events/event000001000
-    # Visualizes hits from event000001000-hits.csv
+  python create_visual_raw_csv_spacepoints.py ML_data_trainSamples_100_events/event000001000
+    # Visualizes hits from event000001000-hits.csv (colors by particle_id by default)
   
-  python visualize_spacepoints.py data/csv/event000000000
-    # Visualizes hits from event000000000-hits.csv (ACTS format)
+  python create_visual_raw_csv_spacepoints.py data/csv/event000000000
+    # Visualizes hits from event000000000-hits.csv (ACTS format, colors by particle_id by default)
   
-  python visualize_spacepoints.py data/csv/event000000000 --color-by particle
-    # Colors hits by particle_id
+  python create_visual_raw_csv_spacepoints.py data/csv/event000000000 --color-by none
+    # No coloring (single color)
   
-  python visualize_spacepoints.py ML_data_trainSamples_100_events/event000001000 --color-by volume --max-points 50000
+  python create_visual_raw_csv_spacepoints.py ML_data_trainSamples_100_events/event000001000 --color-by volume --max-points 50000
     # Colors by volume_id and limits to 50000 points
 
 Dependencies: plotly, pandas, numpy
@@ -139,6 +139,18 @@ def create_visualization(df_hits, df_truth=None, df_particles=None, color_by='no
             # Fill NaN particle_ids with 0 (noise hits)
             df_hits['particle_id'] = df_hits['particle_id'].fillna(0)
     
+    # Build particle info dictionary (particle_id -> (pt, eta))
+    particle_info = {}
+    if df_particles is not None and 'particle_id' in df_particles.columns:
+        for _, row in df_particles.iterrows():
+            pid = row['particle_id']
+            px_val = row.get('px', None)
+            py_val = row.get('py', None)
+            pz_val = row.get('pz', None)
+            if px_val is not None and py_val is not None and pz_val is not None:
+                pt, eta = calculate_pt_eta(px_val, py_val, pz_val)
+                particle_info[int(pid)] = (pt, eta)
+    
     # Prepare data for plotting
     x = df_hits['x'].values
     y = df_hits['y'].values
@@ -161,11 +173,14 @@ def create_visualization(df_hits, df_truth=None, df_particles=None, color_by='no
     color_col = None
     title_suffix = ""
     
+    # Always show particle count in title if available
+    if 'particle_id' in df_hits.columns:
+        unique_particles = len(df_hits[df_hits['particle_id'] > 0]['particle_id'].unique())
+        title_suffix = f" — {unique_particles} unique particles"
+    
     if color_by == 'particle':
         if 'particle_id' in df_hits.columns:
             color_col = df_hits['particle_id'].astype(str)
-            unique_particles = df_hits['particle_id'].nunique()
-            title_suffix = f" — {unique_particles} unique particles"
         else:
             print("Warning: particle_id not available, coloring by volume instead")
             color_by = 'volume'
@@ -190,12 +205,12 @@ def create_visualization(df_hits, df_truth=None, df_particles=None, color_by='no
             print("Warning: layer_id not available, using no coloring")
             color_by = 'none'
     
-    # Create hover text
+    # Create hover text - will use DataFrame values after df_plot is created to ensure exact match
     hover_text = []
     for i in range(len(df_hits)):
         hit_id = df_hits.iloc[i].get('hit_id', i)
         hover_info = f"Hit {hit_id}<br>"
-        hover_info += f"x: {x[i]:.2f} mm<br>y: {y[i]:.2f} mm<br>z: {z[i]:.2f} mm<br>"
+        hover_text.append(hover_info)
         if 'volume_id' in df_hits.columns:
             hover_info += f"volume_id: {df_hits.iloc[i]['volume_id']}<br>"
         if 'geometry_id' in df_hits.columns:
@@ -205,63 +220,134 @@ def create_visualization(df_hits, df_truth=None, df_particles=None, color_by='no
         if 'module_id' in df_hits.columns:
             hover_info += f"module_id: {df_hits.iloc[i]['module_id']}<br>"
         if 'particle_id' in df_hits.columns:
-            pid = df_hits.iloc[i]['particle_id']
+            pid = int(df_hits.iloc[i]['particle_id'])
             if pid != 0:
-                hover_info += f"particle_id: {int(pid)}<br>"
+                hover_info += f"particle_id: {pid}"
+                # Add pt and eta if available
+                if pid in particle_info:
+                    pt, eta = particle_info[pid]
+                    hover_info += f" (Pt={pt:.3f} GeV, η={eta:.3f})"
+                hover_info += "<br>"
             else:
                 hover_info += f"particle_id: noise<br>"
         hover_text.append(hover_info)
     
-    # Create figure
+    # Create hover text using the exact numpy arrays that will be plotted
+    hover_text_final = []
+    for i in range(len(x)):
+        hit_id = df_hits.iloc[i].get('hit_id', i)
+        # Use numpy arrays directly (same as what's plotted) to ensure exact match
+        x_val = float(x[i])
+        y_val = float(y[i])
+        z_val = float(z[i])
+        r_val = np.sqrt(x_val**2 + y_val**2)
+        
+        hover_info = f"Hit {hit_id}<br>"
+        hover_info += f"x: {x_val:.2f} mm<br>y: {y_val:.2f} mm<br>z: {z_val:.2f} mm<br>r: {r_val:.2f} mm<br>"
+        
+        if 'volume_id' in df_hits.columns:
+            hover_info += f"volume_id: {df_hits.iloc[i]['volume_id']}<br>"
+        if 'geometry_id' in df_hits.columns:
+            hover_info += f"geometry_id: {df_hits.iloc[i]['geometry_id']}<br>"
+        if 'layer_id' in df_hits.columns:
+            hover_info += f"layer_id: {df_hits.iloc[i]['layer_id']}<br>"
+        if 'module_id' in df_hits.columns:
+            hover_info += f"module_id: {df_hits.iloc[i]['module_id']}<br>"
+        if 'particle_id' in df_hits.columns:
+            pid = int(df_hits.iloc[i]['particle_id'])
+            if pid != 0:
+                hover_info += f"particle_id: {pid}"
+                # Add pt and eta if available
+                if pid in particle_info:
+                    pt, eta = particle_info[pid]
+                    hover_info += f" (Pt={pt:.3f} GeV, η={eta:.3f})"
+                hover_info += "<br>"
+            else:
+                hover_info += f"particle_id: noise<br>"
+        
+        hover_text_final.append(hover_info)
+    
+    # Create figure using go.Scatter3d directly (like other visualization scripts) for exact coordinate control
+    fig = go.Figure()
+    
     if color_col is not None:
-        # Use plotly express for automatic color handling
-        df_plot = pd.DataFrame({
-            'x': x,
-            'y': y,
-            'z': z,
-            'color': color_col,
-            'hover': hover_text
-        })
-        
-        fig = px.scatter_3d(
-            df_plot,
-            x='x', y='y', z='z',
-            color='color',
-            title=f"Spacepoints ({len(x)} hits){title_suffix}{info_msg}",
-            labels={'color': color_by.title()}
-        )
-        
-        # Update marker properties
-        fig.update_traces(
-            marker=dict(size=3, opacity=0.8),
-            hovertemplate='%{customdata}<extra></extra>',
-            customdata=hover_text
-        )
+        # Group points by color and create separate traces
+        if color_by == 'particle' and 'particle_id' in df_hits.columns:
+            # Group by particle ID for better legend control
+            unique_particles = sorted(df_hits['particle_id'].unique())
+            colors = px.colors.qualitative.Set3
+            
+            for i, pid in enumerate(unique_particles):
+                mask = (df_hits['particle_id'] == pid).values  # Convert to numpy array
+                pid_x = x[mask]
+                pid_y = y[mask]
+                pid_z = z[mask]
+                pid_hover = [hover_text_final[j] for j in range(len(x)) if mask[j]]
+                
+                if pid == 0:
+                    name = 'Noise'
+                    color = 'gray'
+                else:
+                    if pid in particle_info:
+                        pt, eta = particle_info[int(pid)]
+                        name = f"Particle {int(pid)} (Pt={pt:.3f} GeV, η={eta:.3f})"
+                    else:
+                        name = f"Particle {int(pid)}"
+                    color = colors[i % len(colors)]
+                
+                fig.add_trace(go.Scatter3d(
+                    x=pid_x,
+                    y=pid_y,
+                    z=pid_z,
+                    mode='markers',
+                    marker=dict(size=3, color=color, opacity=0.8),
+                    text=pid_hover,
+                    hoverinfo='text',
+                    name=name,
+                    showlegend=True
+                ))
+        else:
+            # For volume/layer coloring, use plotly express but then extract traces
+            df_plot = pd.DataFrame({
+                'x': x,
+                'y': y,
+                'z': z,
+                'color': color_col
+            })
+            
+            temp_fig = px.scatter_3d(
+                df_plot,
+                x='x', y='y', z='z',
+                color='color',
+                title=f"Spacepoints ({len(x)} hits){title_suffix}{info_msg}"
+            )
+            
+            # Copy traces to main figure with hover text
+            for i, trace in enumerate(temp_fig.data):
+                trace.text = hover_text_final
+                trace.hoverinfo = 'text'
+                fig.add_trace(trace)
     else:
-        # Simple scatter without coloring
-        fig = go.Figure()
+        # No coloring - single trace
         fig.add_trace(go.Scatter3d(
             x=x,
             y=y,
             z=z,
             mode='markers',
-            marker=dict(
-                size=3,
-                color='steelblue',
-                opacity=0.8
-            ),
-            text=hover_text,
+            marker=dict(size=3, color='steelblue', opacity=0.8),
+            text=hover_text_final,
             hoverinfo='text',
             name=f'Hits ({len(x)})'
         ))
-        
-        fig.update_layout(
-            title=dict(
-                text=f"Spacepoints ({len(x)} hits){info_msg}",
-                x=0.5,
-                xanchor='center'
-            )
+    
+    # Set title
+    fig.update_layout(
+        title=dict(
+            text=f"Spacepoints ({len(x)} hits){title_suffix}{info_msg}",
+            x=0.5,
+            xanchor='center'
         )
+    )
     
     # Update layout
     fig.update_layout(
@@ -283,28 +369,8 @@ def create_visualization(df_hits, df_truth=None, df_particles=None, color_by='no
         hovermode='closest'
     )
     
-    # Try to add particle info to title if available
-    if df_particles is not None and 'particle_id' in df_hits.columns:
-        # Find primary particle (most hits)
-        particle_counts = df_hits['particle_id'].value_counts()
-        if len(particle_counts) > 0 and particle_counts.index[0] != 0:
-            primary_pid = particle_counts.index[0]
-            if 'particle_id' in df_particles.columns:
-                particle_row = df_particles[df_particles['particle_id'] == primary_pid]
-                if len(particle_row) > 0:
-                    px_val = particle_row.iloc[0].get('px', None)
-                    py_val = particle_row.iloc[0].get('py', None)
-                    pz_val = particle_row.iloc[0].get('pz', None)
-                    if px_val is not None and py_val is not None and pz_val is not None:
-                        pt, eta = calculate_pt_eta(px_val, py_val, pz_val)
-                        current_title = fig.layout.title.text
-                        fig.update_layout(
-                            title=dict(
-                                text=f"{current_title} — Primary: Pt={pt:.3f}, eta={eta:.3f}",
-                                x=0.5,
-                                xanchor='center'
-                            )
-                        )
+    # Title already set correctly - just show spacepoints count and particle count
+    # PT/eta info is shown in legend, not title
     
     return fig
 
@@ -315,16 +381,16 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python visualize_spacepoints.py ML_data_trainSamples_100_events/event000001000
+  python create_visual_raw_csv_spacepoints.py ML_data_trainSamples_100_events/event000001000
     # Visualizes hits from event000001000-hits.csv (ML_data format)
   
-  python visualize_spacepoints.py data/csv/event000000000
+  python create_visual_raw_csv_spacepoints.py data/csv/event000000000
     # Visualizes hits from event000000000-hits.csv (ACTS format)
   
-  python visualize_spacepoints.py data/csv/event000000000 --color-by particle
+  python create_visual_raw_csv_spacepoints.py data/csv/event000000000 --color-by particle
     # Colors hits by particle_id
   
-  python visualize_spacepoints.py ML_data_trainSamples_100_events/event000001000 --color-by volume --max-points 50000
+  python create_visual_raw_csv_spacepoints.py ML_data_trainSamples_100_events/event000001000 --color-by volume --max-points 50000
     # Colors by volume_id and limits to 50000 points
         """
     )
@@ -337,14 +403,14 @@ Examples:
         '--output', '-o',
         type=str,
         default=None,
-        help='Output HTML file path (default: <event_prefix>-spacepoints.html)'
+        help='Output HTML file path (default: data/visuals/raw_spacepoints/<dataset>/<event_prefix>-spacepoints.html)'
     )
     parser.add_argument(
         '--color-by',
         type=str,
         choices=['none', 'particle', 'volume', 'layer'],
-        default='none',
-        help='Color points by: none, particle (requires particle_id), volume, or layer (default: none)'
+        default='particle',
+        help='Color points by: none, particle (requires particle_id), volume, or layer (default: particle)'
     )
     parser.add_argument(
         '--max-points',
@@ -411,7 +477,23 @@ Examples:
     if args.output is not None:
         output_path = Path(args.output)
     else:
-        output_path = parent_dir / f"{base_name}-spacepoints.html"
+        # Default: save to data/visuals/raw_spacepoints/<dataset>/
+        # Try to detect dataset from path structure
+        script_dir = Path(__file__).resolve().parent
+        visuals_dir = script_dir / 'data' / 'visuals' / 'raw_spacepoints'
+        
+        dataset_name = None
+        # Check if any parent directory is trainset/valset/testset
+        for parent in hits_path.parents:
+            if parent.name in ['trainset', 'valset', 'testset']:
+                dataset_name = parent.name
+                break
+        
+        if dataset_name:
+            output_path = visuals_dir / dataset_name / f"{base_name}-spacepoints.html"
+        else:
+            # Fallback: save to raw_spacepoints root
+            output_path = visuals_dir / f"{base_name}-spacepoints.html"
     
     output_path.parent.mkdir(parents=True, exist_ok=True)
     

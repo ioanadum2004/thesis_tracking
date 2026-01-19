@@ -33,6 +33,7 @@ feature_sets:
     - hit_eta
     - hit_particle_id
     - hit_region
+    - hit_t  # Time - needed for trajectory ordering of looping particles
   track_features:
     - track_particle_id
     - track_particle_pt

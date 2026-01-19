@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-create_graph_visual.py <dataset> <index> [latent] [--output OUTPUT]
-create_graph_visual.py <graph_file.pyg> [--output OUTPUT]
+create_visual_gnn_data.py <dataset> <index> [latent] [--output OUTPUT]
+create_visual_gnn_data.py <graph_file.pyg> [--output OUTPUT]
 
 Creates an interactive 3D HTML visualization of a graph from the GNN pipeline.
 Displays all nodes (hits) and edges, with edges colored by their truth labels:
@@ -9,16 +9,16 @@ Displays all nodes (hits) and edges, with edges colored by their truth labels:
   - Black: false edges (candidate connections)
 
 Usage examples:
-  python create_graph_visual.py trainset 1
+  python create_visual_gnn_data.py trainset 1
     # Visualizes the 1st graph in trainset (learned latent space graphs - DEFAULT)
   
-  python create_graph_visual.py trainset 1 simple
+  python create_visual_gnn_data.py trainset 1 simple
     # Visualizes the 1st graph in trainset (simple radius+KNN graphs)
   
-  python create_graph_visual.py valset 3
+  python create_visual_gnn_data.py valset 3
     # Visualizes the 3rd graph in valset (learned latent space graphs - DEFAULT)
   
-  python create_graph_visual.py data/graph_constructed_latent/trainset/event000000001-graph.pyg
+  python create_visual_gnn_data.py data/graph_constructed_latent/trainset/event000000001-graph.pyg
     # Can still use full path if needed
   
 Dependencies: torch, torch_geometric, plotly, pandas, numpy
@@ -33,6 +33,7 @@ import yaml
 
 try:
     import plotly.graph_objects as go
+    import plotly.express as px
     import pandas as pd
 except ImportError:
     print("Error: plotly and pandas are required. Install with: pip install plotly pandas")
@@ -122,31 +123,7 @@ def create_visualization(graph, r_max=None, k_max=None):
         showlegend=True
     ))
     
-    # Add true edges (on top)
-    edge_x_true = []
-    edge_y_true = []
-    edge_z_true = []
-    
-    for i in range(true_edges.shape[1]):
-        src = true_edges[0, i]
-        dst = true_edges[1, i]
-        edge_x_true.extend([x[src], x[dst], None])
-        edge_y_true.extend([y[src], y[dst], None])
-        edge_z_true.extend([z[src], z[dst], None])
-    
-    fig.add_trace(go.Scatter3d(
-        x=edge_x_true,
-        y=edge_y_true,
-        z=edge_z_true,
-        mode='lines',
-        line=dict(color='red', width=2),
-        opacity=0.6,
-        name=f'True edges ({num_true})',
-        hoverinfo='skip',
-        showlegend=True
-    ))
-    
-    # Add nodes
+    # Add true edges grouped by particle ID (if available)
     # Try to get particle_id if available (but only if it matches num_nodes)
     particle_ids = None
     if hasattr(graph, 'particle_id') and graph.particle_id is not None:
@@ -154,8 +131,79 @@ def create_visualization(graph, r_max=None, k_max=None):
         if len(pid_tensor) == num_nodes:
             particle_ids = pid_tensor.numpy()
         else:
-            print(f"Warning: particle_id length ({len(pid_tensor)}) doesn't match num_nodes ({num_nodes}), skipping")
+            print(f"Warning: particle_id length ({len(pid_tensor)}) doesn't match num_nodes ({num_nodes}), skipping particle grouping")
+            particle_ids = None
     
+    if particle_ids is not None:
+        # Group true edges by particle ID
+        # Get particle IDs for source nodes of true edges
+        true_edge_src_pids = particle_ids[true_edges[0]]
+        unique_particles = np.unique(true_edge_src_pids)
+        unique_particles = unique_particles[unique_particles > 0]  # Remove noise (pid == 0)
+        
+        # Use qualitative colors for different particles
+        colors = px.colors.qualitative.Set3
+        
+        # Create a trace for each particle
+        for i, pid in enumerate(unique_particles):
+            # Find edges belonging to this particle
+            pid_mask = true_edge_src_pids == pid
+            pid_edges = true_edges[:, pid_mask]
+            
+            if pid_edges.shape[1] == 0:
+                continue
+            
+            # Build edge coordinates for this particle
+            pid_edge_x = []
+            pid_edge_y = []
+            pid_edge_z = []
+            
+            for j in range(pid_edges.shape[1]):
+                src = pid_edges[0, j]
+                dst = pid_edges[1, j]
+                pid_edge_x.extend([x[src], x[dst], None])
+                pid_edge_y.extend([y[src], y[dst], None])
+                pid_edge_z.extend([z[src], z[dst], None])
+            
+            color = colors[i % len(colors)]
+            fig.add_trace(go.Scatter3d(
+                x=pid_edge_x,
+                y=pid_edge_y,
+                z=pid_edge_z,
+                mode='lines',
+                line=dict(color=color, width=2),
+                opacity=0.7,
+                name=f'Particle {pid} ({pid_edges.shape[1]} edges)',
+                hoverinfo='skip',
+                showlegend=True
+            ))
+    else:
+        # Fallback: single trace for all true edges if particle_id not available
+        edge_x_true = []
+        edge_y_true = []
+        edge_z_true = []
+        
+        for i in range(true_edges.shape[1]):
+            src = true_edges[0, i]
+            dst = true_edges[1, i]
+            edge_x_true.extend([x[src], x[dst], None])
+            edge_y_true.extend([y[src], y[dst], None])
+            edge_z_true.extend([z[src], z[dst], None])
+        
+        fig.add_trace(go.Scatter3d(
+            x=edge_x_true,
+            y=edge_y_true,
+            z=edge_z_true,
+            mode='lines',
+            line=dict(color='red', width=2),
+            opacity=0.6,
+            name=f'True edges ({num_true})',
+            hoverinfo='skip',
+            showlegend=True
+        ))
+    
+    # Add nodes
+    # (particle_ids already extracted above if available)
     hover_text = []
     for i in range(num_nodes):
         hover_info = f"Node {i}<br>x: {x[i]:.1f} mm<br>y: {y[i]:.1f} mm<br>z: {z[i]:.1f} mm<br>"
@@ -219,16 +267,16 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python create_graph_visual.py trainset 1
+  python create_visual_gnn_data.py trainset 1
     # Visualizes the 1st graph in data/graph_constructed_latent/trainset/
   
-  python create_graph_visual.py trainset 1 latent
+  python create_visual_gnn_data.py trainset 1 latent
     # Visualizes the 1st graph in data/graph_constructed_latent/trainset/
   
-  python create_graph_visual.py valset 3
+  python create_visual_gnn_data.py valset 3
     # Visualizes the 3rd graph in data/graph_constructed_latent/valset/
   
-  python create_graph_visual.py data/graph_constructed_latent/trainset/event000000003-graph.pyg
+  python create_visual_gnn_data.py data/graph_constructed_latent/trainset/event000000003-graph.pyg
     # Can still use full path if needed
         """
     )
@@ -255,7 +303,7 @@ Examples:
         '--output', '-o',
         type=str,
         default=None,
-        help='Output HTML file path (default: data/visuals/<dataset>/<filename>.html)'
+        help='Output HTML file path (default: data/visuals/gnn_data/<dataset>/<filename>.html)'
     )
     
     args = parser.parse_args()
@@ -318,30 +366,31 @@ Examples:
     if args.output is not None:
         output_path = Path(args.output)
     else:
-        # Default: save to data/visuals/ preserving dataset structure
+        # Default: save to data/visuals/gnn_data/<dataset>/ preserving dataset structure
         # e.g., data/graph_constructed_latent/trainset/event000000001-graph.pyg 
-        #   -> data/visuals/trainset/event000000001-graph.html
-        # or data/graph_constructed/trainset/event000000001-graph.pyg
-        #   -> data/visuals/trainset/event000000001-graph_simple.html
-        visuals_dir = script_dir / 'data' / 'visuals'
+        #   -> data/visuals/gnn_data/trainset/event000000001-graph.html
+        visuals_dir = script_dir / 'data' / 'visuals' / 'gnn_data'
         
         # Try to preserve dataset structure (trainset/valset/testset)
         # Check if graph_path is inside data/graph_constructed_latent/ or data/graph_constructed/
         try:
             relative_path = graph_path.relative_to(graph_constructed_dir)
             # relative_path will be like: trainset/event000000001-graph.pyg
-            base_output = visuals_dir / relative_path.with_suffix('.html')
-            # Add _latent suffix if using latent graphs
-            if use_latent:
-                output_path = base_output.with_stem(base_output.stem + '_latent')
-            else:
-                output_path = base_output
+            output_path = visuals_dir / relative_path.with_suffix('.html')
         except ValueError:
-            # If not in expected structure, just use filename
-            base_name = graph_path.name.replace('.pyg', '.html')
-            if use_latent:
-                base_name = base_name.replace('.html', '_latent.html')
-            output_path = visuals_dir / base_name
+            # If not in expected structure, try to extract dataset from path or use default
+            # Check if any parent directory is trainset/valset/testset
+            dataset_name = None
+            for parent in graph_path.parents:
+                if parent.name in ['trainset', 'valset', 'testset']:
+                    dataset_name = parent.name
+                    break
+            
+            if dataset_name:
+                output_path = visuals_dir / dataset_name / graph_path.name.replace('.pyg', '.html')
+            else:
+                # Fallback: save to gnn_data root
+                output_path = visuals_dir / graph_path.name.replace('.pyg', '.html')
         
         # Create visuals directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)

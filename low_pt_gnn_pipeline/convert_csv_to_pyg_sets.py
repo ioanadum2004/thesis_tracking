@@ -24,7 +24,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(WORKSPACE_ROOT / 'acorn'))
 
-from acorn.stages.data_reading.models.acts_reader import ActsReader
+# Use custom reader for low-pT data with time-based trajectory ordering
+from acts_custom_low_pt_reader import ActsCustomLowPTReader as ActsReader
 
 
 def main():
@@ -48,7 +49,8 @@ def main():
     
     # Create reader and convert
     print("Starting conversion...")
-    reader = ActsReader.infer(config)
+    print("Using ActsCustomLowPTReader for time-based trajectory ordering")
+    reader = ActsReader.infer(config)  # ActsReader is now ActsCustomLowPTReader
     
     print()
     print("="*80)

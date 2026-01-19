@@ -18,7 +18,7 @@ edge_cut: 0.5  # Threshold for edge classification (0-1)
 undirected: True
 undirected_message_passing: True
 node_features: [r, phi, z] 
-node_scales: [1000, 3.14, 1000]  
+node_scales: [1000, 3.14, 500]      #note z scale 
 hidden: 128  # 128 
 n_graph_iters: 5  #  8
 nb_node_layer: 2
