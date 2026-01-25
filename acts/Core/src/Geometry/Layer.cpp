@@ -121,7 +121,8 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
 
   // Provide a local logger so ACTS_DEBUG/VERBOSE macros can be used in this
   // function scope (the logging macros expect a callable `logger()` in scope).
-  ACTS_LOCAL_LOGGER(getDefaultLogger("Layer", Logging::Level::DEBUG));
+  // Use VERBOSE (most permissive) so the global logger level from config can filter messages
+  ACTS_LOCAL_LOGGER(getDefaultLogger("Layer", Logging::Level::VERBOSE));
 
   // fast exit - there is nothing to
   if (!m_surfaceArray || !m_approachDescriptor) {
@@ -166,12 +167,15 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
       return;
     }
     BoundaryTolerance boundaryTolerance = options.boundaryTolerance;
+    // Old approach: only externalSurfaces had infinite tolerance
+    // if (rangeContainsValue(options.externalSurfaces, sf.geometryId())) {
+    //   boundaryTolerance = BoundaryTolerance::Infinite();
+    // }
     if (rangeContainsValue(options.externalSurfaces, sf.geometryId())) {
       boundaryTolerance = BoundaryTolerance::Infinite();
-    } else if (sensitive) {
-      // For sensitive surfaces, use infinite boundary tolerance to handle cases
-      // where intersections computed from approach surface position are slightly
-      // outside bounds. 
+    }
+    // New approach: use infinite boundary tolerance for sensitive surfaces   (note, we pair thsi with the at() insated of neighbour function function for surface array lookup)
+    if (sensitive) {
       boundaryTolerance = BoundaryTolerance::Infinite();
     }
     // the surface intersection
@@ -241,11 +245,11 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
     }
 
     // get the candidates
-    // Original version: neighbors() returns surfaces from bin + neighboring bins (typically 9 surfaces)
+    // Old approach: neighbors() returns surfaces from bin + 8 surrounding neighbors (3x3 grid)
     // const std::vector<const Surface*>& sensitiveSurfaces =
     //     m_surfaceArray->neighbors(lookupPosition);
     
-    // New version: at() returns only surfaces in bin containing intersection point (typically 1-2 surfaces)
+    // New approach: at() returns only surfaces in the exact bin containing lookupPosition
     const std::vector<const Surface*>& sensitiveSurfaces =
         m_surfaceArray->at(lookupPosition);
     

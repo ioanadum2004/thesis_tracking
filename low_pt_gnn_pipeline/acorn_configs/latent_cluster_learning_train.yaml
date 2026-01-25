@@ -1,7 +1,5 @@
 # Metric Learning Training Configuration
 # Trains a model to map hit features to a latent space where hits from the same 
-# particle are close together. This learned embedding can then be used to build
-# graphs more intelligently than simple radius + KNN.
 
 stage: graph_construction
 model: MetricLearning
@@ -37,8 +35,7 @@ weighting:
 undirected: True  
 train_undirected: True
 node_features: [hit_r, hit_phi, hit_z]  
-node_scales: [1000, 3.14, 3000]  # z scale: NEW dataset ~[-3000,3000]mm (high-pT), OLD dataset ~[-364,235]mm (low-pT)
-                                  # For OLD dataset, use scale=500 instead 
+node_scales: [1000, 3.14, 500]  
 emb_hidden: 128  #512    
 nb_layer: 5  # depth        eg 3 -> emb_hoidden -> emb_hidden -> emb_dim...x(nb_layer times)--> emb_dim
 emb_dim: 8  # Final latent dimension 
@@ -52,10 +49,9 @@ knn: 50
 knn_val: 50  # Max neighbors during validation (larger for better edge building)
 
 # Optimization parameters
-warmup: 1  # Examples use 5
-margin: 0.1  # Hinge loss margin (paper uses d=1, but examples use 0.1. Margin^2 is used in loss: 0.1^2=0.01)
-             # Paper's margin=1 would be much larger - might be too aggressive for low-pT data
-lr: 0.01  # Examples use 0.01 (was 0.001 - too conservative)
+warmup: 1  
+margin: 0.1  # Hinge loss margin 
+lr: 0.01  # Examples use 0.01
 scheduler: ReduceLROnPlateau  # Decrease LR only when validation metric doesn't improve
 factor: 0.5 # LR decay factor (multiply LR by this when reducing)
 patience: 1  # Number of epochs with no improvement before reducing LR
@@ -73,14 +69,14 @@ check_val_every_n_epoch: 1
 #   - signal_pur: Purity = Precision = TP/(TP+FP) - predictions are correct (less important here)
 #   - f1: Harmonic mean of efficiency and purity (examples use this, but will be low with high knn_val)
 #   - val_loss: Training loss (less interpretable)
-metric_to_monitor: signal_eff  # Efficiency (same as Recall) - most important for graph construction
-metric_mode: max  # Higher efficiency/recall is better (find more true edges)
+metric_to_monitor: val_f1  # F1 score on validation set (harmonic mean of efficiency and purity)
+metric_mode: max  # Higher F1 score is better (balance between efficiency and purity)
 num_workers: [16, 16, 0]  # Parallel data loading
 
 # GPU optimizations
 precision: 16-mixed  # Mixed precision training for 2x speedup
 
 # Checkpointing 
-checkpoint_filename: "latentmodel_val_loss_{val_loss:.4f}"  # Filename template with validation loss
+checkpoint_filename: "latentmodel_f1_{val_f1:.4f}"  # Filename template with validation F1 score
 save_top_k: 1  # Only save the single best model
 save_last: false  

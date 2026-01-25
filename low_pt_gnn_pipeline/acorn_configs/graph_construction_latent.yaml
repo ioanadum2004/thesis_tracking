@@ -1,10 +1,12 @@
-checkpoint: low_pt_latentmodel_val_loss_val_loss=0.0074.ckpt
+checkpoint: low_PT_latentmodel_Eff_0.98.ckpt
+
+
 
 
 k_max: 50  # Maximum number of neighbors per hit in latent space (KNN)
 
 
-device: "cuda"  # Device to run inference on (cuda/cpu)
+device: "cuda"  #  (cuda/cpu)
 
 input_dir: data/feature_store/  # Input graphs (from ActsReader)
 output_dir: data/graph_constructed_latent/  # Output graphs with learned edges

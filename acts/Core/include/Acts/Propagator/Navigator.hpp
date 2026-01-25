@@ -710,12 +710,10 @@ class Navigator {
           navOpts.externalSurfaces.push_back(itSurface->second);
         }
       }
-      // Use pure radial direction for surface resolution when going inward in barrel regions
-      Vector3 effectiveDirection = computeEffectiveDirection(state, position, direction);
-      
-      // Request the compatible surfaces
+      // Pass the real direction (not effectiveDirection) to compatibleSurfaces
+      // This ensures lookupPosition and intersection calculations use the real trajectory direction
       state.navSurfaces = currentLayer->compatibleSurfaces(
-          state.options.geoContext, position, effectiveDirection, navOpts);
+          state.options.geoContext, position, direction, navOpts);
       // Sort the surfaces by path length.
       // Special care is taken for the external surfaces which should always
       // come first, so they are preferred to be targeted and hit first.

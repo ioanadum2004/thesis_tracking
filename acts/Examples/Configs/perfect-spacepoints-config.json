@@ -11,13 +11,13 @@
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.3,     
-        "max": 0.3,
+        "min": 0.12,     
+        "max": 0.13,
         "transverse": true
       },
       "eta": {
-        "min": -0.13,
-        "max": 0.13,
+        "min": -0.1,
+        "max": -0.13,
         "uniform": true
       },
       "phi": {
@@ -42,7 +42,7 @@
     }
   },
   "simulation_physics": {
-    "enableInteractions": false,
+    "enableInteractions": true,
     "Comment": "note: total momentum (not P_T). Units are in GeV particle stops propagating in simulation after this limit. also affects effieciency",
     "pMin": 0.01
   },
@@ -169,7 +169,7 @@
   },
   "logging": {
     "comment": "Logging configuration: INFO, DEBUG, VERBOSE (Order by detail), n = number of stppper steps between log",
-    "level":"INFO",
+    "level":"VERBOSE",
     "n": 0
   }
 }
