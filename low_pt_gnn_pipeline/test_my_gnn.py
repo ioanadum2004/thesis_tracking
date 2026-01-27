@@ -47,23 +47,31 @@ def evaluate_accuracy(model_name, config_file='acorn_configs/gnn_train.yaml', ed
     # Find checkpoint
     checkpoint_path = find_checkpoint(model_name)
 
-    # Load model
+    # Load checkpoint to get its hyperparameters (preserve architecture params)
     print("Loading model from checkpoint...")
+    checkpoint = torch.load(str(checkpoint_path), map_location='cpu', weights_only=False)
+    checkpoint_hparams = checkpoint.get('hyper_parameters', {})
+    
+    # Start with checkpoint hyperparameters (preserves architecture like 'hidden')
+    # Then fill in any missing keys from config
+    merged_hparams = {**checkpoint_hparams}
+    for key, value in config.items():
+        if key not in merged_hparams:
+            merged_hparams[key] = value
+    
+    # Override paths and data-related params from current config
+    data_dir = Path(__file__).parent / "data" / "graph_constructed_latent"
+    merged_hparams['input_dir'] = str(data_dir)
+    merged_hparams['stage_dir'] = str(data_dir)
+    merged_hparams['data_split'] = config['data_split']
+    merged_hparams['reprocess_classifier'] = True
+    
+    # Load model with merged hyperparameters
     model = InteractionGNN.load_from_checkpoint(
         str(checkpoint_path),
-        map_location='cuda' if torch.cuda.is_available() else 'cpu'
+        map_location='cuda' if torch.cuda.is_available() else 'cpu',
+        **merged_hparams
     )
-    
-    # Override paths to use current config
-    data_dir = Path(__file__).parent / "data" / "graph_constructed_latent"
-    model.hparams['input_dir'] = str(data_dir)
-    model.hparams['stage_dir'] = str(data_dir)
-    model.hparams['data_split'] = config['data_split']
-    
-    # CRITICAL: Ensure preprocessing is enabled for test stage to match validation preprocessing
-    # (including feature scaling/normalization). Without this, test data won't be scaled
-    # and will perform poorly since the model was trained on scaled features.
-    model.hparams['reprocess_classifier'] = True
     
     # Setup data (this will preprocess it)
     if use_validation:

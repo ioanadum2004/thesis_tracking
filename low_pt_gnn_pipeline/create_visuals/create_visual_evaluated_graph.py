@@ -45,7 +45,7 @@ from acorn.stages.edge_classifier.models.interaction_gnn import InteractionGNN
 def find_checkpoint(model_name, base_dir=None):
     """Find checkpoint file in saved_models directory."""
     if base_dir is None:
-        base_dir = Path(__file__).parent / "saved_models"
+        base_dir = Path(__file__).resolve().parent.parent / "saved_models"
     
     checkpoint_path = base_dir / f"{model_name}.ckpt"
     if checkpoint_path.exists():
@@ -61,7 +61,7 @@ def cylindrical_to_cartesian(r, phi, z):
     return x, y, z
 
 
-def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config_file='acorn_configs/gnn_train.yaml', output_path=None):
+def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config_file=None, output_path=None):
     """
     Load model, evaluate on a specific graph, and create visualization.
     
@@ -82,6 +82,16 @@ def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config
     if dataset_name not in ['trainset', 'valset', 'testset']:
         raise ValueError(f"Dataset must be 'trainset', 'valset', or 'testset', got '{dataset_name}'")
     
+    # Set default config file if not provided
+    if config_file is None:
+        script_dir = Path(__file__).resolve().parent
+        config_file = script_dir.parent / 'acorn_configs' / 'gnn_train.yaml'
+    else:
+        config_file = Path(config_file)
+        if not config_file.is_absolute():
+            script_dir = Path(__file__).resolve().parent
+            config_file = script_dir.parent / config_file
+    
     # Load config
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
@@ -90,21 +100,32 @@ def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config
     checkpoint_path = find_checkpoint(model_name)
     print(f"Found checkpoint: {checkpoint_path}")
     
-    # Load model
+    # Load checkpoint to get its hyperparameters (preserve architecture params)
     print("Loading model from checkpoint...")
+    checkpoint = torch.load(str(checkpoint_path), map_location='cpu', weights_only=False)
+    checkpoint_hparams = checkpoint.get('hyper_parameters', {})
+    
+    # Start with checkpoint hyperparameters (preserves architecture like 'hidden')
+    # Then fill in any missing keys from config
+    merged_hparams = {**checkpoint_hparams}
+    for key, value in config.items():
+        if key not in merged_hparams:
+            merged_hparams[key] = value
+    
+    # Override paths and data-related params from current config
+    script_dir = Path(__file__).resolve().parent
+    input_dir = script_dir.parent / config['input_dir']
+    merged_hparams['input_dir'] = str(input_dir)
+    merged_hparams['stage_dir'] = str(input_dir)
+    merged_hparams['data_split'] = config['data_split']
+    merged_hparams['reprocess_classifier'] = True
+    
+    # Load model with merged hyperparameters
     model = InteractionGNN.load_from_checkpoint(
         str(checkpoint_path),
-        map_location='cuda' if torch.cuda.is_available() else 'cpu'
-    )
-    
-    # Setup data - use input_dir from config
-    input_dir = Path(__file__).parent / config['input_dir']
-    model.hparams['input_dir'] = str(input_dir)
-    model.hparams['stage_dir'] = str(input_dir)
-    model.hparams['data_split'] = config['data_split']
-    
-    # CRITICAL: Ensure preprocessing is enabled for test stage to match validation preprocessing
-    model.hparams['reprocess_classifier'] = True    #normalization 
+        map_location='cuda' if torch.cuda.is_available() else 'cpu',
+        **merged_hparams
+    ) 
     
     # Load graph file directly from disk (sorted by filename) to match create_graph_visual.py
     dataset_dir = input_dir / dataset_name
@@ -215,7 +236,8 @@ def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config
     
     # Determine output path
     if output_path is None:
-        visuals_dir = Path(__file__).parent / 'data' / 'visuals' / 'evaluated' / dataset_name
+        script_dir = Path(__file__).resolve().parent
+        visuals_dir = script_dir.parent / 'data' / 'visuals' / 'evaluated' / dataset_name
         visuals_dir.mkdir(parents=True, exist_ok=True)
         output_path = visuals_dir / f"{model_name}_{dataset_name}{index:03d}_threshold{edge_cut}.html"
     else:
@@ -481,8 +503,8 @@ Edge colors:
     parser.add_argument(
         '--config',
         type=str,
-        default='acorn_configs/gnn_train.yaml',
-        help='Path to config file'
+        default=None,
+        help='Path to config file (default: ../acorn_configs/gnn_train.yaml)'
     )
     parser.add_argument(
         '--output', '-o',

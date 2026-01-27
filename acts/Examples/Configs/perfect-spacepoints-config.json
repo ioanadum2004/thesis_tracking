@@ -11,13 +11,13 @@
     "particleGun": {
       "momentum": {
         "_comment": "Units are in GeV",
-        "min": 0.12,     
-        "max": 0.13,
+        "min": 0.1,     
+        "max": 0.25,
         "transverse": true
       },
       "eta": {
-        "min": -0.1,
-        "max": -0.13,
+        "min": -0.14,
+        "max": 0.14,
         "uniform": true
       },
       "phi": {
@@ -29,7 +29,7 @@
         "count": 1,
         "randomizeCharge": true
       },
-      "multiplicity": 1
+      "multiplicity": 100
     }
   },
   "detector": {
@@ -169,7 +169,7 @@
   },
   "logging": {
     "comment": "Logging configuration: INFO, DEBUG, VERBOSE (Order by detail), n = number of stppper steps between log",
-    "level":"VERBOSE",
+    "level":"INFO",
     "n": 0
   }
 }

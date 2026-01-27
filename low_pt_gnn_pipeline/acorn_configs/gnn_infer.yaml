@@ -1,0 +1,31 @@
+# Edge Classifier Inference Configuration
+# This config is used to run inference with a trained GNN edge classifier
+
+# CommonFramework configuration
+stage: edge_classifier
+model: InteractionGNN
+
+# Checkpoint path (optional - if not specified, will use latest checkpoint from stage_dir)
+# Can be absolute path or relative to low_pt_gnn_pipeline directory
+checkpoint: saved_models/Low_pt_gnn_best_val_loss_val_loss=0.0128.ckpt
+
+# Paths are relative to low_pt_gnn_pipeline directory
+input_dir: data/graph_constructed_latent  # Input graphs (from graph construction stage)
+stage_dir: data/gnn_stage  # Output directory (graphs with edge_scores will be saved here)
+
+# Dataset parameters
+data_split: [90, 50, 50]  # [training, validation, testing] - should match training config
+
+# Inference options
+accelerator: cpu  # cpu vs cuda
+devices: 1
+nodes: 1
+
+
+
+# Model parameters (should match training config)
+undirected: True
+undirected_message_passing: True
+node_features: [r, phi, z]
+node_scales: [1000, 3.14, 500]
+variable_with_prefix: true  # Keep edge_scores (don't rename to scores)

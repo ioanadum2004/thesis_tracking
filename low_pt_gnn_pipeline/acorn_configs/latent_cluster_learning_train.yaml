@@ -7,7 +7,7 @@ model: MetricLearning
 # Data directories
 input_dir: data/feature_store/  # PyG graphs from ActsReader (has r, phi, z, particle_id)
 stage_dir: data/metric_learning/  # Output directory for trained model
-project: Low_pt_latent_map_MLP  # W&B project name
+project: Low_pt_latent_map_MLP_100  # W&B project name
 accelerator: gpu
 devices: 1
 nodes: 1
@@ -69,7 +69,7 @@ check_val_every_n_epoch: 1
 #   - signal_pur: Purity = Precision = TP/(TP+FP) - predictions are correct (less important here)
 #   - f1: Harmonic mean of efficiency and purity (examples use this, but will be low with high knn_val)
 #   - val_loss: Training loss (less interpretable)
-metric_to_monitor: val_f1  # F1 score on validation set (harmonic mean of efficiency and purity)
+metric_to_monitor: f1  # F1 score on validation set (harmonic mean of efficiency and purity)
 metric_mode: max  # Higher F1 score is better (balance between efficiency and purity)
 num_workers: [16, 16, 0]  # Parallel data loading
 
@@ -77,6 +77,6 @@ num_workers: [16, 16, 0]  # Parallel data loading
 precision: 16-mixed  # Mixed precision training for 2x speedup
 
 # Checkpointing 
-checkpoint_filename: "latentmodel_f1_{val_f1:.4f}"  # Filename template with validation F1 score
+checkpoint_filename: "latentmodel_f1_{f1:.4f}"  # Filename template with validation F1 score
 save_top_k: 1  # Only save the single best model
 save_last: false  

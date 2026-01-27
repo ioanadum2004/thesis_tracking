@@ -316,10 +316,10 @@ Examples:
     # Determine graph file path
     script_dir = Path(__file__).resolve().parent
     if use_latent:
-        graph_constructed_dir = script_dir / 'data' / 'graph_constructed_latent'
+        graph_constructed_dir = script_dir.parent / 'data' / 'graph_constructed_latent'
         config_file = 'graph_construction_latent.yaml'
     else:
-        graph_constructed_dir = script_dir / 'data' / 'graph_constructed'
+        graph_constructed_dir = script_dir.parent / 'data' / 'graph_constructed'
         config_file = 'graph_construction.yaml'
     
     # Check if input is "<dataset> <index>" format
@@ -369,7 +369,7 @@ Examples:
         # Default: save to data/visuals/gnn_data/<dataset>/ preserving dataset structure
         # e.g., data/graph_constructed_latent/trainset/event000000001-graph.pyg 
         #   -> data/visuals/gnn_data/trainset/event000000001-graph.html
-        visuals_dir = script_dir / 'data' / 'visuals' / 'gnn_data'
+        visuals_dir = script_dir.parent / 'data' / 'visuals' / 'gnn_data'
         
         # Try to preserve dataset structure (trainset/valset/testset)
         # Check if graph_path is inside data/graph_constructed_latent/ or data/graph_constructed/
@@ -408,7 +408,7 @@ Examples:
     print(f"  • True edges: {graph.edge_y.sum().item()} ({100*graph.edge_y.sum().item()/graph.edge_y.shape[0]:.1f}%)")
     
     # Load graph construction parameters from config
-    config_path = script_dir / 'acorn_configs' / config_file
+    config_path = script_dir.parent / 'acorn_configs' / config_file
     r_max = None
     k_max = None
     try:

@@ -480,7 +480,7 @@ Examples:
         # Default: save to data/visuals/raw_spacepoints/<dataset>/
         # Try to detect dataset from path structure
         script_dir = Path(__file__).resolve().parent
-        visuals_dir = script_dir / 'data' / 'visuals' / 'raw_spacepoints'
+        visuals_dir = script_dir.parent / 'data' / 'visuals' / 'raw_spacepoints'
         
         dataset_name = None
         # Check if any parent directory is trainset/valset/testset

@@ -2,7 +2,7 @@
 # Paths are relative to low_pt_gnn_pipeline directory
 input_dir: data/graph_constructed_latent  
 stage_dir: data/gnn_stage/ 
-project: low_pt_GNN 
+project: low_pt_GNN_100
 accelerator: cuda      #cpu vs cuda 
 devices: 1             
 nodes: 1
@@ -19,8 +19,8 @@ undirected: True
 undirected_message_passing: True
 node_features: [r, phi, z] 
 node_scales: [1000, 3.14, 500]      #note z scale 
-hidden: 64 # 128 
-n_graph_iters: 5  #  8
+hidden: 256 # 128 
+n_graph_iters: 6  #  8
 nb_node_layer: 2
 nb_edge_layer: 2
 emb_channels: 0
@@ -34,11 +34,11 @@ output_activation: Tanh
 # batch_size: Hardcoded to 1 in ACORN (full-event training, one graph at a time)
 num_workers: [8, 8, 0]        # Workers [train, val, test] 8 seems fine for this gpu for now 
 max_epochs: 50
-warmup: 0          #lineair increse from o to lr over warup epoch 
+warmup: 2          #lineair increse from o to lr over warup epoch 
 lr: 0.001          # find on initial data ~ 0.001 seems to big   --- try 0,0001
 scheduler: ReduceLROnPlateau  # Reduce LR only when val_loss doesn't improve
 factor: 0.5  
-patience: 1     # Reduce LR after val_loss hasn't improved for this many epochs 
+patience: 0     # Reduce LR after val_loss hasn't improved for this many epochs 
 log_every_n_steps: 1  # Log loss
 check_val_every_n_epoch: 1  # Run validation every N epochs
 

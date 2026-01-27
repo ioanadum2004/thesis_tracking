@@ -377,7 +377,7 @@ Examples:
     
     # Determine graph file path
     script_dir = Path(__file__).resolve().parent
-    feature_store_dir = script_dir / 'data' / 'feature_store'
+    feature_store_dir = script_dir.parent / 'data' / 'feature_store'
     
     # Check if input is "<dataset> <index>" format
     if args.index is not None:
@@ -450,7 +450,7 @@ Examples:
         # Default: save to data/visuals/latent_data/<dataset>/ preserving dataset structure
         # e.g., data/feature_store/testset/event000000000-graph.pyg 
         #   -> data/visuals/latent_data/testset/event000000000-graph.html
-        visuals_dir = script_dir / 'data' / 'visuals' / 'latent_data'
+        visuals_dir = script_dir.parent / 'data' / 'visuals' / 'latent_data'
         
         # Try to preserve dataset structure (trainset/valset/testset)
         # Check if graph_path is inside data/feature_store/
