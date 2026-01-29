@@ -1,0 +1,54 @@
+input_dir: data/graph_constructed_latent
+stage_dir: data/gnn_stage/
+project: low_pt_GNN
+accelerator: cuda
+devices: 1
+nodes: 1
+logger: false
+use_wandb: true
+wandb_entity: bart_kuipers-nikhef
+wandb_log_every_n_batches: 500
+data_split:
+- 9000
+- 500
+- 500
+edge_cut: 0.5
+undirected: true
+undirected_message_passing: true
+node_features:
+- hit_r
+- hit_phi
+- hit_z
+node_scales:
+- 1000
+- 3.14
+- 500
+hidden: 128
+n_graph_iters: 5
+nb_node_layer: 2
+nb_edge_layer: 2
+emb_channels: 0
+layernorm: true
+batchnorm: false
+aggregation:
+- sum
+- mean
+- max
+hidden_activation: SiLU
+output_activation: Tanh
+num_workers:
+- 8
+- 8
+- 0
+max_epochs: 50
+warmup: 0
+lr: 0.001
+scheduler: ReduceLROnPlateau
+factor: 0.5
+patience: 1
+log_every_n_steps: 1
+check_val_every_n_epoch: 1
+pos_weight: 1
+node_net_recurrent: true
+edge_net_recurrent: true
+track_running_stats: false

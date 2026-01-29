@@ -6,13 +6,16 @@ This script reads the matching DataFrame and summary statistics from evaluate_tr
 and creates efficiency plots vs pT and η, similar to ACTS performance plots.
 
 Usage:
-    python plot_track_metrics.py [--input-dir DIR] [--dataset DATASET] [--output-dir DIR]
+    python plot_track_metrics.py <dataset>
 
 Examples:
-    python plot_track_metrics.py
-        # Uses default: data/track_evaluation/testset
-    
-    python plot_track_metrics.py --input-dir results/eval --dataset testset
+    python plot_track_metrics.py testset
+        # Plot from data/track_evaluation/testset/
+
+    python plot_track_metrics.py valset
+        # Plot from data/track_evaluation/valset/
+
+    python plot_track_metrics.py testset --input-dir results/eval
         # Plot from custom evaluation directory
 """
 
@@ -89,7 +92,17 @@ def plot_efficiency_vs_variable(particles_df, var, varconf, output_path, summary
     
     true_x = x[reconstructable]
     reco_x = x[reconstructed]
-    
+
+    # Skip if no data
+    if len(true_x) == 0:
+        print(f"Warning: No reconstructable particles with {var} data. Skipping.")
+        return
+
+    # For log scale, check for positive values
+    if var == 'pt' and np.all(true_x <= 0):
+        print(f"Warning: All {var} values are <= 0. Skipping log-scale plot.")
+        return
+
     # Determine bins
     if 'x_bins' in varconf:
         x_bins = varconf['x_bins']
@@ -163,7 +176,7 @@ def plot_efficiency_vs_variable(particles_df, var, varconf, output_path, summary
         ax.set_title(title, fontsize=14)
     
     if HAS_ATLASIFY:
-        atlasify(ax, subtext_size=10)
+        atlasify(ax)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -278,7 +291,7 @@ def plot_fake_rate_vs_variable(matching_df, var, varconf, output_path, summary=N
         ax.set_title(f"Fake Rate vs {var.upper()} (Overall: {summary['fake_rate']:.3f})", fontsize=14)
     
     if HAS_ATLASIFY:
-        atlasify(ax, subtext_size=10)
+        atlasify(ax)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -372,7 +385,7 @@ def plot_clone_rate_vs_variable(matching_df, var, varconf, output_path, summary=
         ax.set_title(f"Clone Rate vs {var.upper()} (Overall: {summary['clone_rate']:.3f})", fontsize=14)
     
     if HAS_ATLASIFY:
-        atlasify(ax, subtext_size=10)
+        atlasify(ax)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -387,28 +400,30 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python plot_track_metrics.py
-    # Plot from default directory: data/track_evaluation/testset
-  
-  python plot_track_metrics.py --input-dir results/eval --dataset testset
+  python plot_track_metrics.py testset
+    # Plot from data/track_evaluation/testset/
+
+  python plot_track_metrics.py valset
+    # Plot from data/track_evaluation/valset/
+
+  python plot_track_metrics.py testset --input-dir results/eval
     # Plot from custom directory
-  
-  python plot_track_metrics.py --output-dir plots/
+
+  python plot_track_metrics.py testset --output-dir plots/
     # Save plots to custom directory
         """
+    )
+    parser.add_argument(
+        'dataset',
+        type=str,
+        choices=['trainset', 'valset', 'testset'],
+        help='Dataset to plot: trainset, valset, or testset'
     )
     parser.add_argument(
         '--input-dir',
         type=str,
         default=None,
-        help='Input directory with evaluation results (default: data/track_evaluation)'
-    )
-    parser.add_argument(
-        '--dataset',
-        type=str,
-        choices=['trainset', 'valset', 'testset'],
-        default='testset',
-        help='Dataset to plot (default: testset)'
+        help='Input directory with evaluation results (default: data/track_evaluation/<dataset>)'
     )
     parser.add_argument(
         '--output-dir',
@@ -422,13 +437,13 @@ Examples:
         default=None,
         help='Path to config file with plot settings (optional)'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Determine input directory
     script_dir = Path(__file__).resolve().parent
     if args.input_dir is None:
-        input_dir = script_dir / 'data' / 'track_evaluation'
+        input_dir = script_dir / 'data' / 'track_evaluation' / args.dataset
     else:
         input_dir = Path(args.input_dir)
     
@@ -437,10 +452,10 @@ Examples:
     
     # Determine output directory
     if args.output_dir is None:
-        output_dir = input_dir
+        output_dir = script_dir / 'data' / 'visuals' / 'track_metrics' / args.dataset
     else:
         output_dir = Path(args.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # Load config if provided
     plot_config = {}
@@ -455,12 +470,11 @@ Examples:
     default_config = {
         'pt': {
             'x_label': '$p_T$ [GeV]',
-            'x_scale': 0.001,  # Convert MeV to GeV if needed
-            'x_lim': [0.1, 100],
+            'x_lim': [0.05, 1.0],
             'y_lim': [0, 1.1],
         },
         'eta': {
-            'x_label': '$\eta$',
+            'x_label': '$\\eta$',
             'x_lim': [-4, 4],
             'y_lim': [0, 1.1],
         },

@@ -14,10 +14,10 @@ input_dir: data/graph_constructed_latent  # Input graphs (from graph constructio
 stage_dir: data/gnn_stage  # Output directory (graphs with edge_scores will be saved here)
 
 # Dataset parameters
-data_split: [90, 50, 50]  # [training, validation, testing] - should match training config
+data_split: [9000, 500, 500]  # [training, validation, testing] - should match training config
 
 # Inference options
-accelerator: cpu  # cpu vs cuda
+accelerator: cuda # cpu vs§ cuda
 devices: 1
 nodes: 1
 

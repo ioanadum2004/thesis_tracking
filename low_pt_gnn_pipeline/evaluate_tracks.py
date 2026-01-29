@@ -39,25 +39,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python evaluate_tracks.py                    # Use default config
-  python evaluate_tracks.py --config acorn_configs/track_building_egival.yaml
-  python evaluate_tracks.py --dataset testset  # Evaluate testset instead of valset
-  
+  python evaluate_tracks.py testset            # Evaluate testset
+  python evaluate_tracks.py valset             # Evaluate valset
+  python evaluate_tracks.py trainset           # Evaluate trainset
+  python evaluate_tracks.py testset --config acorn_configs/track_building_eval.yaml
+
 Note: Make sure to run build_tracks.py first to generate tracks.
         """
+    )
+    parser.add_argument(
+        'dataset',
+        type=str,
+        choices=['trainset', 'valset', 'testset'],
+        help='Dataset to evaluate: trainset, valset, or testset'
     )
     parser.add_argument(
         '--config',
         type=str,
         default=None,
         help='Path to evaluation config file (default: acorn_configs/track_building_eval.yaml)'
-    )
-    parser.add_argument(
-        '--dataset',
-        type=str,
-        choices=['trainset', 'valset', 'testset'],
-        default='testset',
-        help='Dataset to evaluate (default: testset)'
     )
     args = parser.parse_args()
     
@@ -93,10 +93,11 @@ Note: Make sure to run build_tracks.py first to generate tracks.
             "Please run build_tracks.py first to generate tracks."
         )
     
-    # Set output directory
-    output_dir = Path(config.get('output_dir', config.get('stage_dir', 'data/track_evaluation')))
-    if not output_dir.is_absolute():
-        output_dir = SCRIPT_DIR / output_dir
+    # Set output directory (under dataset subfolder, like other data stages)
+    output_base = Path(config.get('output_dir', config.get('stage_dir', 'data/track_evaluation')))
+    if not output_base.is_absolute():
+        output_base = SCRIPT_DIR / output_base
+    output_dir = output_base / args.dataset
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"Input directory: {input_dir}")
@@ -147,16 +148,23 @@ Note: Make sure to run build_tracks.py first to generate tracks.
         """
         if hasattr(graph, "hit_id"):
             hit_id = graph.hit_id
+            if isinstance(hit_id, torch.Tensor):
+                hit_id = hit_id.cpu().numpy()
         else:
-            hit_id = torch.arange(graph.num_nodes)
-        
-        reco_df = pd.DataFrame({"hit_id": hit_id, "track_id": graph.hit_track_labels})
+            hit_id = torch.arange(graph.num_nodes).numpy()
+
+        # Convert hit_track_labels to numpy
+        track_labels = graph.hit_track_labels
+        if isinstance(track_labels, torch.Tensor):
+            track_labels = track_labels.cpu().numpy()
+
+        reco_df = pd.DataFrame({"hit_id": hit_id, "track_id": track_labels})
         
         # Use hit_particle_id if available (more reliable)
         if hasattr(graph, 'hit_particle_id'):
             hit_pid = graph.hit_particle_id
             if isinstance(hit_pid, torch.Tensor):
-                reco_df["particle_id"] = hit_pid.numpy()
+                reco_df["particle_id"] = hit_pid.cpu().numpy()
             else:
                 reco_df["particle_id"] = hit_pid
         else:
@@ -435,7 +443,7 @@ Note: Make sure to run build_tracks.py first to generate tracks.
     print("="*70)
     print(f"\nAll results saved to: {output_dir}")
     print("\nNext step: Create plots with:")
-    print(f"  python plot_track_metrics.py --input-dir {output_dir} --dataset {args.dataset}")
+    print(f"  python plot_track_metrics.py {args.dataset}")
     print("="*70 + "\n")
 
 
