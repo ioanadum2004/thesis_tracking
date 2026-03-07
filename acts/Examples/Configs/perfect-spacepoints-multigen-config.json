@@ -1,11 +1,11 @@
 {
   "simulation": {
-    "events": 1000,
+    "events": 1,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
-    "maxSteps": 100000,
-    "loopFraction": 1,
+    "maxSteps": 1000,
+    "loopFraction": 0.5,
     "eventGenerator": {
       "_comment": "One Generator per entry in particleTypes is created. Each species contributes particlesPerVertex particles per vertex (multiplicity vertices per event). Total particles per event = particlesPerVertex × len(particleTypes) × multiplicity.",
       "particleTypes": ["muon"],
@@ -24,7 +24,7 @@
         "min": 0.0,
         "max": 360.0
       },
-      "particlesPerVertex": 5,
+      "particlesPerVertex": 20,
       "multiplicity": 1,
       "randomizeCharge": true
     }

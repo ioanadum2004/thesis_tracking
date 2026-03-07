@@ -383,7 +383,7 @@ def runPerfectSpacepointsMultiGen(
             f"Particle selection({measurements_sel_min})"
         )
     if warnings:
-        print(f"\033[93m[WARNING]\033[0m {'; '.join(warnings)}")
+        print("[WARNING]", "; ".join(warnings))
 
     customLogLevel = acts.examples.defaultLogging(
         s, getattr(acts.logging, logging_cfg["level"])
