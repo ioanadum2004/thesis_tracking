@@ -1,0 +1,92 @@
+# Metric Learning Training Configuration — SupCon Loss
+#
+# Drop-in replacement for latent_cluster_learning_train.yaml using
+# Supervised Contrastive loss instead of the pairwise hinge loss.
+#
+# Key differences from latent_cluster_learning_train.yaml:
+#   - temperature: τ replaces margin (no collapse problem, no dead zone)
+#   - randomisation / r_train(train) / knn(train) removed — SupCon does
+#     not need hard-negative edge building; all hits in the batch compete
+#     naturally in the softmax denominator
+#   - stage_dir is separate so checkpoints don't overwrite hinge-loss runs
+
+stage: graph_construction
+model: MetricLearning   # class used: SupConMetricLearning in train_supcon_metric_learning.py
+
+# Data directories
+input_dir: data/feature_store
+stage_dir: data/metric_learning_supcon
+
+# W&B
+project: Low_pt_supcon_MLP
+accelerator: gpu
+devices: 1
+nodes: 1
+logger: false
+use_wandb: true
+wandb_entity: bart_kuipers-nikhef
+wandb_log_every_n_batches: 50
+
+# Dataset split
+data_split: [50000, 900, 900]
+
+# Edge weighting — needed for validation efficiency/purity metrics
+weighting:
+  - weight: 1.0
+    conditions:
+      edge_y: False
+  - weight: 1.0
+    conditions:
+      edge_y: True
+
+# Model architecture — identical to hinge-loss model for fair comparison
+undirected: True
+train_undirected: True
+node_features: [hit_r, hit_phi, hit_z]
+node_scales: [1000, 3.14, 500]
+emb_hidden: 256
+nb_layer: 6
+emb_dim: 8
+activation: Tanh
+
+# ============================================================
+# SupCon loss parameter
+# ============================================================
+# τ controls cluster tightness on the sphere:
+#   small τ  →  sharp softmax  →  tight clusters, harder to optimise
+#   large τ  →  flat softmax   →  loose clusters, easier but less separation
+#
+# Typical values: 0.07 (SimCLR/SupCon image default), 0.1–0.2 for
+# lower-dimensional spheres. Start at 0.1 and tune if needed.
+temperature: 0.3
+
+# Training sampling
+points_per_batch: 5000   # hits sampled per event for loss computation
+
+# Validation KNN graph (used for efficiency/purity/F1 — unchanged from hinge model)
+r_train: 1      #only druing val for subcon 
+knn_val: 150              # k neighbours during validation
+
+# Optimisation
+warmup: 1
+lr: 0.001
+scheduler: ReduceLROnPlateau
+factor: 0.5
+patience: 1
+max_epochs: 100
+early_stopping_patience: 5
+check_val_every_n_epoch: 1
+val_check_interval: 0.2
+
+# Monitoring
+metric_to_monitor: f1
+metric_mode: max
+num_workers: [8, 8, 0]
+
+# GPU
+precision: 16-mixed
+
+# Checkpointing
+checkpoint_filename: "supcon_{f1:.4f}"
+save_top_k: 1
+save_last: false

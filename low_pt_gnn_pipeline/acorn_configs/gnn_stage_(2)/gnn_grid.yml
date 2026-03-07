@@ -1,0 +1,75 @@
+# GNN Hyperparameter Grid Search Configuration
+# 
+# Usage:
+#   1. cd /data/alice/bkuipers/low_pt_gnn_pipeline
+#   2. python generate_grid_search.py
+#   3. cd ../jobs && condor_submit train_gnn_gridsearch.sub
+#
+# This creates 432 configs (3×3×2×2×3×2×2) and launches 432 GPU jobs in parallel.
+# All results logged to W&B: bart_kuipers-nikhef/low_pt_GNN_gridsearch
+#
+# Each combination will be run as a separate GPU batch job
+
+# Grid search parameters (lists = grid, single values = fixed)
+grid_params:
+  # Architecture
+  hidden: [64, 128]
+  n_graph_iters: [6,8]
+  nb_node_layer: [2]  # 3
+  nb_edge_layer: [2]   #3
+  
+  # Training  
+  lr: [0.001]
+  warmup: [1]
+  patience: [0]
+  
+  # Aggregation
+  aggregation:
+    - [sum, mean, max, std]
+
+
+  # Activations
+  hidden_activation: [SiLU]
+  output_activation: [Tanh]
+
+# Fixed parameters (applied to all runs)
+fixed_params:
+  # Data
+  input_dir: data/graph_constructed_latent
+  stage_dir: data/gnn_stage/
+  data_split: [96000, 900, 900]
+  
+  # W&B
+  project: low_pt_GNN_gridsearch_100_mixed
+  use_wandb: true
+  wandb_entity: bart_kuipers-nikhef
+  wandb_log_every_n_batches: 50
+  
+  # Hardware
+  accelerator: cuda
+  devices: 1
+  nodes: 1
+  
+  # Model
+  edge_cut: 0.5
+  undirected: true
+  undirected_message_passing: true
+  node_features: [hit_r, hit_phi, hit_z]      # 3D features (without time)
+  node_scales: [1000, 3.14, 500]                # Scales for [r, phi, z, t]
+  # node_features: [hit_r, hit_phi, hit_z, hit_t]      # 3D features (without time)
+  # node_scales: [1000, 3.14, 500, 2000]                # Scales for [r, phi, z, t]
+  layernorm: true
+  batchnorm: true
+  
+  # Training
+  num_workers: [8, 8, 0]
+  max_epochs: 50
+  scheduler: ReduceLROnPlateau
+  factor: 0.5
+  early_stopping_patience: 4
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  val_check_interval: 0.2
+  accumulate_grad_batches: 1
+  pos_weight: 1
+  logger: false

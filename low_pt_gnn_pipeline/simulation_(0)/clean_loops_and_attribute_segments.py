@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+"""
+Clean simulation CSV data: assign radial segments and enforce loop fraction.
+
+Each particle's trajectory is partitioned into segments by detecting radial
+momentum sign flips (outgoing=1, incoming=2, outgoing=3, ...). Then hits
+belonging to segments beyond the allowed count are removed.
+
+A loop_fraction of f allows 2*f segments (one outgoing + one incoming = 1 loop).
+For example:
+  - loop_fraction=1.0 → max 2 segments (one full loop: out + in)
+  - loop_fraction=0.5 → max 1 segment  (half loop: out only)
+  - loop_fraction=2.0 → max 4 segments (two full loops)
+
+This script modifies hits CSV in-place (adding a 'segment_id' column and
+removing excess hits) and updates particle CSVs to remove particles that
+lost all their hits. Other CSV files (measurements, cells, simhit-map)
+are left untouched as they are unused with use_truth_hits=true.
+
+Usage:
+    python clean_loops_and_attribute_segments.py --loop-fraction F
+    python clean_loops_and_attribute_segments.py --loop-fraction 1.0
+
+Configuration:
+    Reads csv_dir from acorn_configs/simulation_(0)/event_generator_simulation.yaml
+"""
+
+import sys
+import argparse
+import glob
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from tqdm import tqdm
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PIPELINE_ROOT = SCRIPT_DIR.parent
+
+
+def assign_segments(hits_df):
+    """
+    Assign radial segment IDs to each hit based on radial momentum sign flips.
+
+    Segment 1 = first outgoing arc, 2 = first incoming arc, 3 = second outgoing, etc.
+    Noise hits (particle_id == 0) get segment_id = 0.
+
+    Parameters
+    ----------
+    hits_df : pd.DataFrame
+        Hits dataframe with columns: particle_id, tx, ty, tpx, tpy, tt
+
+    Returns
+    -------
+    pd.DataFrame
+        Same dataframe with 'segment_id' column added.
+    """
+    hits_df["segment_id"] = 0
+
+    signal = hits_df[hits_df["particle_id"] != 0].copy()
+    if len(signal) == 0:
+        return hits_df
+
+    signal = signal.sort_values(["particle_id", "tt"])
+
+    # Radial momentum: p_r = (tpx * tx + tpy * ty) / r
+    r = np.sqrt(signal["tx"].values**2 + signal["ty"].values**2)
+    r = np.where(r == 0, 1e-10, r)  # avoid division by zero at origin
+    p_r = (signal["tpx"].values * signal["tx"].values
+           + signal["tpy"].values * signal["ty"].values) / r
+    radial_sign = np.sign(p_r)
+
+    # Assign segments per particle by detecting radial sign flips
+    segment_ids = np.ones(len(signal), dtype=np.int64)
+    particle_ids = signal["particle_id"].values
+
+    # Find boundaries between particles
+    particle_boundaries = np.where(np.diff(particle_ids) != 0)[0] + 1
+    particle_starts = np.concatenate([[0], particle_boundaries])
+    particle_ends = np.concatenate([particle_boundaries, [len(signal)]])
+
+    for start, end in zip(particle_starts, particle_ends):
+        current_segment = 1
+        last_nonzero_sign = radial_sign[start]
+
+        for k in range(start + 1, end):
+            d = radial_sign[k]
+            if d != 0 and last_nonzero_sign != 0 and d != last_nonzero_sign:
+                current_segment += 1
+            if d != 0:
+                last_nonzero_sign = d
+            segment_ids[k] = current_segment
+
+    hits_df.loc[signal.index, "segment_id"] = segment_ids
+    return hits_df
+
+
+def clean_event(event_prefix, max_segments):
+    """
+    Clean a single event: assign segments, remove excess hits, update CSV files.
+
+    Only modifies:
+      - hits.csv:              Assign segment_id, remove hits beyond max_segments.
+      - particles_initial.csv: Remove particles that lost all hits.
+      - particles_simulated.csv: Same treatment.
+
+    Other CSV files (measurements, measurement-simhit-map, cells) are left
+    untouched — they are unused when use_truth_hits=true in the reader config.
+
+    Parameters
+    ----------
+    event_prefix : str
+        Path prefix for event files (e.g. '.../event000100000').
+    max_segments : int
+        Maximum allowed segment ID (hits with segment_id > max_segments are removed).
+
+    Returns
+    -------
+    tuple (int, int)
+        (hits_removed, particles_removed)
+    """
+    hits_path = f"{event_prefix}-hits.csv"
+    hits = pd.read_csv(hits_path)
+
+    # Assign segments
+    hits = assign_segments(hits)
+
+    # Remove hits beyond allowed segments (keep noise hits with segment_id=0)
+    mask_keep = (hits["segment_id"] <= max_segments) | (hits["segment_id"] == 0)
+    hits_removed = (~mask_keep).sum()
+    hits = hits[mask_keep].reset_index(drop=True)
+    hits["index"] = range(len(hits))
+    hits.to_csv(hits_path, index=False)
+
+    # Clean particle files: remove particles that lost all hits
+    surviving_pids = set(hits["particle_id"].unique()) - {0}
+    particles_removed = 0
+    for suffix in ["particles_initial", "particles_simulated"]:
+        p_path = f"{event_prefix}-{suffix}.csv"
+        if Path(p_path).exists():
+            particles = pd.read_csv(p_path)
+            n_before = len(particles)
+            particles = particles[particles["particle_id"].isin(surviving_pids)]
+            if suffix == "particles_initial":
+                particles_removed = n_before - len(particles)
+            if len(particles) < n_before:
+                particles.to_csv(p_path, index=False)
+
+    return hits_removed, particles_removed
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Assign radial segments and enforce loop fraction on simulation CSVs"
+    )
+    parser.add_argument(
+        "--loop-fraction", "-f", type=float, default=None,
+        help="Loop fraction (e.g. 1.0 = one full loop = 2 segments). Required."
+    )
+    parser.add_argument(
+        "--chunk", type=int, default=None,
+        help="Chunk index (0-indexed) for parallel processing."
+    )
+    parser.add_argument(
+        "--total-chunks", type=int, default=None,
+        help="Total number of chunks for parallel processing."
+    )
+    args = parser.parse_args()
+
+    # Read loop_fraction from config if not provided on command line
+    import yaml
+    config_path = PIPELINE_ROOT / "acorn_configs" / "simulation_(0)" / "event_generator_simulation.yaml"
+    with open(config_path, 'r') as f_cfg:
+        config = yaml.safe_load(f_cfg)
+
+    if args.loop_fraction is None:
+        config_loop_fraction = config.get('simulation', {}).get('loop_fraction', None)
+        if config_loop_fraction is not None:
+            args.loop_fraction = float(config_loop_fraction)
+        else:
+            print("ERROR: --loop-fraction is required (not found in config either).")
+            print("  Example: python clean_loops_and_attribute_segments.py --loop-fraction 1.0")
+            print("  loop_fraction=1.0 allows 2 segments (one outgoing + one incoming arc)")
+            sys.exit(1)
+
+    max_segments = int(np.ceil(2 * args.loop_fraction))
+
+    # Resolve CSV directory from config
+    base_dir = config['output']['base_dir']
+    if not Path(base_dir).is_absolute():
+        base_dir = str(PIPELINE_ROOT / base_dir)
+    csv_dir = Path(base_dir) / "csv"
+
+    if not csv_dir.exists():
+        print(f"ERROR: CSV directory not found: {csv_dir}")
+        sys.exit(1)
+
+    # Find all event hit files
+    all_hit_files = sorted(glob.glob(str(csv_dir / "event*-hits.csv")))
+    if not all_hit_files:
+        print(f"No hit files found in {csv_dir}")
+        sys.exit(1)
+
+    # Slice to this chunk if running in parallel
+    if args.chunk is not None and args.total_chunks is not None:
+        n = len(all_hit_files)
+        events_per_chunk = n // args.total_chunks
+        remainder = n % args.total_chunks
+        if args.chunk < remainder:
+            start = args.chunk * (events_per_chunk + 1)
+            end = start + events_per_chunk + 1
+        else:
+            start = remainder * (events_per_chunk + 1) + (args.chunk - remainder) * events_per_chunk
+            end = start + events_per_chunk
+        hit_files = all_hit_files[start:end]
+    else:
+        hit_files = all_hit_files
+
+    print("=" * 80)
+    print("CLEAN LOOPS AND ASSIGN SEGMENTS")
+    print("=" * 80)
+    print(f"CSV directory:    {csv_dir}")
+    print(f"Events found:     {len(all_hit_files)}")
+    if args.chunk is not None:
+        print(f"Chunk:            {args.chunk}/{args.total_chunks} ({len(hit_files)} events)")
+    print(f"Loop fraction:    {args.loop_fraction}")
+    print(f"Max segments:     {max_segments}")
+    print(f"  (segment 1=outgoing, 2=incoming, 3=outgoing, ...)")
+    print()
+
+    total_hits_removed = 0
+    total_particles_removed = 0
+    events_affected = 0
+
+    for hits_path in tqdm(hit_files, desc="Cleaning events", unit="event"):
+        event_prefix = hits_path.replace("-hits.csv", "")
+
+        hits_removed, particles_removed = clean_event(event_prefix, max_segments)
+
+        if hits_removed > 0 or particles_removed > 0:
+            events_affected += 1
+        total_hits_removed += hits_removed
+        total_particles_removed += particles_removed
+
+    print()
+    print("=" * 80)
+    print("SUMMARY")
+    print("=" * 80)
+    print(f"Events processed:    {len(hit_files)} / {len(all_hit_files)}")
+    print(f"Events affected:     {events_affected}")
+    print(f"Total hits removed:  {total_hits_removed}")
+    print(f"Total particles removed (all hits cut): {total_particles_removed}")
+    print()
+
+
+if __name__ == "__main__":
+    main()

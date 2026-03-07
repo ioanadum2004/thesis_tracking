@@ -1,0 +1,69 @@
+# ============================================================================
+# EVENT CONFIGURATION
+# ============================================================================
+num_events: 102000
+particles_per_vertex: 25 # Particles generated at each collision vertex
+multiplicity: 1           # Number of collision vertices per event (pileup)
+random_seed: 42
+
+# ============================================================================
+# PARTICLE GUN CONFIGURATION (Multi-Species Support)
+# ============================================================================
+particle_gun:
+  # Multi-species: list of particle types (muon, pion, electron, proton, kaon, photon)
+  # Each species gets particles_per_vertex particles with shared kinematic distributions
+  particle_types: ["muon", "pion", "electron", "proton"]
+
+  # Single species (backward compatible): uncomment line below and comment out particle_types
+  # particle_type: "muon"
+
+  randomize_charge: true
+
+  momentum:
+    min: 0.1
+    max: 0.5
+    transverse: true
+
+  eta:
+    min: -0.14
+    max: 0.14
+    uniform: true
+
+  phi:
+    min: 0.0
+    max: 360.0
+
+
+# ============================================================================
+# DETECTOR & FIELD CONFIGURATION
+# ============================================================================
+detector:
+  type: "GenericDetector"
+
+magnetic_field:
+  strength: 2.0
+
+# ============================================================================
+# SIMULATION CONFIGURATION
+# ============================================================================
+simulation:
+  enable_interactions: true
+  num_threads: -1
+  log_level: "INFO"
+  loop_fraction: 1
+  max_steps: 10000
+  p_min: 0.01  # Minimum momentum threshold in GeV (must be low for 0.1-0.5 GeV particles)
+
+# ============================================================================
+# DIGITIZATION CONFIGURATION
+# ============================================================================
+digitization:
+  config_file: "Examples/Configs/generic-digi-smearing-config.json"
+
+# ============================================================================
+# OUTPUT CONFIGURATION
+# ============================================================================
+output:
+  base_dir: "./data"
+  write_particles_initial: true
+  write_geometry: true

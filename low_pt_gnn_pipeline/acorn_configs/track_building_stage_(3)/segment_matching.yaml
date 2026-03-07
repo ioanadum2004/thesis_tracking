@@ -1,0 +1,82 @@
+# Segment Matching Track Builder Configuration
+# Used by segment_matching_track_builder.py
+# Matches segments from the same particle via helix parameter comparison
+
+# Dataset parameters
+data_split: [0, 0, 900]
+
+# Input/output
+input_dir: data/gnn_stage
+stage_dir: data/track_building
+
+# ============================================================================
+# SEGMENT EXTRACTION
+# ============================================================================
+
+use_gt_segments: true  # true = use hit_segment_id, false = use CC clusters
+score_cut: 0.85          # Edge score threshold for CC clustering
+
+# ============================================================================
+# HELIX FITTING
+# ============================================================================
+
+B_field: 2.0            # Magnetic field strength (Tesla)
+outlier_rejection: true  # Iterative outlier rejection in circle fit
+
+# ============================================================================
+# SEGMENT MATCHING
+# ============================================================================
+
+matching:
+  # Complete track detection — segments reaching outer detector are not matched
+  outer_r_threshold: 1000.0   # mm — segments with outer_r >= this are complete tracks
+
+  # Hard cuts (reject pairs violating these)
+  max_center_distance: 100.0  # mm [ maximum circle center distance between segments
+  min_R_ratio: 0.5            # minimum R_min/R_max ratio
+
+  # Soft score Gaussian widths
+  sigma_center: 30.0          # mm 
+  sigma_R: 0.1               
+  sigma_pitch: 0.01           
+
+  # Score weights
+  weight_center: 0.5         
+  weight_R: 0.5             
+  weight_pitch: 0.5         
+
+# ============================================================================
+# EVALUATION PARAMETERS
+# ============================================================================
+
+matching_fraction: 0.7
+matching_style: two_way
+min_track_length: 4
+
+target_tracks:
+    pt: [0.1, .inf]
+    nhits: [4, .inf]
+
+# Plot configuration
+plots:
+  tracking_efficiency:
+    title: Track Reconstruction Efficiency (Helix Matching)
+    font_sizes:
+      axis_label: 18
+      tick_label: 14
+      legend: 14
+      title: 18
+    variables:
+      pt:
+        x_label: '$p_T$ [GeV]'
+        x_lim: [0.1, 0.5]
+        y_lim: [0.0, 1.05]
+        n_bins: 30
+      eta:
+        x_label: '$\eta$'
+        x_lim: [-0.2, 0.2]
+        y_lim: [0, 1.1]
+        n_bins: 30
+
+# Variable prefix handling
+variable_with_prefix: true

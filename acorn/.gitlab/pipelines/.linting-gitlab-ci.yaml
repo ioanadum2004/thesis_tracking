@@ -1,0 +1,34 @@
+.flake8_check_template: &flake8_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install flake8
+  script:
+    - flake8 .
+  needs: []
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: false
+
+.black_check_template: &black_check_template
+  stage: linting
+  image: python:3.8-slim
+  before_script:
+    - pip install black==22.8.0
+  script:
+    - black --check .
+  needs: []  
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      allow_failure: true
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      allow_failure: false
+
+
+flake8:
+  <<: *flake8_check_template
+
+black:
+  <<: *black_check_template

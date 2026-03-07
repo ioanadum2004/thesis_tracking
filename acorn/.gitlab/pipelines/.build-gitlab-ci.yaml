@@ -1,0 +1,37 @@
+build_docker: &build_docker
+  stage: build
+  needs: []
+  tags:
+  - docker-privileged-xl
+  image: registry.cern.ch/docker.io/library/docker:20.10.16
+  services:
+  # To obtain a Docker daemon, request a Docker-in-Docker service
+  # N.B.: make sure you use a pull-through cache mechanism to avoid hitting the pull limits in Docker:
+  # - "Error response from daemon: toomanyrequests: You have reached your pull rate limit. You may increase the limit by authenticating and upgrading: https://www.docker.com/increase-rate-limit"
+  # ref: https://kubernetes.docs.cern.ch/docs/registry/quickstart/#pull-through-caches
+  - name: registry.cern.ch/docker.io/library/docker:20.10.16-dind
+    alias: docker
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    IMAGE_TAG: "$CI_REGISTRY_IMAGE:latest"
+  script:
+    - docker info
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker build -t "$IMAGE_TAG" .
+    - docker push "$IMAGE_TAG"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+      variables:
+        IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    - when: manual
+      allow_failure: true
+
+build_docker_test:
+  <<: *build_docker
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE/temporary_images:${CI_COMMIT_REF_SLUG}-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+

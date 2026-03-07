@@ -1,0 +1,21 @@
+# Ignore "All data" directory
+all_data/
+
+saved_models/
+
+wandb/
+
+acorn_configs/gnn_stage_(2)/grid_configs
+acorn_configs/latent_stage_(1)/grid_configs
+
+thesis_chapters/
+
+low_pt_gnn_pipeline/gnn_stage_(2)/lightning_logs/
+
+claude/
+home_backup/
+.vscode-remote-containers/
+__pycache__/
+wandb/
+lightning_logs/
+saved_models/
