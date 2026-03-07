@@ -93,23 +93,9 @@ def runPerfectSpacepointsMultiGen(
 
     # -------------------------------------------------------------------------
     # Particle source
-    # -------------------------------------------------------------------------
-    # if inputParticlePath is not None:
-    #     # Read pre-generated particles from a ROOT file
-    #     acts.logging.getLogger("PerfectSpacepointsMultiGen").info(
-    #         "Reading particles from %s", inputParticlePath.resolve()
-    #     )
-    #     assert inputParticlePath.exists(), f"Input file not found: {inputParticlePath}"
-    #     s.addReader(
-    #         RootParticleReader(
-    #             level=acts.logging.INFO,
-    #             filePath=str(inputParticlePath.resolve()),
-    #             outputParticles="particles_generated",
-    #         )
-    #     )
-    #     s.addWhiteboardAlias("particles_generated_selected", "particles_generated")
-    # else:
-        # Build one EventGenerator.Generator per requested particle species
+
+
+# Build one EventGenerator.Generator per requested particle species
     particle_types = eg_cfg["particleTypes"]
     if isinstance(particle_types, str):
         particle_types = [particle_types]
@@ -430,6 +416,7 @@ def runPerfectSpacepointsMultiGen(
         inputSeeds=(
             "estimatedseeds" if ckf["seedDeduplication"] or ckf["stayOnSeed"] else ""
         ),
+
         outputTracks="ckf_tracks",
         findTracks=acts.examples.TrackFindingAlgorithm.makeTrackFinderFunction(
             trackingGeometry, field, customLogLevel()
@@ -508,21 +495,9 @@ if "__main__" == __name__:
         default=None,
         help="Output directory for results",
     )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=None,
-        dest="output_dir_flag",
-        help="Output directory for results (alternative to positional argument)",
-    )
     args = parser.parse_args()
 
-    if args.output_dir is not None:
-        output_dir = args.output_dir
-    elif args.output_dir_flag is not None:
-        output_dir = args.output_dir_flag
-    else:
-        output_dir = "."
+    output_dir = args.output_dir if args.output_dir is not None else "."
 
     srcdir = Path(__file__).resolve().parent.parent.parent.parent
     config_file = srcdir / "Examples/Configs/perfect-spacepoints-multigen-config.json"
