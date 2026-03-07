@@ -83,6 +83,7 @@ def runPerfectSpacepointsMultiGen(
     )
     for d in decorators:
         s.addContextDecorator(d)
+
     rnd = acts.examples.RandomNumbers(seed=sim["randomSeed"])
     outputDir = Path(outputDir)
 
@@ -93,93 +94,93 @@ def runPerfectSpacepointsMultiGen(
     # -------------------------------------------------------------------------
     # Particle source
     # -------------------------------------------------------------------------
-    if inputParticlePath is not None:
-        # Read pre-generated particles from a ROOT file
-        acts.logging.getLogger("PerfectSpacepointsMultiGen").info(
-            "Reading particles from %s", inputParticlePath.resolve()
-        )
-        assert inputParticlePath.exists(), f"Input file not found: {inputParticlePath}"
-        s.addReader(
-            RootParticleReader(
-                level=acts.logging.INFO,
-                filePath=str(inputParticlePath.resolve()),
-                outputParticles="particles_generated",
-            )
-        )
-        s.addWhiteboardAlias("particles_generated_selected", "particles_generated")
-    else:
+    # if inputParticlePath is not None:
+    #     # Read pre-generated particles from a ROOT file
+    #     acts.logging.getLogger("PerfectSpacepointsMultiGen").info(
+    #         "Reading particles from %s", inputParticlePath.resolve()
+    #     )
+    #     assert inputParticlePath.exists(), f"Input file not found: {inputParticlePath}"
+    #     s.addReader(
+    #         RootParticleReader(
+    #             level=acts.logging.INFO,
+    #             filePath=str(inputParticlePath.resolve()),
+    #             outputParticles="particles_generated",
+    #         )
+    #     )
+    #     s.addWhiteboardAlias("particles_generated_selected", "particles_generated")
+    # else:
         # Build one EventGenerator.Generator per requested particle species
-        particle_types = eg_cfg["particleTypes"]
-        if isinstance(particle_types, str):
-            particle_types = [particle_types]
+    particle_types = eg_cfg["particleTypes"]
+    if isinstance(particle_types, str):
+        particle_types = [particle_types]
 
-        pdg_list = []
-        for pt in particle_types:
-            key = pt.lower().replace(" ", "")
-            if key not in PDG_MAP:
-                raise ValueError(
-                    f"Unknown particle type '{key}'. Allowed: {', '.join(PDG_MAP.keys())}"
-                )
-            pdg_list.append(PDG_MAP[key])
-
-        momentum = eg_cfg["momentum"]
-        eta_cfg = eg_cfg["eta"]
-        phi_cfg = eg_cfg["phi"]
-
-        vtxGen = acts.examples.GaussianVertexGenerator(
-            mean=acts.Vector4(0, 0, 0, 0),
-            stddev=acts.Vector4(0, 0, 0, 0),
-        )
-
-        evGen = acts.examples.EventGenerator(
-            level=customLogLevel(),
-            generators=[
-                acts.examples.EventGenerator.Generator(
-                    multiplicity=acts.examples.FixedMultiplicityGenerator(
-                        n=eg_cfg["multiplicity"]
-                    ),
-                    vertex=vtxGen,
-                    particles=acts.examples.ParametricParticleGenerator(
-                        **acts.examples.defaultKWArgs(
-                            p=(momentum["min"], momentum["max"]),
-                            pTransverse=momentum["transverse"],
-                            eta=(eta_cfg["min"], eta_cfg["max"]),
-                            phi=(phi_cfg["min"] * u.degree, phi_cfg["max"] * u.degree),
-                            etaUniform=eta_cfg["uniform"],
-                            numParticles=eg_cfg["particlesPerVertex"],
-                            pdg=pdg,
-                            randomizeCharge=eg_cfg["randomizeCharge"],
-                        )
-                    ),
-                )
-                for pdg in pdg_list
-            ],
-            randomNumbers=rnd,
-            outputEvent="particle_gun_event",
-        )
-        s.addReader(evGen)
-
-        hepmc3Converter = acts.examples.hepmc3.HepMC3InputConverter(
-            level=customLogLevel(),
-            inputEvent=evGen.config.outputEvent,
-            outputParticles="particles_generated",
-            outputVertices="vertices_generated",
-            mergePrimaries=False,
-        )
-        s.addAlgorithm(hepmc3Converter)
-        s.addWhiteboardAlias("particles", hepmc3Converter.config.outputParticles)
-        s.addWhiteboardAlias("vertices_truth", hepmc3Converter.config.outputVertices)
-        s.addWhiteboardAlias(
-            "particles_generated_selected", hepmc3Converter.config.outputParticles
-        )
-
-        s.addWriter(
-            RootParticleWriter(
-                level=customLogLevel(),
-                inputParticles=hepmc3Converter.config.outputParticles,
-                filePath=str(outputDir / "particles.root"),
+    pdg_list = []
+    for pt in particle_types:
+        key = pt.lower().replace(" ", "")
+        if key not in PDG_MAP:
+            raise ValueError(
+                f"Unknown particle type '{key}'. Allowed: {', '.join(PDG_MAP.keys())}"
             )
+        pdg_list.append(PDG_MAP[key])
+
+    momentum = eg_cfg["momentum"]
+    eta_cfg = eg_cfg["eta"]
+    phi_cfg = eg_cfg["phi"]
+
+    vtxGen = acts.examples.GaussianVertexGenerator(
+        mean=acts.Vector4(0, 0, 0, 0),
+        stddev=acts.Vector4(0, 0, 0, 0),
+    )
+
+    evGen = acts.examples.EventGenerator(
+        level=customLogLevel(),
+        generators=[
+            acts.examples.EventGenerator.Generator(
+                multiplicity=acts.examples.FixedMultiplicityGenerator(
+                    n=eg_cfg["multiplicity"]
+                ),
+                vertex=vtxGen,
+                particles=acts.examples.ParametricParticleGenerator(
+                    **acts.examples.defaultKWArgs(
+                        p=(momentum["min"], momentum["max"]),
+                        pTransverse=momentum["transverse"],
+                        eta=(eta_cfg["min"], eta_cfg["max"]),
+                        phi=(phi_cfg["min"] * u.degree, phi_cfg["max"] * u.degree),
+                        etaUniform=eta_cfg["uniform"],
+                        numParticles=eg_cfg["particlesPerVertex"],
+                        pdg=pdg,
+                        randomizeCharge=eg_cfg["randomizeCharge"],
+                    )
+                ),
+            )
+            for pdg in pdg_list
+        ],
+        randomNumbers=rnd,
+        outputEvent="particle_gun_event",
+    )
+    s.addReader(evGen)
+
+    hepmc3Converter = acts.examples.hepmc3.HepMC3InputConverter(
+        level=customLogLevel(),
+        inputEvent=evGen.config.outputEvent,
+        outputParticles="particles_generated",
+        outputVertices="vertices_generated",
+        mergePrimaries=False,
+    )
+    s.addAlgorithm(hepmc3Converter)
+    s.addWhiteboardAlias("particles", hepmc3Converter.config.outputParticles)
+    s.addWhiteboardAlias("vertices_truth", hepmc3Converter.config.outputVertices)
+    s.addWhiteboardAlias(
+        "particles_generated_selected", hepmc3Converter.config.outputParticles
+    )
+
+    s.addWriter(
+        RootParticleWriter(
+            level=customLogLevel(),
+            inputParticles=hepmc3Converter.config.outputParticles,
+            filePath=str(outputDir / "particles.root"),
         )
+    )
 
     # -------------------------------------------------------------------------
     # Physics simulation and digitization
@@ -242,8 +243,8 @@ def runPerfectSpacepointsMultiGen(
     auto_bFieldInZ = detector_field["direction"][2] * detector_field["strength"]
     bFieldInZ = auto_bFieldInZ
     if "bFieldInZ" in options and abs(options["bFieldInZ"] - auto_bFieldInZ) > 1e-6:
-        print(
-            f"\033[93m[WARNING]\033[0m bFieldInZ in seeding.finderOptions "
+           print(
+            f"[WARNING] bFieldInZ in seeding.finderOptions "
             f"({options['bFieldInZ']}) differs from detector.field "
             f"({auto_bFieldInZ})! Using detector value."
         )
