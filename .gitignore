@@ -12,3 +12,11 @@ low_pt_gnn_pipeline/data/
 low_pt_gnn_pipeline/data_0.5-5GeV/
 # Job files 
 jobs/
+
+# Claude 
+CLAUDE.md
+claude/
+claude_config/
+
+# Backup and cache directories
+home_backup/

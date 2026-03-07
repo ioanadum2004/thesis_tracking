@@ -1,0 +1,171 @@
+{
+  "simulation": {
+    "events": 1000,
+    "numThreads": -1,
+    "randomSeed": 42,
+    "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
+    "maxSteps": 100000,
+    "loopFraction": 1,
+    "eventGenerator": {
+      "_comment": "One Generator per entry in particleTypes is created. Each species contributes particlesPerVertex particles per vertex (multiplicity vertices per event). Total particles per event = particlesPerVertex × len(particleTypes) × multiplicity.",
+      "particleTypes": ["muon"],
+      "momentum": {
+        "_comment": "Units are in GeV. pTransverse=true means pT is sampled uniformly; false means total p.",
+        "min": 0.1,
+        "max": 0.5,
+        "transverse": true
+      },
+      "eta": {
+        "min": -0.14,
+        "max": 0.14,
+        "uniform": true
+      },
+      "phi": {
+        "min": 0.0,
+        "max": 360.0
+      },
+      "particlesPerVertex": 5,
+      "multiplicity": 1,
+      "randomizeCharge": true
+    }
+  },
+  "detector": {
+    "field": {
+      "strength": 2,
+      "direction": [0, 0, 1]
+    },
+    "geometry": {
+      "seedingConfig": "generic-seeding-config.json"
+    }
+  },
+  "simulation_physics": {
+    "enableInteractions": true,
+    "comment": "Total momentum (not pT). Particle stops propagating below this. Units: GeV.",
+    "pMin": 0.01
+  },
+  "particleSelection": {
+    "pt": {
+      "comment": "Minimal pT for a particle to be considered reconstructable (denominator of efficiency).",
+      "min": 0.1,
+      "max": null
+    },
+    "measurements": {
+      "_comment": "Min hits for particle to be considered reconstructable.",
+      "min": 3,
+      "max": null
+    },
+    "removeNeutral": true
+  },
+  "seeding": {
+    "truthSmearedSeeded": false,
+    "truthEstimatedSeeded": false,
+    "comment": "Set truthEstimatedSeeded=true to use truth-estimated seeding.",
+    "smearing": {
+      "loc0": 0.0,
+      "loc0PtA": 0.0,
+      "loc0PtB": 0.0,
+      "loc1": 0.0,
+      "loc1PtA": 0.0,
+      "loc1PtB": 0.0,
+      "time": 0.0,
+      "phi": 0.0,
+      "theta": 0.0,
+      "ptRel": 0.0
+    },
+    "finderConfig": {
+      "r": {
+        "min": null,
+        "max": 200.0
+      },
+      "deltaR": {
+        "min": 1.0,
+        "max": 175.0,
+        "comment": "Delta R range for finding seeds (4th pixel layer at ~174 mm)"
+      },
+      "collisionRegion": {
+        "min": -250.0,
+        "max": 250.0
+      },
+      "z": {
+        "min": -2000.0,
+        "max": 2000.0
+      },
+      "maxSeedsPerSpM": 5,
+      "sigmaScattering": 5.0,
+      "radLengthPerSeed": 0.1,
+      "minPt": 0.1,
+      "impactMax": 3.0
+    },
+    "finderOptions": {
+      "bFieldInZ": 2,
+      "beamPos": [0.0, 0.0]
+    },
+    "filterConfig": {
+      "deltaInvHelixDiameter": 5.0e-5,
+      "deltaRMin": 5.0,
+      "compatSeedWeight": 200.0,
+      "impactWeightFactor": 1.0,
+      "zOriginWeightFactor": 1.0,
+      "compatSeedLimit": 2,
+      "seedWeightIncrement": 0.0,
+      "numSeedIncrement": null,
+      "seedConfirmation": false,
+      "useDeltaRorTopRadius": false
+    },
+    "truthEstimated": {
+      "deltaR": {
+        "min": 10.0,
+        "max": null
+      }
+    },
+    "initialSigmas": {
+      "loc0": 1.0,
+      "loc1": 1.0,
+      "phi": 1.0,
+      "theta": 1.0,
+      "qop": 0.0,
+      "time": 1.0
+    },
+    "initialSigmaQoverPt": 0.1,
+    "initialSigmaPtRel": 0.1,
+    "initialVarInflation": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  },
+  "trackFinding": {
+    "selectorConfig": {
+      "pt": {
+        "min": 0.1,
+        "max": null
+      },
+      "absEta": {
+        "min": null,
+        "max": 4.0
+      },
+      "loc0": {
+        "min": -4.0,
+        "max": 4.0
+      },
+      "_comment": "nMeasurementsMin should be <= particleSelection.measurements.min for consistent efficiency.",
+      "nMeasurementsMin": 4,
+      "maxHoles": 2,
+      "maxOutliers": 2
+    },
+    "ckfConfig": {
+      "chi2CutOffMeasurement": 15.0,
+      "chi2CutOffOutlier": 25.0,
+      "numMeasurementsCutOff": 1,
+      "seedDeduplication": true,
+      "stayOnSeed": true
+    }
+  },
+  "matchingFractionThreshold": 0.7,
+  "output": {
+    "outputCsv": false,
+    "writeTrackStates": true,
+    "csvSubdir": "csv"
+  },
+  "logging": {
+    "comment": "Logging levels: INFO, DEBUG, VERBOSE. n = stepper log interval.",
+    "level": "INFO",
+    "n": 0
+  }
+}

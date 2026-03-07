@@ -1,0 +1,28 @@
+checkpoint: low_pt_latentmodel_100_mixed_f1=0.2752.ckpt
+
+# SOTA 20 muons segmented:  low_pt_latentmodel_20_muons_segmented_f1=0.6615.ckpt
+
+# SOTA 100 muons: Low_PT_latentmodel_f1_f1=0.2624_100
+
+# SOTA 20 MIXED: low_pt_latentmodel_20_mixed_f1=0.6250.ckpt
+
+# SOTA 100 MIXED: low_pt_latentmodel_100_mixed_f1=0.2752.ckpt
+
+
+
+k_max: 250  # Maximum number of neighbors per hit in latent space (KNN)
+r_max: 0.4  # Maximum radius for graph construction in latent space
+r_max_geometric: 500  # Maximum 3D Euclidean distance (mm) between connected hits; applied after KNN
+
+device: "cpu"  # KNN (PyG radius) dominates runtime and is CPU-only; GPU not beneficial
+
+input_dir: data/feature_store/  # Input graphs (from ActsReader)
+output_dir: data/graph_constructed_latent/  # Output graphs with learned edges
+
+# Datasets to process
+datasets: [trainset, valset, testset]
+
+# ============================================================================
+# ADVANCED OPTIONS
+# ============================================================================
+batch_size: 1 # Process one event at a time (graphs have variable sizes)

@@ -119,11 +119,6 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
   // the list of valid intersection
   boost::container::small_vector<SurfaceIntersection, 10> sIntersections;
 
-  // Provide a local logger so ACTS_DEBUG/VERBOSE macros can be used in this
-  // function scope (the logging macros expect a callable `logger()` in scope).
-  // Use VERBOSE (most permissive) so the global logger level from config can filter messages
-  ACTS_LOCAL_LOGGER(getDefaultLogger("Layer", Logging::Level::VERBOSE));
-
   // fast exit - there is nothing to
   if (!m_surfaceArray || !m_approachDescriptor) {
     return sIntersections;
@@ -158,12 +153,10 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
   auto processSurface = [&](const Surface& sf, bool sensitive = false) {
     // veto if it's start surface
     if (options.startObject == &sf) {
-      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (is startObject)");
       return;
     }
     // veto if it doesn't fit the prescription
     if (!acceptSurface(sf, sensitive)) {
-      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (doesn't match resolve options)");
       return;
     }
     BoundaryTolerance boundaryTolerance = options.boundaryTolerance;
@@ -188,25 +181,14 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
     
     bool pathLengthOk = detail::checkPathLength(sfi.pathLength(), nearLimit, farLimit);
     if (!pathLengthOk) {
-      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() 
-                   << " (pathLength=" << sfi.pathLength() 
-                   << " not within limits: nearLimit=" << nearLimit 
-                   << " farLimit=" << farLimit << ")");
       return;
     }
-    
+
     if (!isUnique(sfi)) {
-      ACTS_DEBUG("Layer::compatibleSurfaces: rejected " << sf.geometryId() << " (duplicate)");
       return;
     }
-    
+
     sIntersections.push_back(sfi);
-    // Small debug hint for instrumentation: print accepted surface
-    // candidates under ACTS_DEBUG so this can be enabled at runtime.
-    ACTS_DEBUG("Layer::compatibleSurfaces: accepted candidate "
-               << sfi.surface().geometryId() << " idx=" << sfi.index()
-               << " path=" << sfi.pathLength()
-               << " material=" << (sfi.surface().surfaceMaterial() != nullptr));
   };
 
   // (A) approach descriptor section
@@ -258,12 +240,6 @@ Layer::compatibleSurfaces(const GeometryContext& gctx, const Vector3& position,
     // - if the surface is not compatible with the type(s) that are collected
     for (auto& sSurface : sensitiveSurfaces) {
       processSurface(*sSurface, true);
-    }
-  } else {
-    if (!m_surfaceArray) {
-      ACTS_DEBUG("Layer::compatibleSurfaces: no surfaceArray available");
-    } else {
-      ACTS_DEBUG("Layer::compatibleSurfaces: surfaceArray exists but resolve options don't match");
     }
   }
 

@@ -5,7 +5,7 @@ from typing import Optional
 
 import acts
 from acts import UnitConstants as u
-from acts.examples import GenericDetector, RootParticleReader
+from acts.examples import GenericDetector, RootParticleReader, RootParticleWriter
 
 
 def runCKFTracks(
@@ -56,7 +56,7 @@ def runCKFTracks(
     if inputParticlePath is None:
         addParticleGun(
             s,
-            MomentumConfig(1 * u.GeV, 10 * u.GeV, transverse=True),
+            MomentumConfig(0.5 * u.GeV, 2.1 * u.GeV, transverse=True),
             EtaConfig(-2.0, 2.0, uniform=True),
             PhiConfig(0.0, 360.0 * u.degree),
             ParticleConfig(4, acts.PdgParticle.eMuon, randomizeCharge=True),
@@ -72,7 +72,7 @@ def runCKFTracks(
             RootParticleReader(
                 level=acts.logging.INFO,
                 filePath=str(inputParticlePath.resolve()),
-                outputParticles="particles_generated",
+                outputParticles="particles_generated_selected",
             )
         )
 
@@ -80,6 +80,7 @@ def runCKFTracks(
         s,
         trackingGeometry,
         field,
+        enableInteractions=False, 
         rnd=rnd,
     )
 
@@ -99,6 +100,16 @@ def runCKFTracks(
             removeNeutral=True,
         ),
     )
+
+    ###changed###
+    s.addWriter(
+        RootParticleWriter(
+            level=acts.logging.INFO,
+            inputParticles="particles_selected",
+            filePath=str(outputDir / "particles.root"),
+        )
+    )
+    ###changed###
 
     addSeeding(
         s,

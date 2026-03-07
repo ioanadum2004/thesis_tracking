@@ -1,0 +1,29 @@
+# Mini-GNN Segment Data Mining Configuration
+# Used by mini_gnn_data_mining.py
+#
+# Mines per-segment PyG graphs from GNN-inferred event graphs.
+# Mine more data here than you plan to use in training — the training
+# config (mini_gnn_segment_matching_train.yaml) controls how many events
+# are actually loaded via its own data_split.
+
+# Number of events to mine from each split: [trainset, valset, testset]
+data_split: [30000, 900, 900]
+
+# Input directory containing GNN-inferred graphs
+input_dir: data/gnn_stage
+
+# Output directory for mined segment data
+precomputed_dir: data/track_building/mini_gnn_segments
+
+# ============================================================================
+# SEGMENT EXTRACTION
+# ============================================================================
+
+score_cut: 0.85          # Edge score threshold for CC clustering
+
+# ============================================================================
+# NODE FEATURES
+# ============================================================================
+
+# Normalization scales for hit features: [x, y, z, r]
+node_scales: [1000.0, 1000.0, 500.0, 1000.0]

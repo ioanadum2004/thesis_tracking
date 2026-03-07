@@ -1,0 +1,25 @@
+# Grid search: hidden=32, layers=3, proj_dim=64, proj_layers=2
+data_split: [30000, 900, 0]
+input_dir: data/gnn_stage
+precomputed_dir: data/track_building/mini_gnn_segments
+
+gnn:
+  hidden_dim: 32
+  emb_dim: 16
+  n_layers: 3
+  dropout: 0.001
+  proj_dim: 64
+  proj_layers: 2
+  node_scales: [1000, 1000, 500, 1000]
+
+temperature: 0.1
+
+batch_events: 16
+lr: 0.001
+max_epochs: 150
+patience: 10
+scheduler_patience: 2
+scheduler_factor: 0.5
+val_check_interval: 0.2
+
+model_save_dir: data/track_building/mini_GNN_checkpoints/grid_search/h32_l3_pd64_pl2

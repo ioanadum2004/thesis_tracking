@@ -37,6 +37,11 @@ except ImportError as e:
     print(f"Details: {e}")
     sys.exit(1)
 
+# Import visualization utilities
+script_dir = Path(__file__).resolve().parent
+sys.path.insert(0, str(script_dir))
+from visual_utils import build_hit_particle_type_map, get_particle_label
+
 
 def cylindrical_to_cartesian(r, phi, z):
     """Convert cylindrical coordinates (r, phi, z) to Cartesian (x, y, z)"""
@@ -48,16 +53,18 @@ def cylindrical_to_cartesian(r, phi, z):
 def create_visualization(graph, color_by='none', show_edges=False, max_points=None):
     """
     Create interactive 3D visualization of PyG graph
-    
+
     Args:
         graph: PyG Data object
         color_by: 'none', 'particle', 'region'
         show_edges: If True, draw truth edges (track_edges) as lines
         max_points: Maximum number of points to display (for performance)
-    
+
     Returns:
         plotly.graph_objects.Figure
     """
+    # Build particle type mapping
+    particle_type_map = build_hit_particle_type_map(graph)
     # Extract features (what the model actually uses)
     hit_r = graph.hit_r.cpu().numpy()
     hit_phi = graph.hit_phi.cpu().numpy()
@@ -104,18 +111,22 @@ def create_visualization(graph, color_by='none', show_edges=False, max_points=No
         for i, pid in enumerate(unique_particles):
             mask = hit_particle_id == pid
             color = colors[i % len(colors)]
+
+            # Get particle label with type
+            particle_label = get_particle_label(int(pid), particle_type_map)
+
             fig.add_trace(go.Scatter3d(
                 x=x[mask],
                 y=y[mask],
                 z=z[mask],
                 mode='markers',
-                name=f'Particle {pid}',
+                name=particle_label,
                 marker=dict(
                     size=3,
                     color=color,
                     opacity=0.7,
                 ),
-                hovertemplate=f'<b>Particle {pid}</b><br>' +
+                hovertemplate=f'<b>{particle_label}</b><br>' +
                              'r=%{customdata[0]:.2f}<br>' +
                              'φ=%{customdata[1]:.3f}<br>' +
                              'z=%{customdata[2]:.2f}<br>' +
@@ -236,11 +247,11 @@ def create_visualization(graph, color_by='none', show_edges=False, max_points=No
             for i, pid in enumerate(unique_particles):
                 pid_mask = hit_particle_id[track_edges[0]] == pid
                 pid_edges = track_edges[:, pid_mask]
-                
+
                 pid_edge_x = []
                 pid_edge_y = []
                 pid_edge_z = []
-                
+
                 for j in range(pid_edges.shape[1]):
                     src_idx = pid_edges[0, j]
                     tgt_idx = pid_edges[1, j]
@@ -248,14 +259,17 @@ def create_visualization(graph, color_by='none', show_edges=False, max_points=No
                         pid_edge_x.extend([x[src_idx], x[tgt_idx], None])
                         pid_edge_y.extend([y[src_idx], y[tgt_idx], None])
                         pid_edge_z.extend([z[src_idx], z[tgt_idx], None])
-                
+
                 if len(pid_edge_x) > 0:
+                    # Get particle label with type for edge name
+                    particle_label = get_particle_label(int(pid), particle_type_map)
+
                     fig.add_trace(go.Scatter3d(
                         x=pid_edge_x,
                         y=pid_edge_y,
                         z=pid_edge_z,
                         mode='lines',
-                        name=f'Edges (Particle {pid})',
+                        name=f'Edges ({particle_label})',
                         line=dict(
                             color=colors[i % len(colors)],
                             width=2,

@@ -39,6 +39,14 @@ except ImportError:
     print("Error: plotly and pandas are required. Install with: pip install plotly pandas")
     sys.exit(1)
 
+from visual_utils import (
+    cylindrical_to_cartesian,
+    get_standard_scene_layout,
+    create_node_hover_text,
+    build_hit_particle_type_map,
+    get_particle_label
+)
+
 
 def load_graph(graph_path):
     """Load a PyTorch Geometric graph from file."""
@@ -46,16 +54,9 @@ def load_graph(graph_path):
         graph = torch.load(graph_path, weights_only=False)
     except Exception as e:
         raise RuntimeError(f"Error loading graph file: {e}")
-    
-    
+
+
     return graph
-
-
-def cylindrical_to_cartesian(r, phi, z):
-    """Convert cylindrical coordinates (r, phi, z) to Cartesian (x, y, z)."""
-    x = r * np.cos(phi)
-    y = r * np.sin(phi)
-    return x, y, z
 
 
 def create_visualization(graph, r_max=None, k_max=None):
@@ -133,39 +134,48 @@ def create_visualization(graph, r_max=None, k_max=None):
         else:
             print(f"Warning: particle_id length ({len(pid_tensor)}) doesn't match num_nodes ({num_nodes}), skipping particle grouping")
             particle_ids = None
-    
+
+    # Build particle type mapping (particle_id → PDG code) for labels
+    particle_type_map = build_hit_particle_type_map(graph)
+
     if particle_ids is not None:
+
         # Group true edges by particle ID
         # Get particle IDs for source nodes of true edges
         true_edge_src_pids = particle_ids[true_edges[0]]
         unique_particles = np.unique(true_edge_src_pids)
         unique_particles = unique_particles[unique_particles > 0]  # Remove noise (pid == 0)
-        
+
         # Use qualitative colors for different particles
         colors = px.colors.qualitative.Set3
-        
+
         # Create a trace for each particle
         for i, pid in enumerate(unique_particles):
             # Find edges belonging to this particle
             pid_mask = true_edge_src_pids == pid
             pid_edges = true_edges[:, pid_mask]
-            
+
             if pid_edges.shape[1] == 0:
                 continue
-            
+
             # Build edge coordinates for this particle
             pid_edge_x = []
             pid_edge_y = []
             pid_edge_z = []
-            
+
             for j in range(pid_edges.shape[1]):
                 src = pid_edges[0, j]
                 dst = pid_edges[1, j]
                 pid_edge_x.extend([x[src], x[dst], None])
                 pid_edge_y.extend([y[src], y[dst], None])
                 pid_edge_z.extend([z[src], z[dst], None])
-            
+
             color = colors[i % len(colors)]
+
+            # Generate label with particle species if available
+            particle_label = get_particle_label(int(pid), particle_type_map)
+            legend_label = f'{particle_label} ({pid_edges.shape[1]} edges)'
+
             fig.add_trace(go.Scatter3d(
                 x=pid_edge_x,
                 y=pid_edge_y,
@@ -173,7 +183,7 @@ def create_visualization(graph, r_max=None, k_max=None):
                 mode='lines',
                 line=dict(color=color, width=2),
                 opacity=0.7,
-                name=f'Particle {pid} ({pid_edges.shape[1]} edges)',
+                name=legend_label,
                 hoverinfo='skip',
                 showlegend=True
             ))
@@ -202,15 +212,23 @@ def create_visualization(graph, r_max=None, k_max=None):
             showlegend=True
         ))
     
-    # Add nodes
-    # (particle_ids already extracted above if available)
+    # Add nodes with hover text
     hover_text = []
     for i in range(num_nodes):
-        hover_info = f"Node {i}<br>x: {x[i]:.1f} mm<br>y: {y[i]:.1f} mm<br>z: {z[i]:.1f} mm<br>"
-        hover_info += f"r: {r[i]:.1f} mm<br>phi: {phi[i]:.3f} rad"
+        additional_fields = {}
         if particle_ids is not None:
-            hover_info += f"<br>particle_id: {particle_ids[i]}"
-        hover_text.append(hover_info)
+            pid = int(particle_ids[i])
+            additional_fields['particle_id'] = pid
+            # Add particle species if available
+            if pid in particle_type_map:
+                additional_fields['particle_species'] = get_particle_label(pid, particle_type_map)
+
+        hover_text.append(
+            create_node_hover_text(i, {
+                'x': x[i], 'y': y[i], 'z_cart': z[i],
+                'r': r[i], 'phi': phi[i]
+            }, additional_fields=additional_fields)
+        )
     
     fig.add_trace(go.Scatter3d(
         x=x,
@@ -229,34 +247,12 @@ def create_visualization(graph, r_max=None, k_max=None):
         showlegend=True
     ))
     
-    # Update layout
+    # Update layout with standard scene configuration
     title_text = f"Graph: {num_nodes} nodes, {num_true} true edges, {num_false} false edges"
     if r_max is not None and k_max is not None:
         title_text += f"<br>Graph Construction: r_max={r_max}, k_max={k_max}"
-    
-    fig.update_layout(
-        title=dict(
-            text=title_text,
-            x=0.5,
-            xanchor='center'
-        ),
-        scene=dict(
-            xaxis=dict(title='x (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            yaxis=dict(title='y (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            zaxis=dict(title='z (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            aspectmode='data'
-        ),
-        showlegend=True,
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255, 255, 255, 0.8)"
-        ),
-        margin=dict(l=0, r=0, b=0, t=40),
-        hovermode='closest'
-    )
+
+    fig.update_layout(**get_standard_scene_layout(title_text, margin_t=40, legend_opacity=0.8))
     
     return fig
 
@@ -312,12 +308,12 @@ Examples:
     use_latent = True
     if args.mode is not None and args.mode.lower() == 'simple':
         use_latent = False
-    
+
     # Determine graph file path
     script_dir = Path(__file__).resolve().parent
     if use_latent:
         graph_constructed_dir = script_dir.parent / 'data' / 'graph_constructed_latent'
-        config_file = 'graph_construction_latent.yaml'
+        config_file = 'latent_stage_(1)/graph_construction_latent.yaml'
     else:
         graph_constructed_dir = script_dir.parent / 'data' / 'graph_constructed'
         config_file = 'graph_construction.yaml'

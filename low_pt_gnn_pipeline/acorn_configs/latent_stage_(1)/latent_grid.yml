@@ -1,0 +1,99 @@
+# Latent Space (Metric Learning) Hyperparameter Grid Search Configuration
+#
+# Usage:
+#   1. cd /data/alice/bkuipers/low_pt_gnn_pipeline/latent_stage_(1)
+#   2. python generate_grid_search.py
+#   3. cd ../../jobs && condor_submit train_latent_gridsearch.sub
+#
+# This creates configs and launches GPU jobs in parallel.
+# All results logged to W&B: bart_kuipers-nikhef/Low_pt_latent_map_gridsearch
+#
+# Each combination will be run as a separate GPU batch job
+
+# Grid search parameters (lists = grid, single values = fixed)
+grid_params:
+  # Model architecture
+  emb_hidden: [64, 128]        # Hidden layer size
+  nb_layer: [5,7]               # Number of layers
+  emb_dim: [7,8]               # Final latent space dimension
+  activation: [Tanh]    # Activation function
+
+  # Training parameters
+  lr: [0.001]           # Learning rate
+  
+  # Paired parameters - must have same length, values at same index are used together
+  margin:   [ 0.1]     # Contrastive loss margin
+  r_train:  [ 0.1]     # Hard negative mining radius (always same as margin)
+
+  # Sampling parameters
+  points_per_batch: [5000]
+  randomisation: [1]                 # Random negative pairs multiplier
+  knn: [50]                          # Max neighbors during training
+  knn_val: [50]                      # Max neighbors during validation
+
+  # Scheduler
+  patience: [2]
+  factor: [0.5]
+
+# Zipped parameters - these are zipped together instead of taking Cartesian product
+zipped_params: ['margin', 'r_train']
+
+# Fixed parameters (applied to all runs)
+fixed_params:
+  # Pipeline stage
+  stage: graph_construction
+  model: MetricLearning
+
+  # Data directories
+  input_dir: data/feature_store/
+  stage_dir: data/metric_learning/
+  data_split: [50000, 900, 900]
+
+  # W&B
+  project: Low_pt_latent_map_MLP_segmented_100_mixed
+  use_wandb: true
+  wandb_entity: bart_kuipers-nikhef
+  wandb_log_every_n_batches: 100
+
+  # Hardware
+  accelerator: cpu
+  devices: 1
+  nodes: 1
+  logger: false
+
+  # Model features
+  undirected: true
+  train_undirected: true
+  node_features: [hit_r, hit_phi, hit_z]
+  node_scales: [1000, 3.14, 500]
+
+  # Edge weighting
+  weighting:
+    - weight: 1.0
+      conditions:
+        edge_y: False
+    - weight: 2.0
+      conditions:
+        edge_y: True
+
+  # Training optimization
+  warmup: 1
+  scheduler: ReduceLROnPlateau
+  max_epochs: 100
+  early_stopping_patience: 5
+  check_val_every_n_epoch: 1
+  val_check_interval: 0.2
+
+
+  # Monitoring
+  metric_to_monitor: f1
+  metric_mode: max
+  num_workers: [8, 8, 0]
+
+  # GPU optimizations
+  precision: 16-mixed
+
+  # Checkpointing
+  checkpoint_filename: "latentmodel_f1_{f1:.4f}"
+  save_top_k: 1
+  save_last: false

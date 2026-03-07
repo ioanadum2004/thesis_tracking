@@ -14,6 +14,8 @@
 
 import logging
 import os
+
+import numpy as np
 from functools import partial
 from time import process_time
 
@@ -102,7 +104,7 @@ class ConnectedComponents(TrackBuildingStage):
 
         # get labels. isolated nodes get -1 as label
         labels = (torch.ones(num_nodes) * -1).long()
-        labels[mask] = torch.from_numpy(candidate_labels).long()
+        labels[mask] = torch.tensor(candidate_labels, dtype=torch.long)
         graph.hit_track_labels = labels
         graph.time_taken = process_time() - start_time
 
@@ -124,7 +126,7 @@ class ConnectedComponents(TrackBuildingStage):
         )
         graph.config.append(self.hparams)
         # Make a dataframe from pyg graph
-        d = pd.DataFrame({"hit_id": graph.hit_id, "track_id": graph.hit_track_labels})
+        d = pd.DataFrame({"hit_id": graph.hit_id.cpu().numpy(), "track_id": graph.hit_track_labels.cpu().numpy()})
         # include distance from origin to sort hits
         d["r2"] = (graph.hit_r**2 + graph.hit_z**2).cpu().numpy()
         # Keep only hit_id associtated to a tracks (label >= 0, not -1), sort by track_id and r2

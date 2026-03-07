@@ -41,24 +41,25 @@ except ImportError:
 
 from acorn.stages.edge_classifier.models.interaction_gnn import InteractionGNN
 
+from visual_utils import (
+    validate_dataset_name,
+    cylindrical_to_cartesian,
+    get_standard_scene_layout,
+    build_edge_coordinates,
+    create_node_hover_text
+)
+
 
 def find_checkpoint(model_name, base_dir=None):
     """Find checkpoint file in saved_models directory."""
     if base_dir is None:
         base_dir = Path(__file__).resolve().parent.parent / "saved_models"
-    
+
     checkpoint_path = base_dir / f"{model_name}.ckpt"
     if checkpoint_path.exists():
         return checkpoint_path
-    
+
     raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
-
-
-def cylindrical_to_cartesian(r, phi, z):
-    """Convert cylindrical coordinates (r, phi, z) to Cartesian (x, y, z)."""
-    x = r * np.cos(phi)
-    y = r * np.sin(phi)
-    return x, y, z
 
 
 def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config_file=None, output_path=None):
@@ -79,13 +80,12 @@ def evaluate_and_visualize(model_name, dataset_name, index, edge_cut=0.5, config
     print()
     
     # Validate dataset name
-    if dataset_name not in ['trainset', 'valset', 'testset']:
-        raise ValueError(f"Dataset must be 'trainset', 'valset', or 'testset', got '{dataset_name}'")
+    validate_dataset_name(dataset_name)
     
     # Set default config file if not provided
     if config_file is None:
         script_dir = Path(__file__).resolve().parent
-        config_file = script_dir.parent / 'acorn_configs' / 'gnn_train.yaml'
+        config_file = script_dir.parent / 'acorn_configs' / 'gnn_stage_(2)' / 'gnn_train.yaml'
     else:
         config_file = Path(config_file)
         if not config_file.is_absolute():
@@ -311,95 +311,83 @@ def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mas
     x, y, z_cart = cylindrical_to_cartesian(r, phi, z)
     num_nodes = len(x)
     
-    # Extract edges
+    # Build edges by category using visual_utils
     edge_index = graph.edge_index.cpu().numpy()
-    
+    edge_data = build_edge_coordinates(
+        edge_index,
+        x, y, z_cart,
+        masks={
+            'tn': tn_mask,
+            'fp': fp_mask,
+            'fn': fn_mask,
+            'tp': tp_mask
+        }
+    )
+
     # Create figure
     fig = go.Figure()
-    
+
     # Add edges for each category (order matters for layering)
     # 1. True Negatives (light gray, bottom layer, very transparent)
-    if tn_mask.sum() > 0:
-        edge_x, edge_y, edge_z = [], [], []
-        for i in np.where(tn_mask)[0]:
-            src, dst = edge_index[0, i], edge_index[1, i]
-            edge_x.extend([x[src], x[dst], None])
-            edge_y.extend([y[src], y[dst], None])
-            edge_z.extend([z_cart[src], z_cart[dst], None])
-        
+    if edge_data['tn'][3] > 0:
+        edge_x, edge_y, edge_z, count = edge_data['tn']
         fig.add_trace(go.Scatter3d(
             x=edge_x, y=edge_y, z=edge_z,
             mode='lines',
             line=dict(color='#A9A9A9', width=0.5),
             opacity=0.05,
-            name=f'True Negatives ({tn_mask.sum()})',
+            name=f'True Negatives ({count})',
             hoverinfo='skip',
             showlegend=True
         ))
-    
+
     # 2. False Positives (orange)
-    if fp_mask.sum() > 0:
-        edge_x, edge_y, edge_z = [], [], []
-        for i in np.where(fp_mask)[0]:
-            src, dst = edge_index[0, i], edge_index[1, i]
-            edge_x.extend([x[src], x[dst], None])
-            edge_y.extend([y[src], y[dst], None])
-            edge_z.extend([z_cart[src], z_cart[dst], None])
-        
+    if edge_data['fp'][3] > 0:
+        edge_x, edge_y, edge_z, count = edge_data['fp']
         fig.add_trace(go.Scatter3d(
             x=edge_x, y=edge_y, z=edge_z,
             mode='lines',
             line=dict(color='orange', width=2),
             opacity=0.7,
-            name=f'False Positives ({fp_mask.sum()})',
+            name=f'False Positives ({count})',
             hoverinfo='skip',
             showlegend=True
         ))
-    
+
     # 3. False Negatives (red)
-    if fn_mask.sum() > 0:
-        edge_x, edge_y, edge_z = [], [], []
-        for i in np.where(fn_mask)[0]:
-            src, dst = edge_index[0, i], edge_index[1, i]
-            edge_x.extend([x[src], x[dst], None])
-            edge_y.extend([y[src], y[dst], None])
-            edge_z.extend([z_cart[src], z_cart[dst], None])
-        
+    if edge_data['fn'][3] > 0:
+        edge_x, edge_y, edge_z, count = edge_data['fn']
         fig.add_trace(go.Scatter3d(
             x=edge_x, y=edge_y, z=edge_z,
             mode='lines',
             line=dict(color='red', width=2),
             opacity=0.7,
-            name=f'False Negatives ({fn_mask.sum()})',
+            name=f'False Negatives ({count})',
             hoverinfo='skip',
             showlegend=True
         ))
-    
+
     # 4. True Positives (dark green, top layer)
-    if tp_mask.sum() > 0:
-        edge_x, edge_y, edge_z = [], [], []
-        for i in np.where(tp_mask)[0]:
-            src, dst = edge_index[0, i], edge_index[1, i]
-            edge_x.extend([x[src], x[dst], None])
-            edge_y.extend([y[src], y[dst], None])
-            edge_z.extend([z_cart[src], z_cart[dst], None])
-        
+    if edge_data['tp'][3] > 0:
+        edge_x, edge_y, edge_z, count = edge_data['tp']
         fig.add_trace(go.Scatter3d(
             x=edge_x, y=edge_y, z=edge_z,
             mode='lines',
             line=dict(color='darkgreen', width=2.5),
             opacity=0.8,
-            name=f'True Positives ({tp_mask.sum()})',
+            name=f'True Positives ({count})',
             hoverinfo='skip',
             showlegend=True
         ))
     
-    # Add nodes
-    hover_text = []
-    for i in range(num_nodes):
-        hover_info = f"Node {i}<br>x: {x[i]:.1f} mm<br>y: {y[i]:.1f} mm<br>z: {z_cart[i]:.1f} mm<br>"
-        hover_info += f"r: {r[i]:.1f} mm<br>phi: {phi[i]:.3f} rad"
-        hover_text.append(hover_info)
+    # Add nodes with hover text
+    hover_text = [
+        create_node_hover_text(i, {
+            'x': x[i], 'y': y[i], 'z_cart': z_cart[i],
+            'r': r[i], 'phi': phi[i]
+        })
+        for i in range(num_nodes)
+    ]
     
     fig.add_trace(go.Scatter3d(
         x=x, y=y, z=z_cart,
@@ -422,33 +410,11 @@ def create_classification_visualization(graph, tp_mask, tn_mask, fn_mask, fp_mas
     precision = tp_mask.sum() / (tp_mask.sum() + fp_mask.sum()) if (tp_mask.sum() + fp_mask.sum()) > 0 else 0
     recall = tp_mask.sum() / (tp_mask.sum() + fn_mask.sum()) if (tp_mask.sum() + fn_mask.sum()) > 0 else 0
     
-    # Update layout
+    # Update layout with standard scene configuration
     title_text = f"Model: {model_name} | {dataset_name.capitalize()} Graph #{index} | Threshold: {edge_cut}<br>"
     title_text += f"Accuracy: {accuracy:.3f} | Precision: {precision:.3f} | Recall: {recall:.3f}"
-    
-    fig.update_layout(
-        title=dict(
-            text=title_text,
-            x=0.5,
-            xanchor='center'
-        ),
-        scene=dict(
-            xaxis=dict(title='x (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            yaxis=dict(title='y (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            zaxis=dict(title='z (mm)', backgroundcolor="white", gridcolor="lightgray"),
-            aspectmode='data'
-        ),
-        showlegend=True,
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255, 255, 255, 0.9)"
-        ),
-        margin=dict(l=0, r=0, b=0, t=60),
-        hovermode='closest'
-    )
+
+    fig.update_layout(**get_standard_scene_layout(title_text, margin_t=60))
     
     return fig
 
@@ -504,7 +470,7 @@ Edge colors:
         '--config',
         type=str,
         default=None,
-        help='Path to config file (default: ../acorn_configs/gnn_train.yaml)'
+        help='Path to config file (default: ../acorn_configs/gnn_stage_(2)/gnn_train.yaml)'
     )
     parser.add_argument(
         '--output', '-o',
