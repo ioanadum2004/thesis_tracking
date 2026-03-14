@@ -19,4 +19,21 @@ claude/
 claude_config/
 
 # Backup and cache directories
-home_backup/
+# Build directories
+build/
+*/build/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+*.tmp
+*.log
+
+# ROOT outputs
+*.root
+
+# Editor files
+*.swp
+.DS_Storehome_backup/

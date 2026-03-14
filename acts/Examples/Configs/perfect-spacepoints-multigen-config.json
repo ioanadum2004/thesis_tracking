@@ -5,7 +5,7 @@
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
     "maxSteps": 1000,
-    "loopFraction": 0.5,
+    "loopFraction": 1,
     "eventGenerator": {
       "_comment": "One Generator per entry in particleTypes is created. Each species contributes particlesPerVertex particles per vertex (multiplicity vertices per event). Total particles per event = particlesPerVertex × len(particleTypes) × multiplicity.",
       "particleTypes": ["muon"],
