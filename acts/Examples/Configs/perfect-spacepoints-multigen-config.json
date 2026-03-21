@@ -1,6 +1,6 @@
 {
   "simulation": {
-    "events": 1,
+    "events": 100,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
