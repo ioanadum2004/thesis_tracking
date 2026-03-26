@@ -91,14 +91,15 @@ def runCKFTracks(
                 level=acts.logging.INFO,
                 filePath=str(inputParticlePath.resolve()),
                 #idt this matters cause you dont have particles.root - so you never get to this
-                outputParticles="particles_generated",
+                # outputParticles="particles_generated",
+                outputParticles="particles_generated_selected",
             )
         )
 
         s.addAlgorithm(
         acts.examples.ParticleSelector(
             level=acts.logging.INFO,
-            inputParticles="particles_generated",
+            # inputParticles="particles_generated",
             outputParticles="particles_generated_selected",
         )
     )

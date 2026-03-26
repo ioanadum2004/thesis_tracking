@@ -12,6 +12,13 @@ import lightgbm as lgb
 #where you read info from the root file and where you save the csv dataset
 output_dir = Path("/data/alice/idumitra/thesis_tracking/acts")
 
+# creating_dataset.py
+# ├── load_base_features()        # reads estimatedparams.root → Dataset B features
+# ├── add_conformal_features()    # reads seed CSVs, computes u,v → Dataset C features
+# ├── split_and_scale()           # event-level split + StandardScaler
+# ├── train_model()               # LightGBM training + evaluation
+# └── main()                      # calls everything in order
+
 # -------------------------
 # Section 1: Load data
 # -------------------------
@@ -120,11 +127,19 @@ model.fit(X_train_scaled, y_train)
 # The scale_pos_weight line tells LightGBM to penalise missing a fake seed more, compensating for the class imbalance. 
 
 # Evaluate on val
-y_val_pred  = model.predict(X_val_scaled) #make predictions on the validation data. It returns a hard decision for each seed: 0 (fake) or 1 (real).
+# y_val_pred  = model.predict(X_val_scaled) #make predictions on the validation data. It returns a hard decision for each seed: 0 (fake) or 1 (real).
 y_val_proba = model.predict_proba(X_val_scaled)[:, 1] #instead of a hard decision, this returns a probability for each seed.
+y_val_pred = (y_val_proba >= 0.4).astype(int) #instead of a hard decision, this applies a threshold to the predicted probabilities.
 
 print(f"Val AUC:  {roc_auc_score(y_val, y_val_proba):.3f}") #this compares your predicted probabilities against the true labels and computes the AUC score
 print(classification_report(y_val, y_val_pred, target_names=["fake","real"]))
+
+# Final test evaluation 
+# y_test_proba = model.predict_proba(X_test_scaled)[:, 1]
+# y_test_pred  = (y_test_proba >= 0.4).astype(int)
+
+# print(f"Test AUC: {roc_auc_score(y_test, y_test_proba):.3f}")
+# print(classification_report(y_test, y_test_pred, target_names=["fake", "real"]))
 
 # Try a higher threshold - only reject if very confident it's fake
 for threshold in [0.3, 0.4, 0.5, 0.6, 0.7]:

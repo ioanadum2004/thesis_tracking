@@ -2,6 +2,7 @@ import uproot
 import awkward as ak
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 #python z_btr_files/old_plots/plots_latest.py
 
@@ -646,7 +647,7 @@ def debug_0(
 
     f_tracks = uproot.open(tracks_file)
     t_tracks = f_tracks[track_tree]
-    tracks = t_tracks.arrays(["majorityParticleId", "trackClassification", "t_pT"], library="ak")
+    tracks = t_tracks.arrays(["majorityParticleId", "trackClassification", "t_pT",  "eQOP_fit", "eTHETA_fit"], library="ak")
 
     f_details = uproot.open(details_file)
     t_details = f_details[details_tree]
@@ -689,6 +690,8 @@ def debug_0(
         track_truth = tracks["majorityParticleId"][event].to_list()
         track_class = tracks["trackClassification"][event].to_list()
         track_pt = tracks["t_pT"][event].to_list()
+        track_qop = tracks["eQOP_fit"][event].to_list()
+        track_theta = tracks["eTHETA_fit"][event].to_list()
 
         details_tpT = details["track_pt"][event]
         details_matched = details["matched"][event]
@@ -701,7 +704,7 @@ def debug_0(
         for tid in zip(track_truth):
             counter_tracks += 1
         
-        if event == 1:
+        if event == 5:
             print("\n==============================")
             print("EVENT", event)
             print("==============================")
@@ -719,6 +722,8 @@ def debug_0(
             print("majorityParticleId:", track_truth)
             print("trackClassification:", track_class)
             print("t_pT:", track_pt)
+            print("eQOP_fit:", track_qop)
+            print("eTHETA_fit:", track_theta)
 
             # ----- MATCHING DETAILS -----
 
@@ -1274,12 +1279,18 @@ def track_eff_and_fake_vs_pt(
 def track_metrics_classification_without_generated(
     tracks_file,
     track_tree="tracksummary",
-    pt_bins=np.linspace(0.01, 10, 50),
-    output_purity="a_track_efficiency_vs_pt.png",
-    output_fake_track="a_fake_track_vs_pt.png",
-    output_duplicate_track="a_duplicate_ratio_vs_pt.png",
-    output_matched_track="a_matched_efficiency_vs_pt.png",
+    pt_bins=np.linspace(0.1, 0.5, 50),
+    output_purity="track_efficiency_vs_pt.png",
+    output_fake_track="fake_track_vs_pt.png",
+    output_duplicate_track="duplicate_ratio_vs_pt.png",
+    output_matched_track="matched_efficiency_vs_pt.png",
 ):
+    
+    # ---------- Create output directory ----------
+
+
+    output_dir = os.path.join("z_btr_files", "efficiency_plots")
+    os.makedirs(output_dir, exist_ok=True)
 
     # ---------- READ TRACKS ----------
 
@@ -1288,7 +1299,7 @@ def track_metrics_classification_without_generated(
 
     #also load track pt to plot against
     #tracks = t_tracks.arrays(["majorityParticleId", "t_pT"], library="ak" )
-    tracks = t_tracks.arrays(["majorityParticleId", "t_pT", "trackClassification"], library="ak")
+    tracks = t_tracks.arrays(["majorityParticleId", "t_pT", "trackClassification", "eQOP_fit", "eTHETA_fit"], library="ak")
 
     # ---------- Histogram ----------
     
@@ -1315,15 +1326,20 @@ def track_metrics_classification_without_generated(
         track_truth = tracks["majorityParticleId"][event]
         track_pts = tracks["t_pT"][event]
         track_class = tracks["trackClassification"][event]
+        track_qop = tracks["eQOP_fit"][event]
+        track_theta = tracks["eTHETA_fit"][event]
 
-        for ids, pt, classification in zip(track_truth, track_pts, track_class):
-            if len(ids) < 3:
-                continue  # skip broken entries
-
-            if pt < 0.01:
-                continue
+        for ids, pt, classification, qop_fit, theta_fit in zip(track_truth, track_pts, track_class, track_qop, track_theta):
+            # if len(ids) < 3:
+            #     continue  # skip broken entries
 
             counttotal += 1
+
+            if classification == 0:
+                pt = np.sin(theta_fit) / abs(qop_fit)
+
+            if pt < 0.1:
+                continue
 
             bin_index = np.digitize(pt, pt_bins) - 1
             if not (0 <= bin_index < len(hist_all)):
@@ -1480,15 +1496,17 @@ def track_metrics_classification_without_generated(
 
     # ---------- Plot efficiency ----------
     plt.figure()
-    plt.plot(bin_centers, efficiency, "o-", color='blue')
+    # plt.plot(bin_centers, efficiency, "o-", color='blue')
     plt.errorbar(bin_centers, efficiency, yerr=errors_purity, fmt='o', color='blue')
     #if i want to make the error bars blue
+    plt.title("Track Efficiency vs pT")
     plt.xlabel("pT [GeV]")
     plt.ylabel("Track Efficiency")
     plt.ylim(0, 1.05)
     plt.grid()
     # plt.legend()
-    plt.savefig(output_purity)
+    # plt.savefig(output_purity)
+    plt.savefig(os.path.join(output_dir, output_purity))
     #plt.show()
 
     # print(f"Saved: {output_purity}")
@@ -1496,15 +1514,16 @@ def track_metrics_classification_without_generated(
 
     # ---------- Plot fake ----------
     plt.figure()
-    plt.plot(bin_centers, fakeTrack, "o-", color='green')
+    # plt.plot(bin_centers, fakeTrack, "o-", color='green')
     plt.errorbar(bin_centers, fakeTrack, yerr=errors_fake, fmt='o', color='green')
     #if i want to make the error bars blue
+    plt.title("Fake Track Rate vs pT")
     plt.xlabel("pT [GeV]")
     plt.ylabel("fake track")
-    plt.ylim(0, 0.25)
+    plt.ylim(0, 1.05)
     plt.grid()
     # plt.legend()
-    plt.savefig(output_fake_track)
+    plt.savefig(os.path.join(output_dir, output_fake_track))
     #plt.show()
 
     # print(f"Saved: {output_fake_track}")
@@ -1512,14 +1531,15 @@ def track_metrics_classification_without_generated(
 
     # ---------- Plot duplicate ----------
     plt.figure()
-    plt.plot(bin_centers, duplicateRate, "o-", color='orange')
+    # plt.plot(bin_centers, duplicateRate, "o-", color='orange')
     plt.errorbar(bin_centers, duplicateRate, yerr=errors_duplicate, fmt='o', color='orange')
+    plt.title("Duplicate Track Rate vs pT")
     plt.xlabel("pT [GeV]")
     plt.ylabel("duplicate ration")
-    plt.ylim(0, 0.25)
+    plt.ylim(0, 1.05)
     plt.grid()
     # plt.legend()
-    plt.savefig(output_duplicate_track)
+    plt.savefig(os.path.join(output_dir, output_duplicate_track))
     #plt.show()
 
     # print(f"Saved: {output_duplicate_track}")
@@ -1527,18 +1547,30 @@ def track_metrics_classification_without_generated(
 
     # ---------- Plot true matched ----------
     plt.figure()
-    plt.plot(bin_centers, matchedEfficiency, "o-", color='red')
+    # plt.plot(bin_centers, matchedEfficiency, "o-", color='red')
     plt.errorbar(bin_centers, matchedEfficiency, yerr=errors_matched, fmt='o', color='red')
+    plt.title("True Matched Efficiency vs pT")
     plt.xlabel("pT [GeV]")
     plt.ylabel("true matched efficiency")
     plt.ylim(0, 1.05)
     plt.grid()
     # plt.legend()
-    plt.savefig(output_matched_track)
+    plt.savefig(os.path.join(output_dir, output_matched_track))
     # #plt.show()
 
     # print(f"Saved: {output_matched_track}")
     plt.close()
+
+    # --- Plot all of them as scatter plots on the same canvas ---
+
+    # plt.figure(figsize=(10, 6))
+    # plt.errorbar(bin_centers, efficiency, yerr=errors_purity, fmt='o', color='blue', label='Track Efficiency')
+    # plt.errorbar(bin_centers, fakeTrack, yerr=errors_fake, fmt='o', color='green', label='Fake Rate')
+    # plt.errorbar(bin_centers, duplicateRate, yerr=errors_duplicate, fmt='o', color='orange', label='Duplicate Rate')
+    # plt.errorbar(bin_centers, matchedEfficiency, yerr=errors_matched, fmt='o', color='red', label='True Matched Efficiency')
+    # plt.xlabel("pT [GeV]")
+    # plt.ylabel("Fraction")
+    # plt.ylim(0, 1.05)
 
 
 
@@ -2096,11 +2128,11 @@ if __name__ == "__main__":
     #     tracks_file="tracksummary_ckf.root",
     # )
 
-    debug_0(
-        particles_file="particles.root",
-        tracks_file="tracksummary_ckf.root",
-        details_file="performance_finding_ckf_matchingdetails.root",
-    )
+    # debug_0(
+    #     particles_file="particles.root",
+    #     tracks_file="tracksummary_ckf.root",
+    #     details_file="performance_finding_ckf_matchingdetails.root",
+    # )
 
     # purity_and_fake_vs_pt(
     #     tracks_file="tracksummary_ckf.root",
@@ -2110,9 +2142,9 @@ if __name__ == "__main__":
     #     tracks_file="tracksummary_ckf.root",
     # )
 
-    # track_metrics_classification_without_generated(
-    #     tracks_file="tracksummary_ckf.root",
-    # )
+    track_metrics_classification_without_generated(
+        tracks_file="tracksummary_ckf.root",
+    )
 
     # track_eff_and_fake_vs_eta(
     #     tracks_file="tracksummary_ckf.root",

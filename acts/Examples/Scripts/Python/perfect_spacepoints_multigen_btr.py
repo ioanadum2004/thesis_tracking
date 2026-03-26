@@ -337,84 +337,12 @@ def runPerfectSpacepointsMultiGen(
         initialVarInflation=seed["initialVarInflation"],
         geoSelectionConfigFile=geometrySelection,
         outputDirRoot=outputDir,
+        # changed
+        outputDirCsv=outputDir,
         rnd=rnd,
     )
 
     #add seeding here
-
-#     class StoreInspector(acts.examples.IAlgorithm):
-#         def __init__(self, level):
-#             acts.examples.IAlgorithm.__init__(self, "StoreInspector", level)
-
-#         def execute(self, context):
-#             wb = context.eventStore
-#             print("\n=== WhiteBoard available methods ===")
-#             print([m for m in dir(wb) if not m.startswith("__")])
-#             return acts.examples.ProcessCode.SUCCESS
-
-#     s.addAlgorithm(StoreInspector(acts.logging.INFO))
-
-#     class SeedDumper(acts.examples.IAlgorithm):
-
-#         def __init__(self, config, level):
-#             acts.examples.IAlgorithm.__init__(self, "SeedDumper", level)
-#             self.cfg = config
-#             self.outfile = open(config["outputPath"], "w", newline="")
-#             self.writer = csv.writer(self.outfile)
-#             self.writer.writerow([
-#                 "event_id",
-#                 "seed_id",
-#                 "pt_est",       # estimated pT from seed curvature
-#                 "eta",          # pseudorapidity
-#                 "phi",          # azimuthal angle
-#                 "theta",        # polar angle
-#                 "qop",          # charge/momentum (signed)
-#                 "z0",           # z at perigee (beam axis intercept)
-#                 "loc0",         # local d0
-#                 "loc1",         # local z0
-#             ])
-#             self._event = 0
-
-#         def execute(self, context):
-#             # The seeding algorithm outputs estimated track parameters
-#             # under the key "EstimatedTrackParameters" by default
-#             params = context.eventStore.get("EstimatedTrackParameters")
-
-#             for i, p in enumerate(params):
-#                 # BoundTrackParameters gives you q/p, theta, phi, etc.
-#                 qop   = p.parameters()[acts.eBoundQOverP]
-#                 theta = p.parameters()[acts.eBoundTheta]
-#                 phi   = p.parameters()[acts.eBoundPhi]
-#                 loc0  = p.parameters()[acts.eBoundLoc0]
-#                 loc1  = p.parameters()[acts.eBoundLoc1]
-
-#                 pt    = abs(1.0 / qop) * np.sin(theta)  # in GeV
-#                 eta   = -np.log(np.tan(theta / 2.0))
-
-#                 self.writer.writerow([
-#                     self._event, i,
-#                     round(pt, 6), round(eta, 6), round(phi, 6),
-#                     round(theta, 6), round(qop, 6),
-#                     round(loc1, 6),  # loc1 ~ z0 at perigee
-#                     round(loc0, 6), round(loc1, 6),
-#                 ])
-
-#             self._event += 1
-#             return acts.examples.ProcessCode.SUCCESS
-
-#         def finalize(self):
-#             self.outfile.close()
-#             return acts.examples.ProcessCode.SUCCESS
-
-
-#     # Register it in the sequencer
-#     s.addAlgorithm(
-#         SeedDumper(
-#             {"outputPath": str(outputDir / "seeds_raw.csv")},
-#             acts.logging.INFO,
-#             # print("[INFO] SeedDumper will write raw seed parameters to ")
-#         )
-# )   
 
     # -------------------------------------------------------------------------
     # Track finding (CKF)
