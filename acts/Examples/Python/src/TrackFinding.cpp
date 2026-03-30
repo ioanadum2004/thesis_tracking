@@ -6,6 +6,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// change
+#include "ActsExamples/TrackFinding/MLSeedFilter.hpp"
+// ---
+
 #include "Acts/EventData/SpacePointContainer.hpp"
 #include "Acts/Geometry/GeometryIdentifier.hpp"
 #include "Acts/Plugins/Python/Utilities.hpp"
@@ -198,6 +202,14 @@ void addTrackFinding(Context& ctx) {
   ACTS_PYTHON_DECLARE_ALGORITHM(
       ActsExamples::MuonHoughSeeder, mex, "MuonHoughSeeder", inTruthSegments,
       inSpacePoints, outHoughMax, nBinsTanTheta, nBinsY0, nBinsTanPhi, nBinsX0);
+
+// ----- changed ----
+  ACTS_PYTHON_DECLARE_ALGORITHM(
+    ActsExamples::MLSeedFilter, mex,
+    "MLSeedFilter",
+    inputTrackParameters, outputTrackParameters, inputSeeds, outputSeeds,
+    modelPath, scalerMeans, scalerStds, threshold);
+// --------
 
   ACTS_PYTHON_DECLARE_ALGORITHM(
       ActsExamples::TrackParamsEstimationAlgorithm, mex,

@@ -2,6 +2,7 @@ acts_add_library(
     ExamplesTrackFinding
     SHARED
     src/SeedingAlgorithm.cpp
+    src/MLSeedFilter.cpp
     src/SeedingOrthogonalAlgorithm.cpp
     src/SpacePointMaker.cpp
     src/TrackFindingAlgorithm.cpp
@@ -24,6 +25,8 @@ target_link_libraries(
     ActsExamplesTrackFinding
     PUBLIC Acts::ExamplesMagneticField
     PRIVATE ROOT::Core ROOT::Geom ROOT::Graf ROOT::Hist ROOT::Gpad
+            onnxruntime
+            nlohmann_json::nlohmann_json
 )
 
 acts_compile_headers(ExamplesTrackFinding GLOB "include/**/*.hpp")

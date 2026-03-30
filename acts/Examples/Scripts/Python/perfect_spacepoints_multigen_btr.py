@@ -35,6 +35,42 @@ from acts.examples.reconstruction import (
     trackSelectorDefaultKWArgs,
 )
 
+# --- changed ----
+
+import sys
+import os
+from pathlib import Path
+
+models_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+
+
+# # Point Python to the folder where you just installed lightgbm
+# custom_pkg_path = "/data/alice/idumitra/thesis_tracking/python_packages"
+# if custom_pkg_path not in sys.path:
+#     # We use insert(0, ...) so it checks this folder FIRST
+#     sys.path.insert(0, custom_pkg_path)
+
+# sys.path.append("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+
+# # Import the SPECIFIC class from your file
+# try:
+#     from ml_seed_filter import MLSeedFilter
+#     print("MLSeedFilter class successfully defined in global scope")
+# except ImportError as e:
+#     print(f"Critical Import Error: {e}")
+#     # Create a dummy class so the script doesn't crash immediately 
+#     # (though it will fail later if it tries to use it)
+#     class MLSeedFilter: 
+#         def __init__(self, *args, **kwargs): pass
+
+# # Now try the imports
+# try:
+#     import lightgbm as lgb
+#     print(f"Success! LightGBM loaded from: {lgb.__file__}")
+# except ImportError as e:
+#     print(f"Still failing to find LightGBM: {e}")
+#     print("Search paths were:", sys.path)
+# ----------------
 
 PDG_MAP = {
     "electron": acts.PdgParticle.eElectron,
@@ -344,6 +380,29 @@ def runPerfectSpacepointsMultiGen(
 
     #add seeding here
 
+    # --- changed ---- add ML-based seed filter algorithm after seeding and before track finding
+    # hardcoded paths for now, but  can also add these to the JSON config in the future
+
+    with open(models_dir / "scaler_params.json") as f:
+        scaler_params = json.load(f)
+
+    ml_filter = acts.examples.MLSeedFilter(
+        acts.examples.MLSeedFilter.Config(
+            inputTrackParameters="estimatedparameters",
+            outputTrackParameters="estimatedparameters_filtered",
+            inputSeeds="estimatedseeds",
+            outputSeeds="estimatedseeds_filtered",
+            modelPath=str(models_dir / "mlp_seed_filter_model.onnx"),
+            scalerMeans=scaler_params["scaler_means"],
+            scalerStds=scaler_params["scaler_stds"],
+            threshold=0.4,
+        ),
+        customLogLevel(),
+    )
+    s.addAlgorithm(ml_filter)
+
+    # --------------
+
     # -------------------------------------------------------------------------
     # Track finding (CKF)
     # -------------------------------------------------------------------------
@@ -418,9 +477,15 @@ def runPerfectSpacepointsMultiGen(
             ]
         ),
         inputMeasurements="measurements",
-        inputInitialTrackParameters="estimatedparameters",
+
+        # inputInitialTrackParameters="estimatedparameters",
+
+        # --- changed: use the filtered seeds as input to CKF instead of the original estimated parameters
+        inputInitialTrackParameters="estimatedparameters_filtered",
+        # -----
+
         inputSeeds=(
-            "estimatedseeds" if ckf["seedDeduplication"] or ckf["stayOnSeed"] else ""
+            "estimatedseeds_filtered" if ckf["seedDeduplication"] or ckf["stayOnSeed"] else ""
         ),
 
         outputTracks="ckf_tracks",

@@ -1479,7 +1479,7 @@ def track_metrics_classification_without_generated(
     print("Fake tracks:", countfake)
     print("Matched tracks:", countgood)
     print("Duplicate tracks:", countduplicate)
-    print("Track Efficiency:", countgood/counttotal)
+    print("Track Efficiency:", countmatched/counttotal)
     print("Fake Rate:", countfake/counttotal)
     print("Duplicate Rate:", countduplicate/counttotal)
 
@@ -1488,7 +1488,7 @@ def track_metrics_classification_without_generated(
     print("Fake tracks:", np.sum(hist_fake))
     print("Matched tracks:", np.sum(hist_good))
     print("Duplicate tracks:", np.sum(hist_duplicate))
-    print("Track Efficiency - histogram:", np.sum(hist_good) / np.sum(hist_all))
+    print("Track Efficiency - histogram:", np.sum(hist_matched) / np.sum(hist_all))
     print("Fake rate - histogram:", np.sum(hist_fake) / np.sum(hist_all))
     print("Duplicate Rate - histogram:", np.sum(hist_duplicate) / np.sum(hist_all))
 

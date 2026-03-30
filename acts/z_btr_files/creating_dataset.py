@@ -8,16 +8,18 @@ from sklearn.metrics import roc_auc_score, classification_report
 import sys
 sys.path.insert(0, "/data/alice/idumitra/thesis_tracking/python_packages")
 import lightgbm as lgb
+import joblib
 
 #where you read info from the root file and where you save the csv dataset
 output_dir = Path("/data/alice/idumitra/thesis_tracking/acts")
 
 # creating_dataset.py
-# ├── load_base_features()        # reads estimatedparams.root → Dataset B features
-# ├── add_conformal_features()    # reads seed CSVs, computes u,v → Dataset C features
-# ├── split_and_scale()           # event-level split + StandardScaler
-# ├── train_model()               # LightGBM training + evaluation
-# └── main()                      # calls everything in order
+# ├── load_and_label_data(root_path)     → returns df
+# ├── split_and_scale(df)                → returns X/y splits + fitted scaler  
+# ├── train_model(X_train, y_train)      → returns trained model
+# ├── evaluate_model(model, scaler, ...)  → prints metrics, threshold scan
+# ├── save_artifacts(model, scaler, path) → saves .txt and .pkl
+# └── main()                     # calls everything in order
 
 # -------------------------
 # Section 1: Load data
@@ -134,7 +136,12 @@ y_val_pred = (y_val_proba >= 0.4).astype(int) #instead of a hard decision, this 
 print(f"Val AUC:  {roc_auc_score(y_val, y_val_proba):.3f}") #this compares your predicted probabilities against the true labels and computes the AUC score
 print(classification_report(y_val, y_val_pred, target_names=["fake","real"]))
 
-# Final test evaluation 
+model.booser_.save_model("seed_filter_model.txt")  # LightGBM native format
+joblib.dump(scaler, "seed_filter_scaler.pkl")
+print("Model and scaler saved.")
+
+# ---- Final test evaluation ----
+
 # y_test_proba = model.predict_proba(X_test_scaled)[:, 1]
 # y_test_pred  = (y_test_proba >= 0.4).astype(int)
 
