@@ -22,19 +22,133 @@ import joblib
 output_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
 
 #coloanele din dataset, gen informatiile despre fiecare seed
-FEATURE_COLS = [
+ROOT_BRANCHES = [
     "pt", "eta", "phi", "theta", "qop",
     "loc0", "loc1",
     "err_loc0", "err_loc1",
     "err_phi", "err_theta", "err_qop",
 ]
 
+# FEATURE_COLS = [
+#     "pt", "eta", "phi", "theta", "qop",
+#     "loc0", "loc1",
+#     "err_loc0", "err_loc1",
+#     "err_phi", "err_theta", "err_qop",
+# ]
+
+FEATURE_COLS = [
+    "pt", "eta", "phi", "theta", "qop",
+    "loc0", "loc1",
+    "err_loc0", "err_loc1",
+    "err_phi", "err_theta", "err_qop",
+    # new features from CSV
+    "quality", "vertexZ",
+    "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+    # engineered features
+    "pull_loc0", "pull_loc1",
+    "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+]
+
+CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
+
+# 7    err_loc0           0
+# 8    err_loc1           0
+# 9     err_phi           0
+# 10  err_theta           0
+
 # ------------------------- Load data -------------------------
 
 def load_and_label_data(root_path, output_dir):
     with uproot.open(root_path) as f:
         tree = f["estimatedparams"]
-        branches = FEATURE_COLS + ["truthMatched", "event_nr"]
+        # branches = ROOT_BRANCHES + ["truthMatched", "event_nr"]
+        branches = [
+            "pt", "eta", "phi", "theta", "qop",
+            "loc0", "loc1",
+            "err_loc0", "err_loc1",
+            "err_phi", "err_theta", "err_qop",
+            "truthMatched", "event_nr"
+        ]
+        df = tree.arrays(branches, library="pd")
+    
+    # Rename label column
+    df = df.rename(columns={"truthMatched": "label"})
+    df["label"] = df["label"].astype(int)
+
+    # Add a seed index per event - so at the end you have the seeds counted, 0,1,2,... for each event separately. This is just for analysis, not used as a feature.
+    df["seed_id"] = df.groupby("event_nr").cumcount()
+
+    # df["is_low_pt"] = (df["pt"] < 0.15).astype(float)
+    # df["is_mid_pt"] = ((df["pt"] >= 0.15) & (df["pt"] < 0.25)).astype(float)
+
+    # ---- NEW THINGS ---
+
+    # --- engineered features from estimatedparams - pull is the residual (difference between measured and true value) divided by the uncertainty, so it tells you how many "sigma" away the measurement is from the truth. A pull close to 0 means the measurement is consistent with the truth within uncertainties, while a large pull (positive or negative) indicates a significant deviation that might be worth investigating.
+    df["pull_loc0"] = df["loc0"] / (df["err_loc0"] + 1e-9)
+    df["pull_loc1"] = df["loc1"] / (df["err_loc1"] + 1e-9)
+
+    # --- load and join CSV files ---
+    csv_frames = []
+
+    for event_id in df["event_nr"].unique():
+        csv_path = CSV_DIR / f"event{int(event_id):09d}-seed.csv" # this looks like event000000123-seed.csv
+        if not csv_path.exists():
+            print(f"Warning: missing CSV for event {event_id}")
+            continue
+        csv_df = pd.read_csv(csv_path)
+        csv_df["event_nr"] = event_id
+        # seed_id in CSV should match cumcount order - verify this assumption!
+        csv_df["seed_id"] = range(len(csv_df))
+        csv_frames.append(csv_df[[
+            "event_nr", "seed_id",
+            "bX","bY","bZ","mX","mY","mZ","tX","tY","tZ",
+            "quality", "vertexZ"
+        ]])
+
+    if csv_frames:
+        df_csv = pd.concat(csv_frames, ignore_index=True)
+        df = df.merge(df_csv, on=["event_nr", "seed_id"], how="left") # left means we keep all rows from df, and add columns from df_csv where we have a match on event_nr and seed_id. If no match, we get NaN for the new columns, which we can handle later.
+
+        # engineered spacepoint features
+        df["dist_bm"] = np.sqrt((df.mX-df.bX)**2 + (df.mY-df.bY)**2 + (df.mZ-df.bZ)**2)
+        df["dist_mt"] = np.sqrt((df.tX-df.mX)**2 + (df.tY-df.mY)**2 + (df.tZ-df.mZ)**2)
+        df["dist_bt"] = np.sqrt((df.tX-df.bX)**2 + (df.tY-df.bY)**2 + (df.tZ-df.bZ)**2)
+        df["dist_ratio"] = df["dist_bm"] / (df["dist_mt"] + 1e-6)
+    else:
+        print("Warning: no CSV files found, training without spacepoint features")
+        # remove spacepoint features from FEATURE_COLS if no CSV
+    
+    # drop rows where join failed
+    df = df.dropna(subset=FEATURE_COLS)
+
+    # ---- NEW THINGS end ---
+    
+    # Quick sanity check
+    print(f"Total seeds:  {len(df)}")
+    print(f"Real seeds:   {df['label'].sum()} ({100*df['label'].mean():.1f}%)")
+    print(f"Fake seeds:   {(1-df['label']).sum()} ({100*(1-df['label']).mean():.1f}%)")
+    print(f"\nEvents: {df['event_nr'].nunique()}")
+    print(f"\nFirst few rows:")
+    # print(df[["event_nr","seed_id","pt","eta","phi","theta","qop","loc0","loc1","label"]].head(10))
+    print(df.head(10))
+
+    df.to_csv(output_dir / "dataset_B.csv", index=False)
+    print(f"\nSaved dataset_B.csv with {len(df)} rows and {len(df.columns)} columns")
+
+    return df
+
+# ------------------------- Load data -------------------------
+
+def load_and_label_data_old(root_path, output_dir):
+    with uproot.open(root_path) as f:
+        tree = f["estimatedparams"]
+        branches = [
+            "pt", "eta", "phi", "theta", "qop",
+            "loc0", "loc1",
+            "err_loc0", "err_loc1",
+            "err_phi", "err_theta", "err_qop",
+            "truthMatched", "event_nr"
+        ]
         df = tree.arrays(branches, library="pd")
     
     # Rename label column
@@ -93,7 +207,10 @@ def split_and_scale(df):
     print(f"Val:   {len(X_val)} seeds,   {y_val.mean()*100:.1f}% real")
     print(f"Test:  {len(X_test)} seeds,  {y_test.mean()*100:.1f}% real")
 
-    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler
+    # you scale because some features might have very different ranges (e.g. pt could be 0-100 GeV, while loc0 and loc1 are small numbers around 0.01). Scaling helps the model learn better by putting all features on a similar scale. It can also speed up training and improve convergence.
+
+    # return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler
+    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df
 
 def train_model(X_train_scaled, y_train):
     model = lgb.LGBMClassifier(
@@ -138,10 +255,116 @@ def save_artifacts(model, scaler, path):
     joblib.dump(scaler, path / "tree_seed_filter_scaler.pkl")
     print("Model and scaler saved.")
 
+def evaluate_by_pt_old(model, X_val_scaled, val_df, threshold=0.4):
+    """
+    Evaluates real and fake recall binned by unscaled pT.
+    """
+    # 1. Get probabilities using LightGBM (replaces PyTorch tensors/sigmoid)
+    proba = model.predict_proba(X_val_scaled)[:, 1]
+    
+    # 2. Prepare the evaluation dataframe using the unscaled validation data
+    df_eval = val_df.reset_index(drop=True).copy()
+    df_eval["proba"] = proba
+    df_eval["predicted"] = (proba >= threshold).astype(int)
+    
+    # 3. Define pT bins relevant to your range
+    # Note: Ensure your actual pT values don't exceed 0.5 or fall below 0.1, 
+    # otherwise pd.cut will assign them as NaN. Adjust bins if necessary.
+    pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+    df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
+    
+    print(f"\nPerformance by pT bin (threshold={threshold}):")
+    print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
+    print("-" * 60)
+    
+    for pt_bin in pt_labels:
+        mask = df_eval["pt_bin"] == pt_bin
+        subset = df_eval[mask]
+        if len(subset) == 0:
+            continue
+        
+        real_mask = subset["label"] == 1
+        fake_mask = subset["label"] == 0
+        
+        if real_mask.sum() > 0:
+            real_recall = (subset[real_mask]["predicted"] == 1).mean()
+        else:
+            real_recall = float("nan")
+            
+        if fake_mask.sum() > 0:
+            fake_recall = (subset[fake_mask]["predicted"] == 0).mean()
+        else:
+            fake_recall = float("nan")
+        
+        print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
+              f"{real_mask.sum():>8} {fake_mask.sum():>8}")
+
+def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
+    """
+    Evaluates real and fake recall binned by unscaled pT.
+    
+    Args:
+        dynamic: if True, uses pT-dependent thresholds:
+                 pT < 0.15 → 0.20, pT < 0.20 → 0.30, pT >= 0.20 → 0.40
+        threshold: fixed threshold to use when dynamic=False (default 0.4)
+    """
+    # 1. Get probabilities using LightGBM
+    proba = model.predict_proba(X_val_scaled)[:, 1]
+    
+    # 2. Prepare the evaluation dataframe
+    df_eval = val_df.reset_index(drop=True).copy()
+    df_eval["proba"] = proba
+
+    # 3. Apply threshold — dynamic or fixed
+    if dynamic:
+        def get_threshold(pt_value):
+            if pt_value < 0.15:
+                return 0.20
+            elif pt_value < 0.20:
+                return 0.30
+            else:
+                return 0.40
+
+        df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
+        df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
+        threshold_label = "dynamic"
+    else:
+        df_eval["predicted"] = (proba >= threshold).astype(int)
+        threshold_label = threshold
+
+    # 4. Define pT bins
+    pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+    df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
+    
+    print(f"\nPerformance by pT bin (threshold={threshold_label}):")
+    print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
+    print("-" * 60)
+    
+    for pt_bin in pt_labels:
+        mask = df_eval["pt_bin"] == pt_bin
+        subset = df_eval[mask]
+        if len(subset) == 0:
+            continue
+        
+        real_mask = subset["label"] == 1
+        fake_mask = subset["label"] == 0
+        
+        real_recall = (subset[real_mask]["predicted"] == 1).mean() if real_mask.sum() > 0 else float("nan")
+        fake_recall = (subset[fake_mask]["predicted"] == 0).mean() if fake_mask.sum() > 0 else float("nan")
+        
+        print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
+              f"{real_mask.sum():>8} {fake_mask.sum():>8}")
+    
+    print("-" * 60)
+
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
     df = load_and_label_data(root_path, output_dir)
-    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler = split_and_scale(df)
+    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df = split_and_scale(df)
+
     model = train_model(X_train_scaled, y_train)
     evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test)
+    evaluate_by_pt_old(model, X_val_scaled, val_df, threshold=0.4)
     save_artifacts(model, scaler, output_dir)

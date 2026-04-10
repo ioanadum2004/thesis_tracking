@@ -395,7 +395,7 @@ def runPerfectSpacepointsMultiGen(
             modelPath=str(models_dir / "mlp_seed_filter_model.onnx"),
             scalerMeans=scaler_params["scaler_means"],
             scalerStds=scaler_params["scaler_stds"],
-            threshold=0.4,
+            threshold=0.4,     # change if u change threshold
         ),
         customLogLevel(),
     )
