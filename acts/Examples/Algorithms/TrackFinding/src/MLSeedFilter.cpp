@@ -40,18 +40,27 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
   }
 
   // 2. Extract features and scale them
-  const int nFeatures = 12;                    /// number of features expected by the model, must match FEATURE_COLS in mlp_model.py CHANGE if u change the nr of features
+  // const int nFeatures = 12;                    /// number of features expected by the model, must match FEATURE_COLS in mlp_model.py CHANGE if u change the nr of features
+  const int nFeatures = 27;
   std::vector<float> inputData;
   inputData.reserve(seeds.size() * nFeatures);
 
-  for (const auto& p : params) {
-    auto sparams = p.parameters();             /// [loc0, loc1, phi, theta, qop, time] parameters is the function in trackparameterscontainer that gives u the vector of floats with the track parameters
-    auto cov    = p.covariance().value();      /// covariance is the function in trackparameterscontainer that gives u the covariance matrix, value() is needed because it returns an optional
+  // for (const auto& p : params) {
+  //  auto sparams = p.parameters();             /// [loc0, loc1, phi, theta, qop, time] parameters is the function in trackparameterscontainer that gives u the vector of floats with the track parameters
+  //  auto cov    = p.covariance().value();      /// covariance is the function in trackparameterscontainer that gives u the covariance matrix, value() is needed because it returns an optional
 
     /// loc0 and loc1 are kinda the location in the detector  the location where the track crosses a specific detector surface, expressed in that surface's own local coordinate system
     /// loc0 = transverse impact parameter (how far the track is from the beam axis in the transverse plane)
     /// loc1 = longitudinal impact parameter (how far along the beam axis the track appears to come from)
 
+  for (std::size_t i = 0; i < seeds.size(); ++i) {
+
+    const auto& p       = params[i];
+    auto sparams        = p.parameters();
+    auto cov            = p.covariance().value();
+
+    // ── Track parameter features ──
+    
     float loc0  = sparams[Acts::eBoundLoc0];   /// loc0 is the local position along the first measurement direction, it represents the position of the track in the plane perpendicular to the track direction at the point of closest approach to the beamline. It is used in track reconstruction to determine how well the track fits the measurements and to calculate residuals.
     float loc1  = sparams[Acts::eBoundLoc1];   /// loc1 is the local position along the second measurement direction, it represents the position of the track in the plane perpendicular to the track direction at the point of closest approach to the beamline, but in a different direction than loc0. It is used together with loc0 to determine the position of the track in the transverse plane and to calculate residuals.
     float phi   = sparams[Acts::eBoundPhi];    /// phi is the azimuthal angle, angle in the transverse plane, measured from the x-axis, ranges from -pi to pi
@@ -67,12 +76,35 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
     float err_theta = std::sqrt(cov(Acts::eBoundTheta, Acts::eBoundTheta));
     float err_qop   = std::sqrt(cov(Acts::eBoundQOverP,Acts::eBoundQOverP));
 
+    seedPt.push_back(pt);
+
+    // ── Spacepoint coordinate features ────
+
+    const auto& sp = seeds[i].sp();   // [bottom, middle, top]
+    float bX = sp[0]->x(), bY = sp[0]->y(), bZ = sp[0]->z();
+    float mX = sp[1]->x(), mY = sp[1]->y(), mZ = sp[1]->z();
+    float tX = sp[2]->x(), tY = sp[2]->y(), tZ = sp[2]->z();
+
+    // ── Engineered features ───
+
+    float pull_loc0  = loc0 / (err_loc0 + 1e-9f);
+    float pull_loc1  = loc1 / (err_loc1 + 1e-9f);
+    float dist_bm    = std::sqrt((mX-bX)*(mX-bX) + (mY-bY)*(mY-bY) + (mZ-bZ)*(mZ-bZ));
+    float dist_mt    = std::sqrt((tX-mX)*(tX-mX) + (tY-mY)*(tY-mY) + (tZ-mZ)*(tZ-mZ));
+    float dist_bt    = std::sqrt((tX-bX)*(tX-bX) + (tY-bY)*(tY-bY) + (tZ-bZ)*(tZ-bZ));
+    float dist_ratio = dist_bm / (dist_mt + 1e-6f);
+
+    
+    
     // Scale using scaler sparams from Config
     // Order must match FEATURE_COLS in tree_model.py
     std::vector<float> row = {
         pt, eta, phi, theta, qop, loc0, loc1,
-        err_loc0, err_loc1, err_phi, err_theta, err_qop
+        err_loc0, err_loc1, err_phi, err_theta, err_qop,
+	bX, bY, bZ, mX, mY, mZ, tX, tY, tZ,
+        pull_loc0, pull_loc1, dist_bm, dist_mt, dist_bt, dist_ratio
     };
+    
     for (int i = 0; i < nFeatures; ++i) {
       inputData.push_back((row[i] - m_cfg.scalerMeans[i]) / m_cfg.scalerStds[i]);
     } /// loop over the features, scale them using the means and stds from config, and add to inputData vector which will be used for ONNX inference
@@ -82,7 +114,7 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
   Ort::MemoryInfo memInfo = Ort::MemoryInfo::CreateCpu(
       OrtArenaAllocator, OrtMemTypeDefault);
 
-  std::vector<int64_t> inputShape  = {static_cast<int64_t>(seeds.size()), nFeatures};  // input shape is (number of seeds, number of features), because we want to run inference on all seeds at once, and each seed has nFeatures features. The model expects a 2D input where each row corresponds to a seed and each column corresponds to a feature.
+  std::vector<int64_t> inputShape  = {static_cast<int64_t>(seeds.size()), nFeatures};  // input shape is (number of seeds, number of features), want to run inference on all seeds at once, and each seed has nFeatures features. The model expects a 2D input where each row corresponds to a seed and each column corresponds to a feature.
   std::vector<int64_t> outputShape = {static_cast<int64_t>(seeds.size()), 1};
 
   auto inputTensor = Ort::Value::CreateTensor<float>(
@@ -99,12 +131,18 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
 
   float* scores = outputTensors[0].GetTensorMutableData<float>();
 
+  // dynamic threshold
+
   // 4. Filter seeds above threshold 
-  TrackParametersContainer filteredParams;   /// create new containers for filtered seeds and their track parameters, we will fill them in the loop below and then write them to the whiteboard
+  TrackParametersContainer filteredParams;   /// create new containers for filtered seeds and their track parameters, to fill them in the loop and then write them to the whiteboard
   SimSeedContainer filteredSeeds;
 
   for (std::size_t i = 0; i < params.size(); ++i) {
-      if (scores[i] >= m_cfg.threshold) {
+    float pt        = seedPt[i];
+    float threshold = (pt < 0.15f) ? 0.20f : (pt < 0.20f) ? 0.30f : 0.40f;
+
+    
+    if (scores[i] >= m_cfg.threshold) {
           filteredParams.push_back(params[i]);   /// keep track parameters
           filteredSeeds.push_back(seeds[i]);     /// keep corresponding seed
       }
