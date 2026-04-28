@@ -89,7 +89,7 @@ FEATURE_COLS = [
      # engineered features
      "pull_loc0", "pull_loc1",
      "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
-# ]
+ ]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 

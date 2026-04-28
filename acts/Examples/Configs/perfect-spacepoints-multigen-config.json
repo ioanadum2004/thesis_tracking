@@ -31,7 +31,7 @@
         "max": 360.0
       },
       "particlesPerVertex": 5,
-      "multiplicity": 20,
+      "multiplicity":20,
       "randomizeCharge": true
     }
   },
