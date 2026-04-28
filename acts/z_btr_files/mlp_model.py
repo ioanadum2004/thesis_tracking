@@ -70,26 +70,25 @@ ROOT_BRANCHES = [
 
 # this one for old dataset
 
-FEATURE_COLS = [
-    "pt", "eta", "phi", "theta", "qop",
-    "loc0", "loc1",
-    "err_loc0", "err_loc1",
-    "err_phi", "err_theta", "err_qop",
-]
+#FEATURE_COLS = [
+#    "pt", "eta", "phi", "theta", "qop",
+#    "loc0", "loc1",
+#    "err_loc0", "err_loc1",
+#    "err_phi", "err_theta", "err_qop",
+#]
 
 # this one for new dataset
 
-# FEATURE_COLS = [
-#     "pt", "eta", "phi", "theta", "qop",
-#     "loc0", "loc1",
-#     "err_loc0", "err_loc1",
-#     "err_phi", "err_theta", "err_qop",
-#     # new features from CSV
-#     "quality", "vertexZ",
-#     "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
-#     # engineered features
-#     "pull_loc0", "pull_loc1",
-#     "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+FEATURE_COLS = [
+     "pt", "eta", "phi", "theta", "qop",
+     "loc0", "loc1",
+     "err_loc0", "err_loc1",
+     "err_phi", "err_theta", "err_qop",
+     # new features from CSV
+     "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+     # engineered features
+     "pull_loc0", "pull_loc1",
+     "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
 # ]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
@@ -146,7 +145,6 @@ def load_and_label_data(root_path, output_dir):
         csv_frames.append(csv_df[[
             "event_nr", "seed_id",
             "bX","bY","bZ","mX","mY","mZ","tX","tY","tZ",
-            "quality", "vertexZ"
         ]])
 
     if csv_frames:
@@ -462,7 +460,66 @@ def plot_loss(train_losses, output_dir):
     print(f"\nLoss plot saved to: {plot_path}")
     plt.close() # Close the figure to free up memory
 
-def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
+def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
+    """
+    Evaluates real and fake recall binned by unscaled pT.
+    
+    Args:
+        dynamic: if True, uses pT-dependent thresholds:
+                 pT < 0.15 → 0.20, pT < 0.20 → 0.30, pT >= 0.20 → 0.40
+        threshold: fixed threshold to use when dynamic=False (default 0.4)
+    """
+    # 1. Get probabilities using LightGBM
+    proba = model.predict_proba(X_val_scaled)[:, 1]
+    
+    # 2. Prepare the evaluation dataframe
+    df_eval = val_df.reset_index(drop=True).copy()
+    df_eval["proba"] = proba
+
+    # 3. Apply threshold — dynamic or fixed
+    if dynamic:
+        def get_threshold(pt_value):
+            if pt_value < 0.15:
+                return 0.20
+            elif pt_value < 0.20:
+                return 0.30
+            else:
+                return 0.40
+
+        df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
+        df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
+        threshold_label = "dynamic"
+    else:
+        df_eval["predicted"] = (proba >= threshold).astype(int)
+        threshold_label = threshold
+
+    # 4. Define pT bins
+    pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+    df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
+    
+    print(f"\nPerformance by pT bin (threshold={threshold_label}):")
+    print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
+    print("-" * 60)
+    
+    for pt_bin in pt_labels:
+        mask = df_eval["pt_bin"] == pt_bin
+        subset = df_eval[mask]
+        if len(subset) == 0:
+            continue
+        
+        real_mask = subset["label"] == 1
+        fake_mask = subset["label"] == 0
+        
+        real_recall = (subset[real_mask]["predicted"] == 1).mean() if real_mask.sum() > 0 else float("nan")
+        fake_recall = (subset[fake_mask]["predicted"] == 0).mean() if fake_mask.sum() > 0 else float("nan")
+        
+        print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
+              f"{real_mask.sum():>8} {fake_mask.sum():>8}")
+    
+    print("-" * 60)
+    
+def evaluate_by_pt_old(model, X_val_scaled, y_val, df_val, threshold=0.4):
     model.eval()
     with torch.no_grad():
         X_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
@@ -584,8 +641,8 @@ if __name__ == "__main__":
     plot_loss(losses_weights, output_dir)
     evaluate_model(model_weights, X_val_scaled, y_val)
     
-    # print("\n-- Fixed threshold (0.4) --")
-    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+    # print("\n-- Dynamic --")
+    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, dynamic=True)
 
     # save whichever model you decide is better
     save_artifacts(model_weights, scaler, output_dir)
