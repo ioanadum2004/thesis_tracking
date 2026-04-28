@@ -460,7 +460,7 @@ def plot_loss(train_losses, output_dir):
     print(f"\nLoss plot saved to: {plot_path}")
     plt.close() # Close the figure to free up memory
 
-def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
+def wrong_evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
     """
     Evaluates real and fake recall binned by unscaled pT.
     
@@ -519,7 +519,7 @@ def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
     
     print("-" * 60)
     
-def evaluate_by_pt_old(model, X_val_scaled, y_val, df_val, threshold=0.4):
+def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
     model.eval()
     with torch.no_grad():
         X_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
@@ -530,25 +530,25 @@ def evaluate_by_pt_old(model, X_val_scaled, y_val, df_val, threshold=0.4):
 
     # --- dynamic thresholding based on pT ---
 
-    # print("\n-- Dynamic threshold --")
+    print("\n-- Dynamic threshold --")
     
-    # def get_threshold(pt_value):
-    #     if pt_value < 0.15:
-    #         return 0.20
-    #     elif pt_value < 0.20:
-    #         return 0.30
-    #     else:
-    #         return 0.40
+    def get_threshold(pt_value):
+        if pt_value < 0.15:
+            return 0.20
+        elif pt_value < 0.20:
+            return 0.30
+        else:
+            return 0.40
 
-    # df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
-    # df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
+    df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
+    df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
     
     # ---------------
     # if u want to use a fixed threshold instead of dynamic, just uncomment this line and comment out the dynamic thresholding above
     
-    print("\n-- Fixed threshold (threshold={threshold}): --")
+   # print("\n-- Fixed threshold (threshold={threshold}): --")
 
-    df_eval["predicted"] = (proba >= threshold).astype(int)
+    #df_eval["predicted"] = (proba >= threshold).astype(int)
     
     # define pT bins relevant to your range
     pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
@@ -642,7 +642,7 @@ if __name__ == "__main__":
     evaluate_model(model_weights, X_val_scaled, y_val)
     
     # print("\n-- Dynamic --")
-    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, dynamic=True)
+    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
 
     # save whichever model you decide is better
     save_artifacts(model_weights, scaler, output_dir)

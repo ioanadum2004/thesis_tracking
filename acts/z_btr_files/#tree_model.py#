@@ -317,7 +317,7 @@ def save_artifacts(model, scaler, path):
     
     print("Saved: .txt, .pkl, .onnx, scaler .json")
 
-def evaluate_by_pt_old(model, X_val_scaled, val_df, threshold=0.4):
+def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4):
     """
     Evaluates real and fake recall binned by unscaled pT.
     """
@@ -439,6 +439,6 @@ if __name__ == "__main__":
     #evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False)
     
     print("\n-- Dynamic threshold --")
-    evaluate_by_pt(model, X_val_scaled, val_df, dynamic=True)
+    evaluate_by_pt(model, X_val_scaled, val_df, )
     save_artifacts(model, scaler, output_dir)
 
