@@ -70,27 +70,27 @@ ROOT_BRANCHES = [
 
 # this one for old dataset
 
-# FEATURE_COLS = [
-#     "pt", "eta", "phi", "theta", "qop",
-#     "loc0", "loc1",
-#     "err_loc0", "err_loc1",
-#     "err_phi", "err_theta", "err_qop",
-# ]
-
-# this one for new dataset
-
 FEATURE_COLS = [
     "pt", "eta", "phi", "theta", "qop",
     "loc0", "loc1",
     "err_loc0", "err_loc1",
     "err_phi", "err_theta", "err_qop",
-    # new features from CSV
-    "quality", "vertexZ",
-    "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
-    # engineered features
-    "pull_loc0", "pull_loc1",
-    "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
 ]
+
+# this one for new dataset
+
+# FEATURE_COLS = [
+#     "pt", "eta", "phi", "theta", "qop",
+#     "loc0", "loc1",
+#     "err_loc0", "err_loc1",
+#     "err_phi", "err_theta", "err_qop",
+#     # new features from CSV
+#     "quality", "vertexZ",
+#     "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+#     # engineered features
+#     "pull_loc0", "pull_loc1",
+#     "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+# ]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
@@ -473,6 +473,8 @@ def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
 
     # --- dynamic thresholding based on pT ---
 
+    # print("\n-- Dynamic threshold --")
+    
     # def get_threshold(pt_value):
     #     if pt_value < 0.15:
     #         return 0.20
@@ -487,6 +489,8 @@ def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
     # ---------------
     # if u want to use a fixed threshold instead of dynamic, just uncomment this line and comment out the dynamic thresholding above
     
+    print("\n-- Fixed threshold (threshold={threshold}): --")
+
     df_eval["predicted"] = (proba >= threshold).astype(int)
     
     # define pT bins relevant to your range
@@ -494,7 +498,6 @@ def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
     pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
     df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
     
-    print(f"\nPerformance by pT bin (threshold={threshold}):")
     print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
     print("-" * 60)
     
@@ -560,26 +563,29 @@ def show_class_balance(val_df, pt_bins=None):
 
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
-    df = load_and_label_data(root_path, output_dir)
-    # df = load_and_label_data(root_path, output_dir)
-    # X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler = split_and_scale(df)
+    df = load_and_label_data(root_path, output_dir) # all 29 features, including coordinates and engineered ones
     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, test_df = split_and_scale(df)
 
-    # - with per-bin weighting
+    # reconstruct train_df so we have unscaled pT for weight computation
+    train_df = df.loc[y_train.index] # train df is just the original df rows corresponding to the training indices, so we can access the unscaled features like pT for computing weights
 
-    # get the training slice of df so we have unscaled pT for weight computation
-    all_events = df["event_nr"].unique()
-    train_df = df[df["event_nr"].isin(all_events)]  # split_and_scale already filtered this internally
-    # safer: reconstruct train_df from the indices of y_train
-    train_df = df.loc[y_train.index]
-    model, train_losses = train_model(X_train_scaled, y_train, train_df=train_df)
+    # ---- Model 1: no per-bin weights (global pos_weight only) ----
+    print("\n========== NO BIN WEIGHTS ==========")
+    # model_no_weights, losses_no_weights = train_model(X_train_scaled, y_train)  # no train_df passed
+    # plot_loss(losses_no_weights, output_dir)
+    # evaluate_model(model_no_weights, X_val_scaled, y_val)
+    
+    # # print("\n-- Fixed threshold (0.4) --")
+    # evaluate_by_pt(model_no_weights, X_val_scaled, y_val, val_df, threshold=0.4)
 
-    # ---------------
+    # ---- Model 2: with per-bin weights ----
+    print("\n========== WITH BIN WEIGHTS ==========")
+    model_weights, losses_weights = train_model(X_train_scaled, y_train, train_df=train_df)  # train_df passed
+    plot_loss(losses_weights, output_dir)
+    evaluate_model(model_weights, X_val_scaled, y_val)
+    
+    # print("\n-- Fixed threshold (0.4) --")
+    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
 
-    # model, train_losses = train_model(X_train_scaled, y_train) # train losses are the values of the loss function at each epoch, which should generally decrease as the model learns. You can plot these values to visualize the training progress and check for issues like overfitting or underfitting.
-    plot_loss(train_losses, output_dir)
-    evaluate_model(model, X_val_scaled, y_val)
-    save_artifacts(model, scaler, output_dir)
-    # evaluate_by_pt(model, X_val_scaled, y_val, df[df["event_nr"].isin(df["event_nr"].unique()[int(0.7*len(df["event_nr"].unique())):int(0.85*len(df["event_nr"].unique()))])], threshold=0.4)
-    evaluate_by_pt(model, X_val_scaled, y_val, val_df, threshold=0.4)
-    show_class_balance(val_df)
+    # save whichever model you decide is better
+    save_artifacts(model_weights, scaler, output_dir)

@@ -6,9 +6,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, classification_report, recall_score, precision_score
 import sys
-sys.path.insert(0, "/data/alice/idumitra/thesis_tracking/python_packages")
+# sys.path.insert(0, "/data/alice/idumitra/thesis_tracking/python_packages")
 import lightgbm as lgb
 import joblib
+from lightgbm import Booster
+# from skl2onnx import convert_lightgbm
+# from skl2onnx.common.data_types import FloatTensorType
+import json
+from onnxmltools.convert import convert_lightgbm
+from onnxmltools.convert.common.data_types import FloatTensorType
 
 # creating_dataset.py
 # ├── load_and_label_data(root_path)     → returns df
@@ -29,25 +35,25 @@ ROOT_BRANCHES = [
     "err_phi", "err_theta", "err_qop",
 ]
 
-# FEATURE_COLS = [
-#     "pt", "eta", "phi", "theta", "qop",
-#     "loc0", "loc1",
-#     "err_loc0", "err_loc1",
-#     "err_phi", "err_theta", "err_qop",
-# ]
-
 FEATURE_COLS = [
     "pt", "eta", "phi", "theta", "qop",
     "loc0", "loc1",
     "err_loc0", "err_loc1",
     "err_phi", "err_theta", "err_qop",
-    # new features from CSV
-    "quality", "vertexZ",
-    "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
-    # engineered features
-    "pull_loc0", "pull_loc1",
-    "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
 ]
+
+#FEATURE_COLS = [
+#    "pt", "eta", "phi", "theta", "qop",
+#    "loc0", "loc1",
+#    "err_loc0", "err_loc1",
+#    "err_phi", "err_theta", "err_qop",
+    # new features from CSV
+#    "quality", "vertexZ",
+#    "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+    # engineered features
+#    "pull_loc0", "pull_loc1",
+#    "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+#]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
@@ -188,6 +194,7 @@ def split_and_scale(df):
     # Step 3: separate features and labels
     X_train = train_df[FEATURE_COLS]
     y_train = train_df["label"]
+    pt_train = train_df["pt"].values
 
     X_val   = val_df[FEATURE_COLS]
     y_val   = val_df["label"]
@@ -210,9 +217,9 @@ def split_and_scale(df):
     # you scale because some features might have very different ranges (e.g. pt could be 0-100 GeV, while loc0 and loc1 are small numbers around 0.01). Scaling helps the model learn better by putting all features on a similar scale. It can also speed up training and improve convergence.
 
     # return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler
-    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df
+    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train 
 
-def train_model(X_train_scaled, y_train):
+def train_model_old(X_train_scaled, y_train):
     model = lgb.LGBMClassifier(
         n_estimators=50, # number of trees to build - each one learns something slightly different to correct the previous ones
         max_depth=4, # how deep each tree can grow - prevents overfitting - max 4 yes/no questions per tree
@@ -224,6 +231,37 @@ def train_model(X_train_scaled, y_train):
 
     model.fit(X_train_scaled, y_train)
     
+    return model
+
+def train_model(X_train_scaled, y_train, y_train_pt=None, use_bin_weights=False):
+    model = lgb.LGBMClassifier(
+        n_estimators=50,
+        max_depth=4,
+        learning_rate=0.1,
+    )
+
+    if use_bin_weights and y_train_pt is not None:
+        pt_bins = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
+        sample_weights = np.ones(len(y_train))
+        
+        for i in range(len(pt_bins) - 1):
+            mask = (y_train_pt >= pt_bins[i]) & (y_train_pt < pt_bins[i+1])
+            y_bin = y_train[mask]
+            
+            n_real = (y_bin == 1).sum()
+            n_fake = (y_bin == 0).sum()
+            
+            if n_real > 0 and n_fake > 0:
+                # same logic as scale_pos_weight but per bin
+                bin_weight = n_fake / n_real
+                sample_weights[mask] = bin_weight
+        
+        model.fit(X_train_scaled, y_train, sample_weight=sample_weights)
+    else:
+        pos_weight = len(y_train[y_train==0]) / len(y_train[y_train==1])
+        model.set_params(scale_pos_weight=pos_weight)
+        model.fit(X_train_scaled, y_train)
+
     return model
 
 def evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test):
@@ -244,16 +282,40 @@ def evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test):
 
     importance = pd.DataFrame({
         "feature": FEATURE_COLS,
-        "importance": model.feature_importances_
+        # "importance": model.feature_importances_
+        "importance": model.booster_.feature_importance(importance_type='gain')
     }).sort_values("importance", ascending=False)
 
     print(importance)
 
+# def save_artifacts(model, scaler, path):
+#     path = Path(path)
+#     model.booster_.save_model(str(path / "tree_seed_filter_model.txt")) # LightGBM native format
+#     joblib.dump(scaler, path / "tree_seed_filter_scaler.pkl")
+#     print("Model and scaler saved.")
+
 def save_artifacts(model, scaler, path):
     path = Path(path)
-    model.booster_.save_model(str(path / "tree_seed_filter_model.txt")) # LightGBM native format
+    model.booster_.save_model(str(path / "tree_seed_filter_model.txt"))
     joblib.dump(scaler, path / "tree_seed_filter_scaler.pkl")
-    print("Model and scaler saved.")
+    
+    # onnx for cpp
+    n_features = len(scaler.mean_) 
+    initial_type = [("input", FloatTensorType([None, n_features]))]
+    onnx_model = convert_lightgbm(model, initial_types=initial_type, zipmap=False)
+    
+    with open(path / "tree_seed_filter_model.onnx", "wb") as f:
+        f.write(onnx_model.SerializeToString())
+    
+    # save scaler params as json
+    scaler_params = {
+        "means": scaler.mean_.tolist(),
+        "stds": scaler.scale_.tolist()
+    }
+    with open(path / "tree_seed_filter_scaler.json", "w") as f:
+        json.dump(scaler_params, f)
+    
+    print("Saved: .txt, .pkl, .onnx, scaler .json")
 
 def evaluate_by_pt_old(model, X_val_scaled, val_df, threshold=0.4):
     """
@@ -361,10 +423,22 @@ def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
 
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
-    df = load_and_label_data(root_path, output_dir)
-    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df = split_and_scale(df)
+    df = load_and_label_data_old(root_path, output_dir)
+    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train = split_and_scale(df)
 
-    model = train_model(X_train_scaled, y_train)
+    # model = train_model_old(X_train_scaled, y_train)
+
+    # with bin weights
+    model = train_model(X_train_scaled, y_train, y_train_pt=pt_train, use_bin_weights=True)
+
+    # without
+    # model = train_model(X_train_scaled, y_train)
+
     evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test)
-    evaluate_by_pt_old(model, X_val_scaled, val_df, threshold=0.4)
+    print("\n-- Fixed threshold --")
+    evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False)
+    
+    print("\n-- Dynamic threshold --")
+    evaluate_by_pt(model, X_val_scaled, val_df, dynamic=True)
     save_artifacts(model, scaler, output_dir)
+

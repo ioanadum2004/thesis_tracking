@@ -27,6 +27,76 @@ try:
 except Exception:
     VOLUME_MAP = {}
 
+def add_detector_layers(fig, opacity=0.08):
+    """
+    Draw simplified ATLASish/generic detector geometry as transparent surfaces.
+    Barrel layers are cylinders, endcap layers are annular disks.
+    Adjust radii/z-extents to match your actual geometry.
+    """
+    import numpy as np
+    import plotly.graph_objects as go
+
+    # --- Barrel layers: (label, radius_mm, z_half_extent_mm, color) ---
+    barrel_layers = [
+        ('Pixel B L0',   32,   200, 'royalblue'),
+        ('Pixel B L1',   72,   200, 'royalblue'),
+        ('Pixel B L2',  116,   200, 'royalblue'),
+        ('Pixel B L3',  172,   200, 'royalblue'),
+        ('SStrip B L0', 260,   600, 'tomato'),
+        ('SStrip B L1', 360,   600, 'tomato'),
+        ('LStrip B L0', 500,  1100, 'seagreen'),
+        ('LStrip B L1', 660,  1100, 'seagreen'),
+    ]
+
+    # --- Endcap disks: (label, r_inner_mm, r_outer_mm, z_positions_mm, color) ---
+    endcap_layers = [
+        ('Pixel EC',   30,  175, [-250, -210, -170, 170, 210, 250], 'royalblue'),
+        ('SStrip EC', 200,  380, [-700, -600, -500, 500, 600, 700], 'tomato'),
+        ('LStrip EC', 400,  700, [-1200,-1050,-900, 900,1050,1200], 'seagreen'),
+    ]
+
+    theta = np.linspace(0, 2 * np.pi, 80)
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+
+    for label, radius, z_half, color in barrel_layers:
+        z_vals = np.linspace(-z_half, z_half, 30)
+        # Cylinder surface: theta x z grid
+        T, Z = np.meshgrid(theta, z_vals)
+        X = radius * np.cos(T)
+        Y = radius * np.sin(T)
+        fig.add_trace(go.Surface(
+            x=X, y=Y, z=Z,
+            colorscale=[[0, color], [1, color]],
+            showscale=False,
+            opacity=opacity,
+            name=label,
+            showlegend=True,
+            legendgroup='detector',
+            hoverinfo='name',
+            contours=dict(x=dict(show=False), y=dict(show=False), z=dict(show=False)),
+        ))
+
+    for label, r_inner, r_outer, z_list, color in endcap_layers:
+        r_vals = np.linspace(r_inner, r_outer, 20)
+        T, R = np.meshgrid(theta, r_vals)
+        X = R * np.cos(T)
+        Y = R * np.sin(T)
+        for z_pos in z_list:
+            Z = np.full_like(X, z_pos)
+            fig.add_trace(go.Surface(
+                x=X, y=Y, z=Z,
+                colorscale=[[0, color], [1, color]],
+                showscale=False,
+                opacity=opacity,
+                name=label,
+                # Only show legend entry for first disk of each layer type
+                showlegend=(z_pos == z_list[0]),
+                legendgroup=label,
+                hoverinfo='name',
+                contours=dict(x=dict(show=False), y=dict(show=False), z=dict(show=False)),
+            ))
+
+    return fig
 
 def read_hits(hits_path):
     """Read required branches from the hits ROOT file and return arrays.
@@ -432,6 +502,7 @@ def main():
                 ))
 
         # Update layout
+        fig = add_detector_layers(fig, opacity=0.4)
         fig.update_layout(
             title=dict(
                 text=f"{title} {info_msg}",
