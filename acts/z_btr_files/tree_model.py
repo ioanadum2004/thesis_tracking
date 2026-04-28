@@ -435,8 +435,8 @@ if __name__ == "__main__":
     # model = train_model(X_train_scaled, y_train)
 
     evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test)
-    #print("\n-- Fixed threshold --")
-    #evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False)
+    print("\n-- Fixed threshold --")
+    evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False)
     
     print("\n-- Dynamic threshold --")
     evaluate_by_pt(model, X_val_scaled, val_df, dynamic=True)

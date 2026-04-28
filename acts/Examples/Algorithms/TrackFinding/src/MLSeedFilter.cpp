@@ -24,15 +24,20 @@ MLSeedFilter::MLSeedFilter(Config cfg, Acts::Logging::Level lvl)      /// constr
 }
 
 ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// runs once per event, main method, read seeds and track parameters, extract features, run inference, apply threshold, write output
-  ACTS_LOCAL_LOGGER(logger());
+  // ACTS_LOCAL_LOGGER(logger());
+
+  //  ACTS_LOCAL_LOGGER(logger().clone());
   
   // 1. Read seeds from whiteboard
   const auto& seeds = m_inputSeeds(ctx.eventStore);                /// seeds from estimatedseeds, u call the function w the file in perfect spacepoints
   const auto& params = m_inputTrackParameters(ctx.eventStore);     /// same here for track parameters, estimatedparameters , u call the function w the file in the main file
 
-  ACTS_INFO("MLSeedFilter: seeds in = " << seeds.size());
-  ACTS_DEBUG("MLSeedFilter: seeds in = " << seeds.size());
+  // ACTS_INFO("MLSeedFilter: seeds in = " << seeds.size());
+  // ACTS_DEBUG("MLSeedFilter: seeds in = " << seeds.size());
 
+  // ACTS_INFO(logger(), "MLSeedFilter: seeds in = " << seeds.size());
+  //ACTS_DEBUG(logger(), "MLSeedFilter: seeds in = " << seeds.size());
+  
   if (seeds.empty()) {                                             /// if no seeds, write empty collections and return
     m_outputTrackParameters(ctx.eventStore, TrackParametersContainer{});
     m_outputSeeds(ctx.eventStore, SimSeedContainer{});
@@ -53,8 +58,15 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
     /// loc0 = transverse impact parameter (how far the track is from the beam axis in the transverse plane)
     /// loc1 = longitudinal impact parameter (how far along the beam axis the track appears to come from)
 
+  std::vector<float> seedPt;
+  // seedPt.reserve(seeds.size());
+  std::vector<std::size_t> validIndices;
+  
   for (std::size_t i = 0; i < seeds.size(); ++i) {
 
+    const auto& sp = seeds[i].sp();
+    if (sp.size() < 3) continue;
+    
     const auto& p       = params[i];
     auto sparams        = p.parameters();
     auto cov            = p.covariance().value();
@@ -77,10 +89,11 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
     float err_qop   = std::sqrt(cov(Acts::eBoundQOverP,Acts::eBoundQOverP));
 
     seedPt.push_back(pt);
-
+    validIndices.push_back(i);
+    
     // ── Spacepoint coordinate features ────
 
-    const auto& sp = seeds[i].sp();   // [bottom, middle, top]
+    //    const auto& sp = seeds[i].sp();   // [bottom, middle, top]
     float bX = sp[0]->x(), bY = sp[0]->y(), bZ = sp[0]->z();
     float mX = sp[1]->x(), mY = sp[1]->y(), mZ = sp[1]->z();
     float tX = sp[2]->x(), tY = sp[2]->y(), tZ = sp[2]->z();
@@ -105,8 +118,8 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
         pull_loc0, pull_loc1, dist_bm, dist_mt, dist_bt, dist_ratio
     };
     
-    for (int i = 0; i < nFeatures; ++i) {
-      inputData.push_back((row[i] - m_cfg.scalerMeans[i]) / m_cfg.scalerStds[i]);
+    for (int j = 0; j < nFeatures; ++j) {
+      inputData.push_back((row[j] - m_cfg.scalerMeans[j]) / m_cfg.scalerStds[j]);
     } /// loop over the features, scale them using the means and stds from config, and add to inputData vector which will be used for ONNX inference
   }
 
@@ -137,19 +150,21 @@ ProcessCode MLSeedFilter::execute(const AlgorithmContext& ctx) const {     /// r
   TrackParametersContainer filteredParams;   /// create new containers for filtered seeds and their track parameters, to fill them in the loop and then write them to the whiteboard
   SimSeedContainer filteredSeeds;
 
-  for (std::size_t i = 0; i < params.size(); ++i) {
+  // for (std::size_t i = 0; i < params.size(); ++i) {
+  for (std::size_t j = 0; j < validIndices.size(); ++j) {
+    std::size_t i = validIndices[j];
     float pt        = seedPt[i];
     float threshold = (pt < 0.15f) ? 0.20f : (pt < 0.20f) ? 0.30f : 0.40f;
 
     
-    if (scores[i] >= m_cfg.threshold) {
+    if (scores[i] >= threshold) {
           filteredParams.push_back(params[i]);   /// keep track parameters
           filteredSeeds.push_back(seeds[i]);     /// keep corresponding seed
       }
   }
 
-  ACTS_DEBUG("MLSeedFilter: seeds out = " << filteredParams.size());
-  ACTS_INFO("MLSeedFilter: seeds out = " << filteredParams.size());    /// doesnt work for some reason
+  // ACTS_DEBUG("MLSeedFilter: seeds out = " << filteredParams.size());
+  // ACTS_INFO("MLSeedFilter: seeds out = " << filteredParams.size());    /// doesnt work for some reason
 
   // 5. Write filtered seeds back to whiteboard
   m_outputTrackParameters(ctx.eventStore, std::move(filteredParams));

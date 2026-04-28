@@ -426,7 +426,8 @@ def save_artifacts(model, scaler, path):
         path / "mlp_seed_filter_model.onnx",
         input_names=['input'],
         output_names=['output'],
-        dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
+        dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}},
+        dynamo=False
     )
 
     artifacts = {
