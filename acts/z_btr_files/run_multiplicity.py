@@ -17,8 +17,9 @@ import subprocess
 from pathlib import Path
 
 # ── Edit these if your paths ever change ─────────────────────────────────────
-BASELINE_SCRIPT   = "Examples/Scripts/Python/perfect_spacepoints_multigen.py"
-SEEDFILTER_SCRIPT = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
+BASELINE_SCRIPT   = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
+SEEDFILTER_MLP    = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
+SEEDFILTER_BDT    = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
 SHARED_CONFIG     = Path("Examples/Configs/perfect-spacepoints-multigen-config.json")
 OUTPUT_ROOT       = Path("z_btr_files/multiplicity_sweep")
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ def restore_config(original_config: dict):
     print(f"  Config restored.")
 
 
-def run_script(script: str, run_dir: Path, dry_run: bool) -> bool: # returns a bool
+def run_script_old(script: str, run_dir: Path, dry_run: bool) -> bool: # returns a bool
     #run a pipeline script, directing its output to run_dir
     cmd = ["python", script, str(run_dir)]
     print(f"  cmd : {' '.join(cmd)}")
@@ -61,6 +62,21 @@ def run_script(script: str, run_dir: Path, dry_run: bool) -> bool: # returns a b
     print("  OK")
     return True
 
+def run_script(script: str, run_dir: Path, dry_run: bool, model_arg: str = "") -> bool:
+    cmd = ["python", script, str(run_dir)]
+    if model_arg:
+        cmd += model_arg.split()  # adds ["--model", "none"] etc.
+    print(f"  cmd : {' '.join(cmd)}")
+    if dry_run:
+        print("  [dry-run] skipping execution")
+        return True
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  ERROR (exit code {result.returncode})")
+        print(result.stderr[-3000:])
+        return False
+    print("  OK")
+    return True
 
 def check_outputs(run_dir: Path, label: str):
     #verify expected ROOT files exist in run_dir and print their sizes
@@ -72,15 +88,43 @@ def check_outputs(run_dir: Path, label: str):
         else:
             print(f"  [{label}] WARNING: missing {fname}")
 
-
 def run_one_multiplicity(base_config: dict, mult: int, dry_run: bool):
-    #run both pipelines for a single multiplicity value."""
     print(f"\n{'='*55}")
     print(f"  Multiplicity = {mult}")
     print(f"{'='*55}")
 
-    for label, script in [("baseline",   BASELINE_SCRIPT),
-                           ("seedfilter", SEEDFILTER_SCRIPT)]:
+    pipelines = [
+        ("baseline",   BASELINE_SCRIPT,  "--model none"),
+        ("mlp",        SEEDFILTER_MLP,   "--model mlp"),
+        ("tree",        SEEDFILTER_BDT,   "--model tree"),
+    ]
+
+    for label, script, model_arg in pipelines:
+        run_dir = OUTPUT_ROOT / f"mult_{mult}" / label
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"\n  [{label}]")
+        try:
+            overwrite_config(base_config, mult)
+            success = run_script(script, run_dir, dry_run, model_arg=model_arg)
+            if success and not dry_run:
+                check_outputs(run_dir, label)
+        finally:
+            restore_config(base_config)
+            
+def run_one_multiplicity_old(base_config: dict, mult: int, dry_run: bool):
+    #run all pipelines for a single multiplicity value."""
+    print(f"\n{'='*55}")
+    print(f"  Multiplicity = {mult}")
+    print(f"{'='*55}")
+
+    pipelines = [
+        ("baseline",   BASELINE_SCRIPT),
+        ("mlp",        SEEDFILTER_MLP),
+        ("tree",        SEEDFILTER_BDT),
+    ]
+
+    for label, script in pipelines:
         run_dir = OUTPUT_ROOT / f"mult_{mult}" / label
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,7 +168,7 @@ def main():
     print("SWEEP COMPLETE")
     print(f"{'='*55}")
     for mult in args.multiplicities:
-        for label in ("baseline", "seedfilter"):
+        for label in ("baseline", "mlp", "tree"):
             d = OUTPUT_ROOT / f"mult_{mult}" / label
             roots = list(d.glob("*.root")) if d.exists() else []
             status = f"{len(roots)} ROOT files" if roots else "NO OUTPUT"

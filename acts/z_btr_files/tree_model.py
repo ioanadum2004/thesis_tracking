@@ -303,11 +303,39 @@ def save_artifacts(model, scaler, path):
     onnx_model = convert_lightgbm(model, initial_types=initial_type, zipmap=False)
    #onnx_model = convert_sklearn(model, initial_types=initial_type, zipmap=False)
     #onnx_model = convert_sklearn(model, initial_types=initial_type)
-   
+
+    import onnx
+    from onnx import helper
+
+    graph = onnx_model.graph
+    indices_init = helper.make_tensor("gather_indices", onnx.TensorProto.INT64, [1], [1])
+    graph.initializer.append(indices_init)
+    gather_node = helper.make_node(
+        "Gather",
+        inputs=["probabilities", "gather_indices"],
+        outputs=["output"],
+        axis=1
+    )
+    graph.node.append(gather_node)
+    del graph.output[:]
+    graph.output.append(
+        helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [None, 1])
+    )
+    
     with open(path / "tree_seed_filter_model.onnx", "wb") as f:
         f.write(onnx_model.SerializeToString())
     
-    # save scaler params as json
+    # inspect output names
+    #import onnxruntime as rt
+    #sess = rt.InferenceSession(str(path / "tree_seed_filter_model.onnx"))
+    #print("ONNX inputs:")
+    #for i in sess.get_inputs():
+    #    print(f"  {i.name} {i.shape}")
+    #print("ONNX outputs:")
+    #for o in sess.get_outputs():
+    #    print(f"  {o.name} {o.shape}")
+
+        # save scaler params as json
     scaler_params = {
         "means": scaler.mean_.tolist(),
         "stds": scaler.scale_.tolist()
