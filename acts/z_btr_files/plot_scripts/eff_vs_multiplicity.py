@@ -57,12 +57,15 @@ def eff_vs_mult():
             print("matched:", unu_count + doi_count)
             print("true matched:", unu_count)
             print("duplicate:", doi_count)
-
-            eff = (unu_count + doi_count)/total_count
+            print("total seeds:", total_count)
+            
+            track_eff = (unu_count + doi_count)/total_count
             fake = zero_count/total_count
-            results_list.append(eff)
+            results_list.append(track_eff)
             fake_list.append(fake)
-            print("efficiency:", eff)
+            print("track efficiency:", track_eff)
+            print("particle efficiency:", unu_count/total_count)
+            print("track fake rate:", fake)
 
     particles_per_event = [m * 5 * 5 for m in multiplicities]
 

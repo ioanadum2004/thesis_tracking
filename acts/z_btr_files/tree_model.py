@@ -251,8 +251,10 @@ def train_model(X_train_scaled, y_train, y_train_pt=None, use_bin_weights=False)
             
             if n_real > 0 and n_fake > 0:
                 # same logic as scale_pos_weight but per bin
-                bin_weight = n_fake / n_real
-                sample_weights[mask] = bin_weight
+                #bin_weight = n_fake / n_real
+                #sample_weights[mask] = bin_weight
+                real_mask = mask & (y_train.values == 1)
+                sample_weights[real_mask] = n_fake / n_real
         
         model.fit(X_train_scaled, y_train, sample_weight=sample_weights)
     else:
