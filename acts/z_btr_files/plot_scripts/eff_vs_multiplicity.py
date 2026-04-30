@@ -13,6 +13,24 @@ def eff_vs_mult():
     fake_mlp = []
     fake_tree = []
 
+    fake_count_baseline = []
+    total_seeds_baseline = []
+    truth_matched_baseline = []
+    duplicate_baseline = []
+    matched_baseline = []
+
+    fake_count_mlp = []
+    total_seeds_mlp = []
+    truth_matched_mlp = []
+    duplicate_mlp = []
+    matched_mlp = []
+
+    fake_count_tree = []
+    total_seeds_tree = []
+    truth_matched_tree = []
+    duplicate_tree = []
+    matched_tree = []
+
     for mult in multiplicities:
 
         print(f"\n{'='*55}")
@@ -21,10 +39,10 @@ def eff_vs_mult():
 
         #for label, results_list, fake_list in [("baseline", efficiencies_baseline, fake_baseline), 
         #                            ("seedfilter", efficiencies_sf, fake_sf)]:
-        for label, results_list, fake_list in [
-                ("baseline", efficiencies_baseline, fake_baseline),
-                ("mlp",      efficiencies_mlp,      fake_mlp),
-                ("tree",     efficiencies_tree,      fake_tree),
+        for label, results_list, fake_list, fake_count, total_seeds, truth_matched, duplicate, matched in [
+                ("baseline", efficiencies_baseline, fake_baseline, fake_count_baseline, total_seeds_baseline, truth_matched_baseline, duplicate_baseline, matched_baseline),
+                ("mlp",      efficiencies_mlp,      fake_mlp, fake_count_mlp, total_seeds_mlp, truth_matched_mlp, duplicate_mlp, matched_mlp),
+                ("tree",     efficiencies_tree,      fake_tree, fake_count_tree, total_seeds_tree, truth_matched_tree, duplicate_tree, matched_tree),
         ]:
             path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/tracksummary_ckf.root"
             
@@ -58,16 +76,24 @@ def eff_vs_mult():
             print("true matched:", unu_count)
             print("duplicate:", doi_count)
             print("total seeds:", total_count)
+
+            fake_count.append(zero_count)
+            total_seeds.append(total_count)
+            truth_matched.append(unu_count)
+            duplicate.append(doi_count)
+            matched.append(unu_count + doi_count)
             
             track_eff = (unu_count + doi_count)/total_count
-            fake = zero_count/total_count
+            fake_rate = zero_count/total_count
             results_list.append(track_eff)
-            fake_list.append(fake)
+            fake_list.append(fake_rate)
             print("track efficiency:", track_eff)
             print("particle efficiency:", unu_count/total_count)
-            print("track fake rate:", fake)
+            print("track fake rate:", fake_rate)
 
     particles_per_event = [m * 5 * 5 for m in multiplicities]
+
+    # --- TRACKING EFFICIENCY---
 
     plt.figure()
     plt.plot(particles_per_event, efficiencies_baseline, "o-", color="blue",  label="Baseline")
@@ -83,6 +109,64 @@ def eff_vs_mult():
     plt.legend()
     plt.savefig("z_btr_files/efficiency_vs_multiplicity.png", dpi=150)
     plt.close()
+
+   # # --- TYPES OF SEEDS ---
+    
+   # plt.figure()
+   # plt.plot(particles_per_event, fake, "o-", color="blue",  label="Fake Seeds")
+    #plt.plot(particles_per_event, matched,       "o-", color="green", label="Matched")
+    #plt.plot(particles_per_event, truth_matched,       "o-", color="red", label="Truth Matched")
+    #plt.plot(particles_per_event, duplicate,       "o-", color="orange", label="Duplicate")
+    #plt.plot(particles_per_event, total_seeds,       "o-", color="purple", label="Total Seeds")
+    # plt.plot(particles_per_event, fake_baseline, "o-", color="green",  label="Baseline Fake Rate")                                                                                               
+    # plt.plot(particles_per_event, fake_sf,       "o-", color="red", label="Seed Filter Fake Rate")                                                                                               
+    #plt.title("Types of seeds vs multiplicity")
+    #plt.xlabel("Particles per event")
+    #plt.ylabel("Seed Count")
+    #plt.ylim(0, 1.05)
+    #plt.grid()
+    #plt.legend()
+    #plt.savefig("z_btr_files/types_of_seeds_count.png", dpi=150)
+    #plt.close()
+
+    # --- TYPES OF SEEDS vs MULTIPLICITY ---
+
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10), sharex=True)
+
+    seed_types = [
+        ("Fake Seeds", fake_count_baseline, fake_count_mlp, fake_count_tree),
+        ("Matched", matched_baseline, matched_mlp, matched_tree),
+        ("Truth Matched", truth_matched_baseline, truth_matched_mlp, truth_matched_tree),
+        ("Duplicate", duplicate_baseline, duplicate_mlp, duplicate_tree),
+        ("Total Seeds", total_seeds_baseline, total_seeds_mlp, total_seeds_tree),
+    ]
+    
+    colors = {
+        "Baseline": "green",
+        "MLP": "red",
+        "LightGBM": "deepskyblue"
+    }
+    
+    for ax, (title, baseline, mlp, tree) in zip(axes.flat, seed_types):
+        ax.plot(particles_per_event, baseline, "o-", color=colors["Baseline"], label="Baseline")
+        ax.plot(particles_per_event, mlp, "o-", color=colors["MLP"], label="MLP")
+        ax.plot(particles_per_event, tree, "o-", color=colors["LightGBM"], label="LightGBM")
+
+        ax.set_title(title)
+        ax.set_xlabel("Particles per event")
+        ax.set_ylabel("Seed Count")
+        ax.grid(True)
+        ax.legend()
+
+        # Remove the unused sixth subplot
+        fig.delaxes(axes[1, 2])
+
+        fig.suptitle("Seed Type Comparison vs Multiplicity", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.savefig("z_btr_files/seed_type_comparison_vs_multiplicity.png", dpi=150)
+        plt.close()
+
+    # --- FAKE RATE ---
 
     plt.figure()
    # plt.plot(particles_per_event, efficiencies_baseline, "o-", color="blue",  label="Baseline")
