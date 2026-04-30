@@ -44,7 +44,7 @@ def eff_vs_mult():
                 ("mlp",      efficiencies_mlp,      fake_mlp, fake_count_mlp, total_seeds_mlp, truth_matched_mlp, duplicate_mlp, matched_mlp),
                 ("tree",     efficiencies_tree,      fake_tree, fake_count_tree, total_seeds_tree, truth_matched_tree, duplicate_tree, matched_tree),
         ]:
-            path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/tracksummary_ckf.root"
+            path = f"z_btr_files/multiplicity_sweep_less_features/mult_{mult}/{label}/tracksummary_ckf.root"
             
             f_tracks = uproot.open(path)
             t_tracks = f_tracks["tracksummary"]
