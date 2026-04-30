@@ -159,12 +159,12 @@ def eff_vs_mult():
         ax.legend()
 
         # Remove the unused sixth subplot
-        fig.delaxes(axes[1, 2])
+    fig.delaxes(axes[1, 2])
 
-        fig.suptitle("Seed Type Comparison vs Multiplicity", fontsize=16)
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
-        plt.savefig("z_btr_files/seed_type_comparison_vs_multiplicity.png", dpi=150)
-        plt.close()
+    fig.suptitle("Seed Type Comparison vs Multiplicity", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig("z_btr_files/seed_type_comparison_vs_multiplicity.png", dpi=150)
+    plt.close()
 
     # --- FAKE RATE ---
 
