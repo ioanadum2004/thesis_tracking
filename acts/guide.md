@@ -12,8 +12,10 @@ This guide provides step-by-step instructions on how to set up the environment, 
 First, log in to the Nikhef login node (use the `-X -Y` flags to enable X11 forwarding for graphical interfaces):
 ```bash
 ssh -X -Y [username]@login.nikhef.nl
+```
 
 Once logged in, access one of the interactive nodes (you can use i1, i2, or i3). For example:
 
 ```bash
-ssh -X -Y stbc-i1.nikhef.nl
+ssh -X -Y stbc-i3.nikhef.nl
+```
