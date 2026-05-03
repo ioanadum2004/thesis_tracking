@@ -4,11 +4,26 @@ This guide provides step-by-step instructions on how to set up the environment, 
 
 ---
 
-## Daily Login Instructions
-*(Note: You must run these steps every time you log into the cluster before running your scripts.)*
+## Environment Setup & Initialization
 
 <details>
-<summary><strong>1. Connect to the Cluster</strong></summary>
+
+<summary><strong>1. First-Time Setup</strong></summary>
+
+clone git plus builiding acts and everything
+
+Compile the ACTS Python bindings using CMake according to: https://wiki.nikhef.nl/alice/How_to_start_using_the_ACTS_framework
+
+```bash
+cmake -B build -S . -DACTS_BUILD_EXAMPLES=ON -DACTS_BUILD_EXAMPLES_PYTHON_BINDINGS=ON -DPYBIND11_USE_FETCHCONTENT=ON
+```
+
+```bash
+cmake --build build
+```
+
+<summary><strong>2. Daily Login Instructions</strong></summary>
+*(Note: You must run these steps every time you log into the cluster before running your scripts.)*
 
 First, log in to the Nikhef login node (use the `-X -Y` flags to enable X11 forwarding for graphical interfaces):
 ```bash
