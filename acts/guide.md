@@ -4,7 +4,8 @@ This guide provides step-by-step instructions on how to set up the environment, 
 
 ---
 
-## Environment Setup & Initialization
+## Daily Login Instructions
+*(Note: You must run these steps every time you log into the cluster before running your scripts.)*
 
 <details>
 <summary><strong>1. Connect to the Cluster</strong></summary>
@@ -22,13 +23,7 @@ ssh -X -Y stbc-i3.nikhef.nl
 
 You need to set up the correct software environments from CVMFS.
 
-First, load the ALICE-specific software
-
-```bash
-source /cvmfs/alice.cern.ch/etc/login.sh
-```
-
-Next, source the LCG release environment needed for the build dependencies:
+First, source the LCG release environment needed for the build dependencies:
 
 ```bash
 source /cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/setup.sh
@@ -40,12 +35,8 @@ Your working directories are located in the /data partition. Navigate to the dir
 cd /data/alice/[username]/thesis_tracking/acts
 ```
 
-Compile the ACTS Python bindings using CMake according to: https://wiki.nikhef.nl/alice/How_to_start_using_the_ACTS_framework
-
+Finally, source the Python environment setup script:
 ```bash
-cmake -B build -S . -DACTS_BUILD_EXAMPLES=ON -DACTS_BUILD_EXAMPLES_PYTHON_BINDINGS=ON -DPYBIND11_USE_FETCHCONTENT=ON
+source build/python/setup.sh
 ```
 
-```bash
-cmake --build build
-```
