@@ -22,6 +22,7 @@ cmake -B build -S . -DACTS_BUILD_EXAMPLES=ON -DACTS_BUILD_EXAMPLES_PYTHON_BINDIN
 cmake --build build
 ```
 
+</details>
 <details>
 
 <summary><strong>2. Daily Login Instructions</strong></summary>
@@ -57,3 +58,4 @@ Finally, source the Python environment setup script:
 source build/python/setup.sh
 ```
 
+</details>
