@@ -22,6 +22,8 @@ cmake -B build -S . -DACTS_BUILD_EXAMPLES=ON -DACTS_BUILD_EXAMPLES_PYTHON_BINDIN
 cmake --build build
 ```
 
+<details>
+
 <summary><strong>2. Daily Login Instructions</strong></summary>
 *(Note: You must run these steps every time you log into the cluster before running your scripts.)*
 
