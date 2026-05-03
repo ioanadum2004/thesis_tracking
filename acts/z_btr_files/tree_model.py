@@ -1,3 +1,40 @@
+"""
+tree_model.py
+=============
+Trains a LightGBM seed filter for the ACTS tracking pipeline.
+
+Reads estimated track parameters from `estimatedparams.root` and spacepoint
+coordinates from per-event CSV files produced by the CsvSeedWriter, constructs
+a labelled dataset of real and fake seeds, trains a LightGBM classifier with
+per-bin sample weighting to handle class imbalance, and exports the trained
+model to ONNX format for C++ inference within the ACTS pipeline.
+
+Usage
+-----
+    python tree_model.py
+
+Requirements
+------------
+- estimatedparams.root must be present at the path specified by `root_path`
+- Per-event CSV files (event000000000-seed.csv, ...) must be present at CSV_DIR
+- Output artifacts are saved to the directory specified by `output_dir`
+
+Output
+------
+    tree_seed_filter_model.txt   : LightGBM model in native format
+    tree_seed_filter_model.onnx  : LightGBM model in ONNX format for C++ inference
+    tree_seed_filter_scaler.pkl  : fitted StandardScaler (Python)
+    tree_seed_filter_scaler.json : scaler mean and variance per feature (C++)
+    dataset_B.csv                : full labelled dataset
+
+Module structure
+----------------
+    load_and_label_data → split_and_scale → train_model
+    → evaluate_model → evaluate_by_pt → save_artifacts
+
+See guide.md for detailed documentation of each function.
+"""
+
 import uproot
 import pandas as pd
 import numpy as np
@@ -451,9 +488,42 @@ def evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
     
     print("-" * 60)
 
+def show_class_balance(val_df, pt_bins=None):
+    """Shows real:fake ratio per pT bin."""
+    if pt_bins is None:
+        pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    
+    pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+    df = val_df.copy()
+    df["pt_bin"] = pd.cut(df["pt"], bins=pt_bins, labels=pt_labels)
+    
+    print(f"{'pT bin':<15} {'n_real':>8} {'n_fake':>8} {'ratio (r:f)':>12} {'% fake':>10}")
+    print("-" * 55)
+    
+    for pt_bin in pt_labels:
+        subset = df[df["pt_bin"] == pt_bin]
+        if len(subset) == 0:
+            continue
+        n_real = (subset["label"] == 1).sum()
+        n_fake = (subset["label"] == 0).sum()
+        ratio = n_real / n_fake if n_fake > 0 else float("inf")
+        pct_fake = 100 * n_fake / len(subset)
+        print(f"{pt_bin:<15} {n_real:>8} {n_fake:>8} {ratio:>12.2f} {pct_fake:>9.1f}%")
+    
+    print("-" * 55)
+    total_real = (df["label"] == 1).sum()
+    total_fake = (df["label"] == 0).sum()
+    print(f"{'TOTAL':<15} {total_real:>8} {total_fake:>8} "
+          f"{total_real/total_fake:>12.2f} {100*total_fake/len(df):>9.1f}%")
+    
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
     df = load_and_label_data(root_path, output_dir)
+
+    # Show class balance for entire dataset
+    print("\n-- Class balance per pT bin (full dataset) --")
+    show_class_balance(df)
+    
     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train = split_and_scale(df)
 
     # model = train_model_old(X_train_scaled, y_train)
