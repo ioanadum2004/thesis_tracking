@@ -107,7 +107,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_vs_multiplicity.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity.png", dpi=150)
     plt.close()
 
    # # --- TYPES OF SEEDS ---
@@ -180,7 +180,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/fake_rate_vs_multiplicity.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/fake_rate_vs_multiplicity.png", dpi=150)
     plt.close()
 
     plt.figure()
@@ -198,7 +198,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/both_vs_multiplicity.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/both_vs_multiplicity.png", dpi=150)
     plt.close()
     
     efficiencies_sf_baseline = []
@@ -226,7 +226,7 @@ def eff_vs_mult():
     plt.ylim(0, 2.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_vs_multiplicity_division.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_division.png", dpi=150)
     plt.close()
 
     plt.figure()
@@ -237,7 +237,7 @@ def eff_vs_mult():
     # plt.ylim(0, 0.0002)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_vs_multiplicity_minus.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_minus.png", dpi=150)
     plt.close()
 
 if __name__ == "__main__":

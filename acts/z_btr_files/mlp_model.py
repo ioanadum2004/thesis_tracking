@@ -1,3 +1,51 @@
+"""
+mlp_model.py
+
+Trains a PyTorch MLP seed filter for the ACTS tracking pipeline.
+
+Reads estimated track parameters from `estimatedparams.root` and spacepoint
+coordinates from per-event CSV files produced by the CsvSeedWriter, constructs
+a labelled dataset of real and fake seeds, trains a Multi-Layer Perceptron (MLP) 
+binary classifier with optional per-bin sample weighting to handle class imbalance, 
+and exports the trained model to ONNX format for C++ inference within the ACTS pipeline.
+
+How to Run
+----------
+Run this script from the terminal. It accepts optional flags to specify the 
+training mode. If no flags are provided, it defaults to running BOTH models.
+
+1. Run both models sequentially (Default):
+   $ python mlp_model.py
+
+2. Run ONLY the model with per-bin pT weights:
+   $ python mlp_model.py --with-weights
+
+3. Run ONLY the model without per-bin weights (global pos_weight only):
+   $ python mlp_model.py --without-weights
+
+Requirements
+------------
+- estimatedparams.root must be present at the path specified by `root_path`
+- Per-event CSV files (event000000000-seed.csv, ...) must be present at CSV_DIR
+- Output artifacts are saved to the directory specified by `output_dir`
+
+Output
+------
+    mlp_seed_filter_model.onnx   : PyTorch model exported to ONNX format for C++ inference
+    mlp_seed_filter_scaler.pkl   : fitted StandardScaler (Python)
+    scaler_params.json           : scaler mean and variance per feature (C++)
+    dataset_B.csv                : full labelled dataset
+    loss_curve_with_weights.png  : Loss curve for the weighted model (train vs val)
+    loss_curve_no_weights.png    : Loss curve for the unweighted model (train vs val)
+
+Module structure
+----------------
+    load_and_label_data → split_and_scale → train_model
+    → evaluate_model → evaluate_by_pt → save_artifacts
+
+See guide.md for detailed documentation of each function.
+"""
+
 import uproot
 import pandas as pd
 import numpy as np
@@ -13,6 +61,7 @@ import torch.nn as nn
 import torch.optim as optim
 import json
 import matplotlib.pyplot as plt
+import argparse
 
 # Define the architecture of the MLP
 # feedforward network with 2 hidden layers, ReLU activations, and an output layer with 1 neuron (for binary classification)
@@ -26,13 +75,7 @@ class SimpleMLP(nn.Module):
             nn.Linear(32, 16),        # hidden layer: 32 → 16 neurons
             nn.ReLU(),                # activation function
             nn.Linear(16, 1)          # output layer: 16 → 1 neuron (logit for binary classification)
-            # a sigmoid means the output will be between 0 and 1, for probabilities, add it later 
-
-            # nn.Linear(input_dim, 64),
-            # nn.ReLU(),
-            # nn.Linear(64, 32),
-            # nn.ReLU(),
-            # nn.Linear(32, 1)
+            # a sigmoid means the output will be between 0 and 1, for probabilities, add it later
         )
 
         # each layer kinda "learns" to transform the data into a more useful representation for the next layer, and the final output is a single number that can be interpreted as the likelihood of being a "real seed" after applying sigmoid.
@@ -58,7 +101,7 @@ class MLPWithSigmoid(nn.Module):
 # └── main()    
 
 #where you read info from the root file and where you save the csv dataset
-output_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+output_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files/models/")
 
 #coloanele din dataset, gen informatiile despre fiecare seed - they come from TrackParametersContainer
 ROOT_BRANCHES = [
@@ -93,11 +136,6 @@ FEATURE_COLS = [
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
-# 7    err_loc0           0
-# 8    err_loc1           0
-# 9     err_phi           0
-# 10  err_theta           0
-
 # ------------------------- Load data -------------------------
 
 # dataset that has the original seed features from estimatedparams.root, plus the joined features from the CSV files (quality, vertexZ, spacepoint coords), plus some engineered features like pull and distances. This is the one we will train on.
@@ -120,9 +158,6 @@ def load_and_label_data(root_path, output_dir):
 
     # Add a seed index per event - so at the end you have the seeds counted, 0,1,2,... for each event separately. This is just for analysis, not used as a feature.
     df["seed_id"] = df.groupby("event_nr").cumcount()
-
-    # df["is_low_pt"] = (df["pt"] < 0.15).astype(float)
-    # df["is_mid_pt"] = ((df["pt"] >= 0.15) & (df["pt"] < 0.25)).astype(float)
 
     # ---- NEW THINGS ---
 
@@ -250,19 +285,19 @@ def compute_sample_weights(df, pt_bins=None):
 # ------------------------- Split & scale -------------------------
 
 def split_and_scale(df):
-    # Step 1: split at the EVENT level, not seed level
+    #split at the event level, not seed level
     all_events = df["event_nr"].unique()
     train_events, temp_events = train_test_split(all_events, test_size=0.3, random_state=42) # 70% train, 30% temp
     val_events,   test_events = train_test_split(temp_events, test_size=0.5, random_state=42) # split temp into 50% val, 50% test → overall 70% train, 15% val, 15% test
     #random_state is just a seed for the random number generator, so that you get the same split every time you run the code. You can choose any integer, or omit it for a different random split each time.
 
-    # Step 2: select rows belonging to each split
+    #select rows belonging to each split
     # adica toate seed-urile dintr-un event merg in acelasi split, nu ai un seed in train si altul in val/test din acelasi event
     train_df = df[df["event_nr"].isin(train_events)]
     val_df   = df[df["event_nr"].isin(val_events)]
     test_df  = df[df["event_nr"].isin(test_events)]
 
-    # Step 3: separate features and labels
+    #separate features and labels
     X_train = train_df[FEATURE_COLS]
     y_train = train_df["label"]
 
@@ -272,7 +307,7 @@ def split_and_scale(df):
     X_test  = test_df[FEATURE_COLS]
     y_test  = test_df["label"]
 
-    # Step 4: scale/normalise — fit ONLY on training data
+    #scale/normalise, fit ONLY on training data
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)  # learns mean/std here
     X_val_scaled   = scaler.transform(X_val)         # applies same mean/std
@@ -328,7 +363,7 @@ def train_model_old(X_train_scaled, y_train):
 
     return model, train_losses
 
-def train_model(X_train_scaled, y_train, train_df=None):
+def train_model_only_train(X_train_scaled, y_train, train_df=None):
     X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) 
     y_tensor = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
 
@@ -380,6 +415,68 @@ def train_model(X_train_scaled, y_train, train_df=None):
             print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
 
     return model, train_losses
+
+def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
+    X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) 
+    y_tensor = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
+    
+    # Validation tensors
+    X_val_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
+    y_val_tensor = torch.tensor(y_val.values, dtype=torch.float32).unsqueeze(1)
+
+    num_fakes = len(y_train[y_train == 0])
+    num_reals = len(y_train[y_train == 1])
+    pos_weight_val = num_fakes / num_reals
+    pos_weight = torch.tensor([pos_weight_val], dtype=torch.float32)
+
+    input_dim = X_train_scaled.shape[1]
+    model = SimpleMLP(input_dim)
+    
+    if train_df is not None:
+        weight_df = train_df[["pt"]].copy().reset_index(drop=True)
+        weight_df["label"] = y_train.values
+        sample_weights = compute_sample_weights(weight_df)
+        weight_tensor = torch.tensor(sample_weights, dtype=torch.float32).unsqueeze(1)
+        criterion = nn.BCEWithLogitsLoss(reduction='none')
+    else:
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        weight_tensor = None
+
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    epochs = 1000
+    print(f"Training MLP for {epochs} epochs...")
+
+    train_losses = []
+    val_losses = []
+    
+    for epoch in range(epochs):
+        # --- Training Step ---
+        model.train()
+        optimizer.zero_grad()
+        outputs = model(X_tensor)
+        
+        if weight_tensor is not None:
+            loss = (criterion(outputs, y_tensor) * weight_tensor).mean()
+        else:
+            loss = criterion(outputs, y_tensor)
+            
+        loss.backward()
+        optimizer.step()
+        train_losses.append(loss.item())
+
+        # --- Validation Step ---
+        model.eval() 
+        with torch.no_grad():
+            val_outputs = model(X_val_tensor)
+            # Use unweighted criterion for validation to assess pure generalization
+            val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+            val_losses.append(val_loss.item())
+
+        if (epoch + 1) % 20 == 0:
+            print(f"Epoch [{epoch+1}/{epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss.item():.4f}")
+
+    return model, train_losses, val_losses
 
 def evaluate_model(model, X_val_scaled, y_val):
     model.eval() # Set model to evaluation mode
@@ -446,39 +543,172 @@ def save_artifacts(model, scaler, path):
 
 # plot loss
 
-def plot_loss(train_losses, output_dir):
+# def plot_loss(train_losses, output_dir):
+#     plt.figure(figsize=(8, 6))
+#     plt.plot(train_losses, label='Training Loss', color='blue')
+#     plt.xlabel('Epoch')
+#     plt.ylabel('BCE With Logits Loss')
+#     plt.title('Model Training Loss')
+#     plt.legend()
+#     plt.grid(True, linestyle='--', alpha=0.7)
+    
+#     # Save the plot to your directory
+#     plot_path = Path(output_dir) / "training_loss.png"
+#     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+#     print(f"\nLoss plot saved to: {plot_path}")
+#     plt.close() # Close the figure to free up memory
+
+def plot_loss(train_losses, val_losses, output_dir, filename="loss_curve.png"):
     plt.figure(figsize=(8, 6))
     plt.plot(train_losses, label='Training Loss', color='blue')
+    plt.plot(val_losses, label='Validation Loss', color='orange')
     plt.xlabel('Epoch')
     plt.ylabel('BCE With Logits Loss')
-    plt.title('Model Training Loss')
+    plt.title('Model Training and Validation Loss')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.7)
     
-    # Save the plot to your directory
-    plot_path = Path(output_dir) / "training_loss.png"
+    # Save the plot with the provided filename
+    plot_path = Path(output_dir) / filename
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     print(f"\nLoss plot saved to: {plot_path}")
-    plt.close() # Close the figure to free up memory
+    plt.close()
 
-def wrong_evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
-    """
-    Evaluates real and fake recall binned by unscaled pT.
+# def wrong_evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=False):
+#     """
+#     Evaluates real and fake recall binned by unscaled pT.
     
-    Args:
-        dynamic: if True, uses pT-dependent thresholds:
-                 pT < 0.15 → 0.20, pT < 0.20 → 0.30, pT >= 0.20 → 0.40
-        threshold: fixed threshold to use when dynamic=False (default 0.4)
-    """
-    # 1. Get probabilities using LightGBM
-    proba = model.predict_proba(X_val_scaled)[:, 1]
+#     Args:
+#         dynamic: if True, uses pT-dependent thresholds:
+#                  pT < 0.15 → 0.20, pT < 0.20 → 0.30, pT >= 0.20 → 0.40
+#         threshold: fixed threshold to use when dynamic=False (default 0.4)
+#     """
+#     # 1. Get probabilities using LightGBM
+#     proba = model.predict_proba(X_val_scaled)[:, 1]
     
-    # 2. Prepare the evaluation dataframe
-    df_eval = val_df.reset_index(drop=True).copy()
+#     # 2. Prepare the evaluation dataframe
+#     df_eval = val_df.reset_index(drop=True).copy()
+#     df_eval["proba"] = proba
+
+#     # 3. Apply threshold — dynamic or fixed
+#     if dynamic:
+#         def get_threshold(pt_value):
+#             if pt_value < 0.15:
+#                 return 0.20
+#             elif pt_value < 0.20:
+#                 return 0.30
+#             else:
+#                 return 0.40
+
+#         df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
+#         df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
+#         threshold_label = "dynamic"
+#     else:
+#         df_eval["predicted"] = (proba >= threshold).astype(int)
+#         threshold_label = threshold
+
+#     # 4. Define pT bins
+#     pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+#     pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+#     df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
+    
+#     print(f"\nPerformance by pT bin (threshold={threshold_label}):")
+#     print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
+#     print("-" * 60)
+    
+#     for pt_bin in pt_labels:
+#         mask = df_eval["pt_bin"] == pt_bin
+#         subset = df_eval[mask]
+#         if len(subset) == 0:
+#             continue
+        
+#         real_mask = subset["label"] == 1
+#         fake_mask = subset["label"] == 0
+        
+#         real_recall = (subset[real_mask]["predicted"] == 1).mean() if real_mask.sum() > 0 else float("nan")
+#         fake_recall = (subset[fake_mask]["predicted"] == 0).mean() if fake_mask.sum() > 0 else float("nan")
+        
+#         print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
+#               f"{real_mask.sum():>8} {fake_mask.sum():>8}")
+    
+#     print("-" * 60)
+    
+# def evaluate_by_pt_nop(model, X_val_scaled, y_val, df_val, threshold=0.4):
+#     model.eval()
+#     with torch.no_grad():
+#         X_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
+#         proba = torch.sigmoid(model(X_tensor)).numpy().flatten()
+    
+#     df_eval = df_val.reset_index(drop=True)
+#     df_eval["proba"] = proba
+
+#     # --- dynamic thresholding based on pT ---
+
+#     print("\n-- Dynamic threshold --")
+    
+#     def get_threshold(pt_value):
+#         if pt_value < 0.15:
+#             return 0.20
+#         elif pt_value < 0.20:
+#             return 0.30
+#         else:
+#             return 0.40
+
+#     df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
+#     df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
+    
+#     # ---------------
+#     # if u want to use a fixed threshold instead of dynamic, just uncomment this line and comment out the dynamic thresholding above
+    
+#    # print("\n-- Fixed threshold (threshold={threshold}): --")
+
+#     #df_eval["predicted"] = (proba >= threshold).astype(int)
+    
+#     # define pT bins relevant to your range
+#     pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+#     pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
+#     df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
+    
+#     print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
+#     print("-" * 60)
+    
+#     for pt_bin in pt_labels:
+#         mask = df_eval["pt_bin"] == pt_bin
+#         subset = df_eval[mask]
+#         if len(subset) == 0:
+#             continue
+        
+#         real_mask = subset["label"] == 1
+#         fake_mask = subset["label"] == 0
+        
+#         if real_mask.sum() > 0:
+#             real_recall = (subset[real_mask]["predicted"] == 1).mean()
+#         else:
+#             real_recall = float("nan")
+            
+#         if fake_mask.sum() > 0:
+#             fake_recall = (subset[fake_mask]["predicted"] == 0).mean()
+#         else:
+#             fake_recall = float("nan")
+        
+#         print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
+#               f"{real_mask.sum():>8} {fake_mask.sum():>8}")
+    
+#     print("-" * 60)
+
+def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold="dynamic"):
+    model.eval()
+    with torch.no_grad():
+        X_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
+        proba = torch.sigmoid(model(X_tensor)).numpy().flatten()
+    
+    df_eval = df_val.reset_index(drop=True).copy()
     df_eval["proba"] = proba
 
-    # 3. Apply threshold — dynamic or fixed
-    if dynamic:
+    # Check if we should use dynamic or fixed threshold
+    if threshold == "dynamic":
+        print("\n-- Dynamic threshold --")
+        
         def get_threshold(pt_value):
             if pt_value < 0.15:
                 return 0.20
@@ -489,67 +719,11 @@ def wrong_evaluate_by_pt(model, X_val_scaled, val_df, threshold=0.4, dynamic=Fal
 
         df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
         df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
-        threshold_label = "dynamic"
+        
     else:
-        df_eval["predicted"] = (proba >= threshold).astype(int)
-        threshold_label = threshold
-
-    # 4. Define pT bins
-    pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
-    pt_labels = [f"{pt_bins[i]:.2f}-{pt_bins[i+1]:.2f}" for i in range(len(pt_bins)-1)]
-    df_eval["pt_bin"] = pd.cut(df_eval["pt"], bins=pt_bins, labels=pt_labels)
-    
-    print(f"\nPerformance by pT bin (threshold={threshold_label}):")
-    print(f"{'pT bin':<15} {'real recall':>12} {'fake recall':>12} {'n_real':>8} {'n_fake':>8}")
-    print("-" * 60)
-    
-    for pt_bin in pt_labels:
-        mask = df_eval["pt_bin"] == pt_bin
-        subset = df_eval[mask]
-        if len(subset) == 0:
-            continue
-        
-        real_mask = subset["label"] == 1
-        fake_mask = subset["label"] == 0
-        
-        real_recall = (subset[real_mask]["predicted"] == 1).mean() if real_mask.sum() > 0 else float("nan")
-        fake_recall = (subset[fake_mask]["predicted"] == 0).mean() if fake_mask.sum() > 0 else float("nan")
-        
-        print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
-              f"{real_mask.sum():>8} {fake_mask.sum():>8}")
-    
-    print("-" * 60)
-    
-def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
-    model.eval()
-    with torch.no_grad():
-        X_tensor = torch.tensor(X_val_scaled, dtype=torch.float32)
-        proba = torch.sigmoid(model(X_tensor)).numpy().flatten()
-    
-    df_eval = df_val.reset_index(drop=True)
-    df_eval["proba"] = proba
-
-    # --- dynamic thresholding based on pT ---
-
-    print("\n-- Dynamic threshold --")
-    
-    def get_threshold(pt_value):
-        if pt_value < 0.15:
-            return 0.20
-        elif pt_value < 0.20:
-            return 0.30
-        else:
-            return 0.40
-
-    df_eval["threshold_used"] = df_eval["pt"].apply(get_threshold)
-    df_eval["predicted"] = (df_eval["proba"] >= df_eval["threshold_used"]).astype(int)
-    
-    # ---------------
-    # if u want to use a fixed threshold instead of dynamic, just uncomment this line and comment out the dynamic thresholding above
-    
-   # print("\n-- Fixed threshold (threshold={threshold}): --")
-
-    #df_eval["predicted"] = (proba >= threshold).astype(int)
+        print(f"\n-- Fixed threshold (threshold={threshold}) --")
+        # Apply the fixed numerical threshold
+        df_eval["predicted"] = (df_eval["proba"] >= threshold).astype(int)
     
     # define pT bins relevant to your range
     pt_bins = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
@@ -580,14 +754,6 @@ def evaluate_by_pt(model, X_val_scaled, y_val, df_val, threshold=0.4):
         
         print(f"{pt_bin:<15} {real_recall:>12.3f} {fake_recall:>12.3f} "
               f"{real_mask.sum():>8} {fake_mask.sum():>8}")
-        
-        # if pt_bin == "0.10-0.15":
-        #     real_scores = subset[real_mask]["proba"]
-        #     fake_scores = subset[fake_mask]["proba"]
-        #     print(f"\n  Real score distribution: mean={real_scores.mean():.3f}, "
-        #         f"median={real_scores.median():.3f}, std={real_scores.std():.3f}")
-        #     print(f"  Fake score distribution: mean={fake_scores.mean():.3f}, "
-        #         f"median={fake_scores.median():.3f}, std={fake_scores.std():.3f}")
     
     print("-" * 60)
 
@@ -619,31 +785,115 @@ def show_class_balance(val_df, pt_bins=None):
     print(f"{'TOTAL':<15} {total_real:>8} {total_fake:>8} "
           f"{total_real/total_fake:>12.2f} {100*total_fake/len(df):>9.1f}%")
 
+# if __name__ == "__main__":
+#     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
+#     df = load_and_label_data(root_path, output_dir) # all 29 features, including coordinates and engineered ones
+#     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, test_df = split_and_scale(df)
+
+#     # reconstruct train_df so we have unscaled pT for weight computation
+#     train_df = df.loc[y_train.index] # train df is just the original df rows corresponding to the training indices, so we can access the unscaled features like pT for computing weights
+
+#     # ---- Model 1: no per-bin weights (global pos_weight only) ----
+#     print("\n========== NO BIN WEIGHTS ==========")
+#     model_no_weights, losses_no_weights = train_model(X_train_scaled, y_train)  # no train_df passed
+#     plot_loss(losses_no_weights, output_dir)
+#     evaluate_model(model_no_weights, X_val_scaled, y_val)
+    
+#     # # print("\n-- Fixed threshold (0.4) --")
+#     evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+
+#     # ---- Model 2: with per-bin weights ----
+#     print("\n========== WITH BIN WEIGHTS ==========")
+#     model_weights, losses_weights = train_model(X_train_scaled, y_train, train_df=train_df)  # train_df passed
+#     plot_loss(losses_weights, output_dir)
+#     evaluate_model(model_weights, X_val_scaled, y_val)
+    
+#     # print("\n-- Dynamic --")
+#     # evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+#     evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
+
+#     # save whichever model you decide is better
+#     save_artifacts(model_weights, scaler, output_dir)
+
+# if __name__ == "__main__":
+#     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
+#     df = load_and_label_data(root_path, output_dir) 
+#     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, test_df = split_and_scale(df)
+
+#     # Reconstruct train_df so we have unscaled pT for weight computation
+#     train_df = df.loc[y_train.index] 
+
+#     # ---- Model 1: no per-bin weights (global pos_weight only) ----
+#     print("\n========== NO BIN WEIGHTS ==========")
+#     # Omitting train_df forces the model to use the global imbalance correction
+#     model_no_weights, train_losses_nw, val_losses_nw = train_model(X_train_scaled, y_train, X_val_scaled, y_val) 
+    
+#     plot_loss(train_losses_nw, val_losses_nw, output_dir, filename="loss_curve_no_weights.png")
+#     evaluate_model(model_no_weights, X_val_scaled, y_val)
+    
+#     # Example using fixed threshold for the unweighted model
+#     evaluate_by_pt(model_no_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+
+#     # ---- Model 2: with per-bin weights ----
+#     print("\n========== WITH BIN WEIGHTS ==========")
+#     # Passing train_df triggers the per-bin weighting logic
+#     model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=train_df) 
+    
+#     plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
+#     evaluate_model(model_weights, X_val_scaled, y_val)
+    
+#     # Example using dynamic threshold for the weighted model
+#     evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
+
+#     # ---- Save Artifacts ----
+#     # Currently saving the weighted model. If you decide the unweighted one performs 
+#     # better, just change `model_weights` to `model_no_weights` below!
+#     save_artifacts(model_weights, scaler, output_dir)
+
 if __name__ == "__main__":
+    # --- Set up command line arguments ---
+    parser = argparse.ArgumentParser(description="Train MLP seed filter.")
+    parser.add_argument("--with-weights", action="store_true", help="Train model with per-bin pT weights")
+    parser.add_argument("--without-weights", action="store_true", help="Train model without per-bin weights (global pos_weight only)")
+    args = parser.parse_args()
+
+    run_weighted = args.with_weights
+    run_unweighted = args.without_weights
+
+    # If no flags are passed, default to running both
+    if not run_weighted and not run_unweighted:
+        print("\n[!] No arguments provided. Running BOTH models by default.")
+        print("    Tip: Use 'python mlp_model.py --with-weights' or '--without-weights' to run just one.")
+        run_weighted = True
+        run_unweighted = True
+
+    # --- Data Loading ---
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
-    df = load_and_label_data(root_path, output_dir) # all 29 features, including coordinates and engineered ones
+    df = load_and_label_data(root_path, output_dir) 
     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, test_df = split_and_scale(df)
 
-    # reconstruct train_df so we have unscaled pT for weight computation
-    train_df = df.loc[y_train.index] # train df is just the original df rows corresponding to the training indices, so we can access the unscaled features like pT for computing weights
+    train_df = df.loc[y_train.index] 
 
-    # ---- Model 1: no per-bin weights (global pos_weight only) ----
-    print("\n========== NO BIN WEIGHTS ==========")
-    # model_no_weights, losses_no_weights = train_model(X_train_scaled, y_train)  # no train_df passed
-    # plot_loss(losses_no_weights, output_dir)
-    # evaluate_model(model_no_weights, X_val_scaled, y_val)
-    
-    # # print("\n-- Fixed threshold (0.4) --")
-    # evaluate_by_pt(model_no_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+    # --- Run Unweighted Model ---
+    if run_unweighted:
+        print("\n========== NO BIN WEIGHTS ==========")
+        model_no_weights, train_losses_nw, val_losses_nw = train_model(X_train_scaled, y_train, X_val_scaled, y_val) 
+        
+        plot_loss(train_losses_nw, val_losses_nw, output_dir, filename="loss_curve_no_weights.png")
+        evaluate_model(model_no_weights, X_val_scaled, y_val)
+        evaluate_by_pt(model_no_weights, X_val_scaled, y_val, val_df, threshold=0.4)
+        
+        print("\nSaving unweighted model artifacts...")
+        save_artifacts(model_no_weights, scaler, output_dir)
 
-    # ---- Model 2: with per-bin weights ----
-    print("\n========== WITH BIN WEIGHTS ==========")
-    model_weights, losses_weights = train_model(X_train_scaled, y_train, train_df=train_df)  # train_df passed
-    plot_loss(losses_weights, output_dir)
-    evaluate_model(model_weights, X_val_scaled, y_val)
-    
-    # print("\n-- Dynamic --")
-    evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
-
-    # save whichever model you decide is better
-    save_artifacts(model_weights, scaler, output_dir)
+    # --- Run Weighted Model ---
+    if run_weighted:
+        print("\n========== WITH BIN WEIGHTS ==========")
+        model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=train_df) 
+        
+        plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
+        evaluate_model(model_weights, X_val_scaled, y_val)
+        evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
+        
+        print("\nSaving weighted model artifacts...")
+        save_artifacts(model_weights, scaler, output_dir)

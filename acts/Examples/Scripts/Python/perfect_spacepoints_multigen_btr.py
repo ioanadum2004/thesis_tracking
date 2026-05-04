@@ -54,7 +54,8 @@ import sys
 import os
 from pathlib import Path
 
-models_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+# models_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+models_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files/models")
 
 import argparse
 # parser = argparse.ArgumentParser()

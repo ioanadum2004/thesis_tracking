@@ -1,6 +1,6 @@
 """
 tree_model.py
-=============
+
 Trains a LightGBM seed filter for the ACTS tracking pipeline.
 
 Reads estimated track parameters from `estimatedparams.root` and spacepoint
@@ -62,7 +62,7 @@ from onnxmltools.convert.common.data_types import FloatTensorType
 # └── main()    
 
 #where you read info from the root file and where you save the csv dataset
-output_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files")
+output_dir = Path("/data/alice/idumitra/thesis_tracking/acts/z_btr_files/models")
 
 #coloanele din dataset, gen informatiile despre fiecare seed
 ROOT_BRANCHES = [
