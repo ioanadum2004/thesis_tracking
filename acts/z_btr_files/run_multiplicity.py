@@ -2,12 +2,43 @@
 """
 run_multiplicity.py
 
-Sweeps over multiplicity values, running both the baseline and seed-filter
-pipelines for each, saving all ROOT outputs into separate directories.
+Sweeps over a range of multiplicity values, running the baseline, MLP, and
+LightGBM pipelines for each multiplicity. For each combination, modifies
+perfect-spacepoints-multigen-config.json in place, executes
+perfect_spacepoints_multigen_btr.py with the appropriate --model argument,
+collects ROOT outputs into z_btr_files/multiplicity_sweep/mult_{m}/{label}/,
+and saves stdout/stderr to run.log in the same directory (required for timing
+extraction by eff_vs_mult.py). The config is restored to its original state
+after every run, even if the pipeline crashes.
 
-Usage:
-    python run_multiplicity.py --dry-run
-    python run_multiplicity.py --multiplicities 1 2 3
+How to Run
+----------
+Run from the acts/ working directory.
+
+1. Run the full default sweep (multiplicities 1 2 5 10 20):
+   $ python run_multiplicity.py
+
+2. Run a custom set of multiplicities:
+   $ python run_multiplicity.py --multiplicities 1 2 3 4 5
+
+3. Print commands without executing (dry run):
+   $ python run_multiplicity.py --multiplicities 1 2 3 --dry-run
+
+Requirements
+------------
+- perfect-spacepoints-multigen-config.json must be present at the path
+  specified by SHARED_CONFIG
+- perfect_spacepoints_multigen_btr.py must be present at the path specified
+  by BASELINE_SCRIPT / SEEDFILTER_MLP / SEEDFILTER_BDT
+- Trained model artifacts (ONNX files, scaler JSONs) must be present for the
+  mlp and tree pipelines to run successfully
+
+Output
+------
+    z_btr_files/multiplicity_sweep/mult_{m}/{label}/particles.root
+    z_btr_files/multiplicity_sweep/mult_{m}/{label}/tracksummary_ckf.root
+    z_btr_files/multiplicity_sweep/mult_{m}/{label}/estimatedparams.root
+    z_btr_files/multiplicity_sweep/mult_{m}/{label}/run.log
 """
 
 import argparse
@@ -70,12 +101,23 @@ def run_script(script: str, run_dir: Path, dry_run: bool, model_arg: str = "") -
     if dry_run:
         print("  [dry-run] skipping execution")
         return True
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # result = subprocess.run(cmd, capture_output=True, text=True)
+    # if result.returncode != 0:
+    #     print(f"  ERROR (exit code {result.returncode})")
+    #     print(result.stderr[-3000:])
+    #     return False
+    # print("  OK")
+    # return True
+
+    log_path = run_dir / "run.log"
+    with open(log_path, "w") as log_file:
+        result = subprocess.run(cmd, stdout=log_file, stderr=log_file, text=True)
     if result.returncode != 0:
         print(f"  ERROR (exit code {result.returncode})")
-        print(result.stderr[-3000:])
+        with open(log_path) as lf:
+            print(lf.read()[-3000:])
         return False
-    print("  OK")
+    print(f"  OK (log: {log_path})")
     return True
 
 def check_outputs(run_dir: Path, label: str):

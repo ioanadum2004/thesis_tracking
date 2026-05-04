@@ -1,6 +1,61 @@
+"""
+eff_vs_mult.py
+
+Reads tracksummary_ckf.root and run.log from each multiplicity directory
+produced by run_multiplicity.py and generates plots of tracking performance
+as a function of the number of particles per event, for the baseline, MLP,
+and LightGBM configurations.
+
+How to Run
+----------
+Run from the acts/ working directory after completing the multiplicity sweep.
+
+1. Run with default multiplicity range:
+   $ python eff_vs_mult.py
+
+Requirements
+------------
+- ROOT files must be present at:
+  z_btr_files/multiplicity_sweep_less_features/mult_{m}/{label}/tracksummary_ckf.root
+  for each multiplicity m and label in {baseline, mlp, tree}
+- run.log files must be present in the same directories for timing extraction
+  (generated automatically by the updated run_multiplicity.py)
+
+Output
+------
+    efficiency_vs_multiplicity.png        : track efficiency vs particles per event
+    fake_rate_vs_multiplicity.png         : fake rate vs particles per event
+    both_vs_multiplicity.png              : efficiency and fake rate combined
+    efficiency_vs_multiplicity_division.png : MLP/baseline efficiency ratio
+    efficiency_vs_multiplicity_minus.png  : MLP - baseline efficiency difference
+    timing_vs_multiplicity.png            : total CKF computation time vs particles per event
+    seed_type_comparison_vs_multiplicity.png : fake, matched, truth matched, duplicate,
+                                              and total seed counts vs particles per event
+
+    All plots saved to z_btr_files/efficiency_plots/multiplicity_plots/
+
+Module structure
+----------------
+    eff_vs_mult → parse_timing → [plot functions]
+"""
+
 import uproot
 import numpy as np
 import matplotlib.pyplot as plt
+import re
+
+def parse_timing(log_path):
+    """Extract total CKF wall time in ms from run.log."""
+    try:
+        with open(log_path) as f:
+            for line in f:
+                if "TOTAL" in line:
+                    match = re.search(r'\|\s+([\d.]+)\s+\|', line)
+                    if match:
+                        return float(match.group(1))
+    except FileNotFoundError:
+        pass
+    return None
 
 def eff_vs_mult():
 
@@ -30,6 +85,10 @@ def eff_vs_mult():
     truth_matched_tree = []
     duplicate_tree = []
     matched_tree = []
+
+    timing_baseline = []
+    timing_mlp = []
+    timing_tree = []
 
     for mult in multiplicities:
 
@@ -90,6 +149,15 @@ def eff_vs_mult():
             print("track efficiency:", track_eff)
             print("particle efficiency:", unu_count/total_count)
             print("track fake rate:", fake_rate)
+
+            log_path = f"z_btr_files/multiplicity_sweep_less_features/mult_{mult}/{label}/run.log"
+            t = parse_timing(log_path)
+            if label == "baseline":
+                timing_baseline.append(t)
+            elif label == "mlp":
+                timing_mlp.append(t)
+            elif label == "tree":
+                timing_tree.append(t)
 
     particles_per_event = [m * 5 * 5 for m in multiplicities]
 
@@ -238,6 +306,20 @@ def eff_vs_mult():
     plt.grid()
     plt.legend()
     plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_minus.png", dpi=150)
+    plt.close()
+
+    # --- TIME ---
+
+    plt.figure()
+    plt.plot(particles_per_event, timing_baseline, "o-", color="blue",   label="Baseline")
+    plt.plot(particles_per_event, timing_mlp,      "o-", color="orange", label="MLP")
+    plt.plot(particles_per_event, timing_tree,     "o-", color="magenta", label="LightGBM")
+    plt.title("Computation Time vs Multiplicity")
+    plt.xlabel("Particles per event")
+    plt.ylabel("Total CKF time (ms)")
+    plt.grid()
+    plt.legend()
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/timing_vs_multiplicity.png", dpi=150)
     plt.close()
 
 if __name__ == "__main__":
