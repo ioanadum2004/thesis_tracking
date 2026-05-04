@@ -25,6 +25,7 @@ Usage:
   python create_spacepoints_looping.py out --hits /path/to/hits.root
   python create_spacepoints_looping.py out --max-pt 1.0
   python create_spacepoints_looping.py out --dpi 200
+  python create_spacepoints_looping.py out --out-dir /path/to/output/folder
 
 Dependencies: uproot, numpy, matplotlib
 """
@@ -457,6 +458,8 @@ def main():
                    help=f'pT threshold in GeV (default: {DEFAULT_MAX_PT})')
     p.add_argument('--dpi', type=int, default=150,
                    help='Image DPI (default: 150)')
+    p.add_argument('--out-dir', '-o', default=None,
+               help='directory to write output files (default: same as out_prefix)')
     args = p.parse_args()
 
     hits_path = Path(args.hits)
@@ -503,7 +506,16 @@ def main():
         n_low = sum(1 for pt in pt_lookup.values() if pt < args.max_pt)
         title += f"  --  {n_low} low-pT (< {args.max_pt} GeV)"
 
-    out_path = Path(f"{args.out_prefix}.png")
+    # out_path = Path(f"{args.out_prefix}.png")
+
+    out_prefix = Path(args.out_prefix)
+    if args.out_dir is not None:
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_prefix = out_dir / out_prefix.name
+
+    out_path = Path(f"{out_prefix}.png")
+
     make_figure(x, y, z, r, pids, pt_lookup, args.max_pt,
                 layer_radii, layer_z, title, out_path, args.dpi)
 

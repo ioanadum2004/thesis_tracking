@@ -16,7 +16,7 @@ TrainML paper, where hits from the same helix cluster together:
   z2 = z / r2
 
 Usage examples:
-  python create_spacepoints first_spacepoints
+  python create_spacepoints_2 first_spacepoints
   python create_spacepoints first_spacepoints --hits /path/to/hits.root
   python create_spacepoints first_spacepoints --mapped
   python create_spacepoints first_spacepoints --mapped --mapped-only
