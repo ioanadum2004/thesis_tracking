@@ -2,6 +2,11 @@
 // WriteDataHandle<TrackParametersContainer> m_outputTrackParameters{this, "OutputTrackParameters"};
 // ```
 
+/// MLSeedFilter: an ACTS algorithm that applies a trained ML model to filter
+/// seeds before the CKF step. Reads estimated track parameters and seeds from
+/// the whiteboard, extracts 12/27 track parameter features, runs ONNX inference,
+/// and writes back only seeds whose score exceeds a threshold.
+
 #pragma once
 
 #include "Acts/Utilities/Logger.hpp"

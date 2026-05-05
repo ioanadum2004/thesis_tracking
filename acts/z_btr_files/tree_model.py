@@ -72,24 +72,24 @@ ROOT_BRANCHES = [
     "err_phi", "err_theta", "err_qop",
 ]
 
-#FEATURE_COLS = [
- #   "pt", "eta", "phi", "theta", "qop",
- #   "loc0", "loc1",
- #   "err_loc0", "err_loc1",
- #   "err_phi", "err_theta", "err_qop",
-#]
-
 FEATURE_COLS = [
-    "pt", "eta", "phi", "theta", "qop",
-    "loc0", "loc1",
-    "err_loc0", "err_loc1",
-    "err_phi", "err_theta", "err_qop",
-    # new features from CSV
-    "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
-    # engineered features
-    "pull_loc0", "pull_loc1",
-    "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+   "pt", "eta", "phi", "theta", "qop",
+   "loc0", "loc1",
+   "err_loc0", "err_loc1",
+   "err_phi", "err_theta", "err_qop",
 ]
+
+# FEATURE_COLS = [
+#     "pt", "eta", "phi", "theta", "qop",
+#     "loc0", "loc1",
+#     "err_loc0", "err_loc1",
+#     "err_phi", "err_theta", "err_qop",
+#     # new features from CSV
+#     "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+#     # engineered features
+#     "pull_loc0", "pull_loc1",
+#     "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+# ]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
@@ -100,6 +100,7 @@ CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
 # ------------------------- Load data -------------------------
 
+# for 27 features
 def load_and_label_data(root_path, output_dir):
     with uproot.open(root_path) as f:
         tree = f["estimatedparams"]
@@ -179,6 +180,8 @@ def load_and_label_data(root_path, output_dir):
     return df
 
 # ------------------------- Load data -------------------------
+
+# 12 features
 
 def load_and_label_data_old(root_path, output_dir):
     with uproot.open(root_path) as f:
@@ -376,10 +379,10 @@ def save_artifacts(model, scaler, path):
 
         # save scaler params as json
     scaler_params = {
-        "means": scaler.mean_.tolist(),
-        "stds": scaler.scale_.tolist()
+        "scaler_means": scaler.mean_.tolist(),
+        "scaler_stds": scaler.scale_.tolist()
     }
-    with open(path / "tree_seed_filter_scaler.json", "w") as f:
+    with open(path / "scaler_params.json", "w") as f:
         json.dump(scaler_params, f)
     
     print("Saved: .txt, .pkl, .onnx, scaler .json")
@@ -518,7 +521,7 @@ def show_class_balance(val_df, pt_bins=None):
     
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
-    df = load_and_label_data(root_path, output_dir)
+    df = load_and_label_data_old(root_path, output_dir) # 12 features
 
     # Show class balance for entire dataset
     print("\n-- Class balance per pT bin (full dataset) --")

@@ -113,26 +113,26 @@ ROOT_BRANCHES = [
 
 # this one for old dataset
 
-#FEATURE_COLS = [
-#    "pt", "eta", "phi", "theta", "qop",
-#    "loc0", "loc1",
-#    "err_loc0", "err_loc1",
-#    "err_phi", "err_theta", "err_qop",
-#]
+FEATURE_COLS = [
+   "pt", "eta", "phi", "theta", "qop",
+   "loc0", "loc1",
+   "err_loc0", "err_loc1",
+   "err_phi", "err_theta", "err_qop",
+]
 
 # this one for new dataset
 
-FEATURE_COLS = [
-     "pt", "eta", "phi", "theta", "qop",
-     "loc0", "loc1",
-     "err_loc0", "err_loc1",
-     "err_phi", "err_theta", "err_qop",
-     # new features from CSV
-     "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
-     # engineered features
-     "pull_loc0", "pull_loc1",
-     "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
- ]
+# FEATURE_COLS = [
+#      "pt", "eta", "phi", "theta", "qop",
+#      "loc0", "loc1",
+#      "err_loc0", "err_loc1",
+#      "err_phi", "err_theta", "err_qop",
+#      # new features from CSV
+#      "bX", "bY", "bZ", "mX", "mY", "mZ", "tX", "tY", "tZ",
+#      # engineered features
+#      "pull_loc0", "pull_loc1",
+#      "dist_bm", "dist_mt", "dist_bt", "dist_ratio",
+#  ]
 
 CSV_DIR = Path("/data/alice/idumitra/thesis_tracking/acts")  # adjust path
 
@@ -214,7 +214,7 @@ def load_and_label_data(root_path, output_dir):
 
     return df
 
-# old verion without coordinates
+# old verion without coordinates - 12 features
 def load_and_label_data_old(root_path, output_dir):
     with uproot.open(root_path) as f:
         tree = f["estimatedparams"]
@@ -869,7 +869,7 @@ if __name__ == "__main__":
 
     # --- Data Loading ---
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
-    df = load_and_label_data(root_path, output_dir) 
+    df = load_and_label_data_old(root_path, output_dir) 
     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, test_df = split_and_scale(df)
 
     train_df = df.loc[y_train.index] 
@@ -893,7 +893,8 @@ if __name__ == "__main__":
         
         plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
         evaluate_model(model_weights, X_val_scaled, y_val)
-        evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
+        #evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
+        evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
         
         print("\nSaving weighted model artifacts...")
         save_artifacts(model_weights, scaler, output_dir)
