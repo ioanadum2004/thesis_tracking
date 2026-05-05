@@ -16,7 +16,7 @@ Run from the acts/ working directory after completing the multiplicity sweep.
 Requirements
 ------------
 - ROOT files must be present at:
-  z_btr_files/multiplicity_sweep_less_features/mult_{m}/{label}/tracksummary_ckf.root
+  z_btr_files/multiplicity_sweep/mult_{m}/{label}/tracksummary_ckf.root
   for each multiplicity m and label in {baseline, mlp, tree}
 - run.log files must be present in the same directories for timing extraction
   (generated automatically by the updated run_multiplicity.py)
@@ -44,7 +44,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import re
 
-def parse_timing(log_path):
+def delete_parse_timing(log_path):
     """Extract total CKF wall time in ms from run.log."""
     try:
         with open(log_path) as f:
@@ -55,6 +55,19 @@ def parse_timing(log_path):
                         return float(match.group(1))
     except FileNotFoundError:
         pass
+    return None
+
+def parse_timing(log_path):
+    print(f"  looking for log: {log_path}")
+    try:
+        with open(log_path) as f:
+            for line in f:
+                if "TOTAL" in line:
+                    numbers = re.findall(r'[\d]+\.[\d]+', line)
+                    if numbers:
+                        return float(numbers[0])
+    except FileNotFoundError:
+        print(f"  log not found: {log_path}")
     return None
 
 def eff_vs_mult():
@@ -103,7 +116,7 @@ def eff_vs_mult():
                 ("mlp",      efficiencies_mlp,      fake_mlp, fake_count_mlp, total_seeds_mlp, truth_matched_mlp, duplicate_mlp, matched_mlp),
                 ("tree",     efficiencies_tree,      fake_tree, fake_count_tree, total_seeds_tree, truth_matched_tree, duplicate_tree, matched_tree),
         ]:
-            path = f"z_btr_files/multiplicity_sweep_less_features/mult_{mult}/{label}/tracksummary_ckf.root"
+            path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/tracksummary_ckf.root"
             
             f_tracks = uproot.open(path)
             t_tracks = f_tracks["tracksummary"]
@@ -150,7 +163,7 @@ def eff_vs_mult():
             print("particle efficiency:", unu_count/total_count)
             print("track fake rate:", fake_rate)
 
-            log_path = f"z_btr_files/multiplicity_sweep_less_features/mult_{mult}/{label}/run.log"
+            log_path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/run.log"
             t = parse_timing(log_path)
             if label == "baseline":
                 timing_baseline.append(t)
@@ -158,7 +171,8 @@ def eff_vs_mult():
                 timing_mlp.append(t)
             elif label == "tree":
                 timing_tree.append(t)
-
+            print(f"timing: {t} ms" if t is not None else "timing: not found")
+                
     particles_per_event = [m * 5 * 5 for m in multiplicities]
 
     # --- TRACKING EFFICIENCY---
