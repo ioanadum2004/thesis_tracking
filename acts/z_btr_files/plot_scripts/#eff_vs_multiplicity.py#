@@ -194,22 +194,21 @@ def eff_vs_mult():
 
    # # --- TYPES OF SEEDS ---
     
-   # plt.figure()
-   # plt.plot(particles_per_event, fake, "o-", color="blue",  label="Fake Seeds")
-    #plt.plot(particles_per_event, matched,       "o-", color="green", label="Matched")
-    #plt.plot(particles_per_event, truth_matched,       "o-", color="red", label="Truth Matched")
-    #plt.plot(particles_per_event, duplicate,       "o-", color="orange", label="Duplicate")
-    #plt.plot(particles_per_event, total_seeds,       "o-", color="purple", label="Total Seeds")
+    plt.figure()
+    plt.plot(particles_per_event, fake, "o-", color="blue",  label="Fake Seeds")
+    plt.plot(particles_per_event, matched,       "o-", color="green", label="Matched")
+    plt.plot(particles_per_event, truth_matched,       "o-", color="red", label="Truth Matched")
+    plt.plot(particles_per_event, duplicate,       "o-", color="orange", label="Duplicate")
+    plt.plot(particles_per_event, total_seeds,       "o-", color="purple", label="Total Seeds")
     # plt.plot(particles_per_event, fake_baseline, "o-", color="green",  label="Baseline Fake Rate")                                                                                               
     # plt.plot(particles_per_event, fake_sf,       "o-", color="red", label="Seed Filter Fake Rate")                                                                                               
-    #plt.title("Types of seeds vs multiplicity")
-    #plt.xlabel("Particles per event")
-    #plt.ylabel("Seed Count")
-    #plt.ylim(0, 1.05)
-    #plt.grid()
-    #plt.legend()
-    #plt.savefig("z_btr_files/types_of_seeds_count.png", dpi=150)
-    #plt.close()
+    plt.title("Types of seeds vs multiplicity")
+    plt.xlabel("Particles per event")
+    plt.ylabel("Seed Count")
+    plt.grid()
+    plt.legend()
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/types_of_seeds_count.png", dpi=150)
+    plt.close()
 
     # --- TYPES OF SEEDS vs MULTIPLICITY ---
 
@@ -245,7 +244,7 @@ def eff_vs_mult():
 
     fig.suptitle("Seed Type Comparison vs Multiplicity", fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity.png", dpi=150)
+    plt.savefig("z_btr_files/seed_type_comparison_vs_multiplicity.png", dpi=150)
     plt.close()
 
     # --- FAKE RATE ---
