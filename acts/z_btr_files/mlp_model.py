@@ -416,7 +416,7 @@ def train_model_only_train(X_train_scaled, y_train, train_df=None):
 
     return model, train_losses
 
-def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
+def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None, val_df=None):
     X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) 
     y_tensor = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
     
@@ -906,7 +906,7 @@ if __name__ == "__main__":
     # --- Run Weighted Model ---
     if run_weighted:
         print("\n========== WITH BIN WEIGHTS ==========")
-        model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=train_df) 
+        model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val,train_df=train_df, val_df=val_df) 
         
         plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
         evaluate_model(model_weights, X_val_scaled, y_val)
