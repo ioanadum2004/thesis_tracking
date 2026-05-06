@@ -52,6 +52,7 @@ from lightgbm import Booster
 import json
 from onnxmltools.convert import convert_lightgbm
 from onnxmltools.convert.common.data_types import FloatTensorType
+import matplotlib.pyplot as plt
 
 # creating_dataset.py
 # ├── load_and_label_data(root_path)     → returns df
@@ -236,6 +237,7 @@ def split_and_scale(df):
 
     X_val   = val_df[FEATURE_COLS]
     y_val   = val_df["label"]
+    pt_val  = val_df["pt"].values
 
     X_test  = test_df[FEATURE_COLS]
     y_test  = test_df["label"]
@@ -255,7 +257,8 @@ def split_and_scale(df):
     # you scale because some features might have very different ranges (e.g. pt could be 0-100 GeV, while loc0 and loc1 are small numbers around 0.01). Scaling helps the model learn better by putting all features on a similar scale. It can also speed up training and improve convergence.
 
     # return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler
-    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train 
+    # return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train 
+    return X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train, pt_val
 
 def train_model_old(X_train_scaled, y_train):
     model = lgb.LGBMClassifier(
@@ -271,7 +274,7 @@ def train_model_old(X_train_scaled, y_train):
     
     return model
 
-def train_model(X_train_scaled, y_train, y_train_pt=None, use_bin_weights=False):
+def train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=None, y_val_pt=None, use_bin_weights=False):
     model = lgb.LGBMClassifier(
         n_estimators=50,
         max_depth=4,
@@ -281,8 +284,10 @@ def train_model(X_train_scaled, y_train, y_train_pt=None, use_bin_weights=False)
     if use_bin_weights and y_train_pt is not None:
         pt_bins = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
         sample_weights = np.ones(len(y_train))
+        val_sample_weights = np.ones(len(y_val))
         
         for i in range(len(pt_bins) - 1):
+            # Training weights
             mask = (y_train_pt >= pt_bins[i]) & (y_train_pt < pt_bins[i+1])
             y_bin = y_train[mask]
             
@@ -295,12 +300,35 @@ def train_model(X_train_scaled, y_train, y_train_pt=None, use_bin_weights=False)
                 #sample_weights[mask] = bin_weight
                 real_mask = mask & (y_train.values == 1)
                 sample_weights[real_mask] = n_fake / n_real
+            
+            # Validation weights
+            mask_val = (y_val_pt >= pt_bins[i]) & (y_val_pt < pt_bins[i+1])
+            y_bin_val = y_val[mask_val]
+            n_real_v = (y_bin_val == 1).sum()
+            n_fake_v = (y_bin_val == 0).sum()
+            if n_real_v > 0 and n_fake_v > 0:
+                real_mask_val = mask_val & (y_val.values == 1)
+                val_sample_weights[real_mask_val] = n_fake_v / n_real_v
         
-        model.fit(X_train_scaled, y_train, sample_weight=sample_weights)
+        # model.fit(X_train_scaled, y_train, sample_weight=sample_weights)
+        model.fit(
+            X_train_scaled, y_train, 
+            sample_weight=sample_weights,
+            eval_set=[(X_train_scaled, y_train), (X_val_scaled, y_val)],
+            eval_sample_weight=[sample_weights, val_sample_weights],
+            eval_metric="binary_logloss"
+        )
     else:
+        # pos_weight = len(y_train[y_train==0]) / len(y_train[y_train==1])
+        # model.set_params(scale_pos_weight=pos_weight)
+        # model.fit(X_train_scaled, y_train)
         pos_weight = len(y_train[y_train==0]) / len(y_train[y_train==1])
         model.set_params(scale_pos_weight=pos_weight)
-        model.fit(X_train_scaled, y_train)
+        model.fit(
+            X_train_scaled, y_train,
+            eval_set=[(X_train_scaled, y_train), (X_val_scaled, y_val)],
+            eval_metric="binary_logloss"
+        )
 
     return model
 
@@ -518,6 +546,28 @@ def show_class_balance(val_df, pt_bins=None):
     total_fake = (df["label"] == 0).sum()
     print(f"{'TOTAL':<15} {total_real:>8} {total_fake:>8} "
           f"{total_real/total_fake:>12.2f} {100*total_fake/len(df):>9.1f}%")
+
+def plot_lgbm_loss(model, output_dir, filename="tree_loss_curve.png"):
+    # LightGBM stores the evaluation history in model.evals_result_
+    results = model.evals_result_
+    
+    # Extract log loss (binary_logloss)
+    train_loss = results['training']['binary_logloss']
+    val_loss = results['valid_1']['binary_logloss']
+    
+    plt.figure(figsize=(8, 6))
+    plt.plot(train_loss, label='Training Loss', color='blue')
+    plt.plot(val_loss, label='Validation Loss', color='orange')
+    plt.xlabel('Tree Iteration (n_estimators)')
+    plt.ylabel('Binary Logloss')
+    plt.title('LightGBM Training and Validation Loss')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.7)
+    
+    plot_path = Path(output_dir) / filename
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    print(f"\nLoss plot saved to: {plot_path}")
+    plt.close()
     
 if __name__ == "__main__":
     root_path = "/data/alice/idumitra/thesis_tracking/acts/estimatedparams.root"
@@ -527,15 +577,18 @@ if __name__ == "__main__":
     print("\n-- Class balance per pT bin (full dataset) --")
     show_class_balance(df)
     
-    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train = split_and_scale(df)
+    X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train, pt_val = split_and_scale(df)
 
     # model = train_model_old(X_train_scaled, y_train)
 
     # with bin weights
-    model = train_model(X_train_scaled, y_train, y_train_pt=pt_train, use_bin_weights=True)
+    #model = train_model(X_train_scaled, y_train, y_train_pt=pt_train, use_bin_weights=True)
+    model = train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=pt_train, y_val_pt=pt_val, use_bin_weights=True)
 
     # without
     # model = train_model(X_train_scaled, y_train)
+
+    plot_lgbm_loss(model, output_dir, filename="tree_loss_curve_weighted.png")
 
     evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test)
     print("\n-- Fixed threshold --")
@@ -544,4 +597,3 @@ if __name__ == "__main__":
     print("\n-- Dynamic threshold --")
     evaluate_by_pt(model, X_val_scaled, val_df, dynamic=True)
     save_artifacts(model, scaler, output_dir)
-

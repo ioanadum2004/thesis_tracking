@@ -909,7 +909,7 @@ if __name__ == "__main__":
         print("\n========== WITH BIN WEIGHTS ==========")
         model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val,train_df=train_df, val_df=val_df) 
         
-        plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
+        plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights_MLP.png")
         evaluate_model(model_weights, X_val_scaled, y_val)
         #evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
         evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold=0.4)
