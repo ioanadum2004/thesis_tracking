@@ -487,7 +487,8 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None, val
             if weight_tensor is not None:
                 val_loss = (criterion(val_outputs, y_val_tensor) * val_weight_tensor).mean()
             else:
-                val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+                # val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+                val_loss = criterion(val_outputs, y_val_tensor)
             val_losses.append(val_loss.item())
 
         if (epoch + 1) % 20 == 0:
