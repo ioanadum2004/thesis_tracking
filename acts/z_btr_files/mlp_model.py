@@ -438,9 +438,16 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
         sample_weights = compute_sample_weights(weight_df)
         weight_tensor = torch.tensor(sample_weights, dtype=torch.float32).unsqueeze(1)
         criterion = nn.BCEWithLogitsLoss(reduction='none')
+
+        val_weight_df = val_df[["pt"]].copy().reset_index(drop=True)
+        val_weight_df["label"] = y_val.values
+        val_sample_weights = compute_sample_weights(val_weight_df)
+        val_weight_tensor = torch.tensor(val_sample_weights, dtype=torch.float32).unsqueeze(1)
+
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         weight_tensor = None
+        val_weight_tensor = None
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -465,12 +472,22 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
         optimizer.step()
         train_losses.append(loss.item())
 
+        # # --- Validation Step ---
+        # model.eval() 
+        # with torch.no_grad():
+        #     val_outputs = model(X_val_tensor)
+        #     # Use unweighted criterion for validation to assess pure generalization
+        #     val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+        #     val_losses.append(val_loss.item())
+
         # --- Validation Step ---
-        model.eval() 
+        model.eval()
         with torch.no_grad():
             val_outputs = model(X_val_tensor)
-            # Use unweighted criterion for validation to assess pure generalization
-            val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+            if weight_tensor is not None:
+                val_loss = (criterion(val_outputs, y_val_tensor) * val_weight_tensor).mean()
+            else:
+                val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
             val_losses.append(val_loss.item())
 
         if (epoch + 1) % 20 == 0:
