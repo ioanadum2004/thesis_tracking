@@ -43,6 +43,10 @@ import uproot
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+import os
+
+output_dir = "z_btr_files/efficiency_plots/multiplicity_plots/seed_types"
+os.makedirs(output_dir, exist_ok=True)
 
 def delete_parse_timing(log_path):
     """Extract total CKF wall time in ms from run.log."""
@@ -225,7 +229,7 @@ def eff_vs_mult():
     
     colors = {
         "Baseline": "green",
-        "MLP": "red",
+        "MLP": "#CE93D8",
         "LightGBM": "deepskyblue"
     }
     
@@ -248,13 +252,33 @@ def eff_vs_mult():
     plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity.png", dpi=150)
     plt.close()
 
+    for title, baseline, mlp, tree in seed_types:
+        plt.figure()
+
+        plt.plot(particles_per_event, baseline, "o-", color="green", label="Baseline")
+        plt.plot(particles_per_event, mlp, "o-", color="#CE93D8", label="MLP")
+        plt.plot(particles_per_event, tree, "o-", color="deepskyblue", label="LightGBM")
+
+        plt.title(title)
+        plt.xlabel("Particles per event")
+        plt.ylabel("Seed Count")
+        plt.grid(True)
+        plt.legend()
+
+        # safe filename (optional but recommended)
+        filename = title.lower().replace(" ", "_") + ".png"
+        filepath = os.path.join(output_dir, filename)
+
+        plt.savefig(filepath, dpi=150, bbox_inches="tight")
+        plt.close()
+
     # --- FAKE RATE ---
 
     plt.figure()
    # plt.plot(particles_per_event, efficiencies_baseline, "o-", color="blue",  label="Baseline")
    # plt.plot(particles_per_event, efficiencies_sf,       "o-", color="orange", label="Seed Filter")
     plt.plot(particles_per_event, fake_baseline, "o-", color="green",  label="Baseline")
-    plt.plot(particles_per_event, fake_mlp,       "o-", color="red", label="MLP")
+    plt.plot(particles_per_event, fake_mlp,       "o-", color="FFCC80", label="MLP")
     plt.plot(particles_per_event, fake_tree,       "o-", color="deepskyblue", label="LightGBM")
     plt.title("Fake Rate vs Multiplicity")
     plt.xlabel("Particles per event")
@@ -287,47 +311,43 @@ def eff_vs_mult():
     efficiencies_sf_baseline_minus = []
     counter = 1
 
-    # print("\n Baseline \n")
-    for i, mult in enumerate(multiplicities):
-        efficiencies_sf_baseline.append(efficiencies_mlp[i] / efficiencies_baseline[i])
-        efficiencies_sf_baseline_minus.append(efficiencies_mlp[i] - efficiencies_baseline[i])
-        # print(counter," - ", efficiencies_sf_baseline[mult-1])
-        counter += 1
-        # print(efficiencies_baseline[entry], "\n")
+    # # print("\n Baseline \n")
+    # for i, mult in enumerate(multiplicities):
+    #     efficiencies_sf_baseline.append(efficiencies_mlp[i] / efficiencies_baseline[i])
+    #     efficiencies_sf_baseline_minus.append(efficiencies_mlp[i] - efficiencies_baseline[i])
+    #     # print(counter," - ", efficiencies_sf_baseline[mult-1])
+    #     counter += 1
+    #     # print(efficiencies_baseline[entry], "\n")
 
-    # print("\n Seed Filter \n")
-    # for entry in range(len(efficiencies_baseline)):
-    #     # efficiencies_sf_baseline[entry] = efficiencies_sf[entry]/efficiencies_baseline[entry]
-    #     print(efficiencies_sf[entry], "\n")
 
-    plt.figure()
-    plt.plot(particles_per_event, efficiencies_sf_baseline, "o-", color="red",  label="Division")
-    plt.title("Track Efficiency Seed Filter/Baseline vs Multiplicity")
-    plt.xlabel("Particles per event")
-    plt.ylabel("Track Efficiency")
-    plt.ylim(0, 2.05)
-    plt.grid()
-    plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_division.png", dpi=150)
-    plt.close()
+    # plt.figure()
+    # plt.plot(particles_per_event, efficiencies_sf_baseline, "o-", color="red",  label="Division")
+    # plt.title("Track Efficiency Seed Filter/Baseline vs Multiplicity")
+    # plt.xlabel("Particles per event")
+    # plt.ylabel("Track Efficiency")
+    # plt.ylim(0, 2.05)
+    # plt.grid()
+    # plt.legend()
+    # plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_division.png", dpi=150)
+    # plt.close()
 
-    plt.figure()
-    plt.plot(particles_per_event, efficiencies_sf_baseline_minus, "o-", color="green",  label="Minus")
-    plt.title("Track Efficiency Seed Filter - Baseline vs Multiplicity")
-    plt.xlabel("Particles per event")
-    plt.ylabel("Track Efficiency")
-    # plt.ylim(0, 0.0002)
-    plt.grid()
-    plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_minus.png", dpi=150)
-    plt.close()
+    # plt.figure()
+    # plt.plot(particles_per_event, efficiencies_sf_baseline_minus, "o-", color="green",  label="Minus")
+    # plt.title("Track Efficiency Seed Filter - Baseline vs Multiplicity")
+    # plt.xlabel("Particles per event")
+    # plt.ylabel("Track Efficiency")
+    # # plt.ylim(0, 0.0002)
+    # plt.grid()
+    # plt.legend()
+    # plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_minus.png", dpi=150)
+    # plt.close()
 
     # --- TIME ---
 
     plt.figure()
     plt.plot(particles_per_event, timing_baseline, "o-", color="blue",   label="Baseline")
     plt.plot(particles_per_event, timing_mlp,      "o-", color="orange", label="MLP")
-    plt.plot(particles_per_event, timing_tree,     "o-", color="magenta", label="LightGBM")
+    plt.plot(particles_per_event, timing_tree,     "o-", color="CE93D8", label="LightGBM")
     plt.title("Computation Time vs Multiplicity")
     plt.xlabel("Particles per event")
     plt.ylabel("Total CKF time (ms)")
