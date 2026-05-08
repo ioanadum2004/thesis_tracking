@@ -582,7 +582,7 @@ def plot_loss(train_losses, val_losses, output_dir, filename="loss_curve.png"):
     plt.plot(val_losses, label='Validation Loss', color='orange')
     plt.xlabel('Epoch')
     plt.ylabel('BCE With Logits Loss')
-    plt.title('Model Training and Validation Loss')
+    plt.title('MLP Training and Validation Loss')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.7)
     
