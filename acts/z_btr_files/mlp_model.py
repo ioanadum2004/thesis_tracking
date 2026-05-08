@@ -416,7 +416,8 @@ def train_model_only_train(X_train_scaled, y_train, train_df=None):
 
     return model, train_losses
 
-def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
+# def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
+def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None, val_df=None):
     X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) 
     y_tensor = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
     
@@ -432,6 +433,7 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
     input_dim = X_train_scaled.shape[1]
     model = SimpleMLP(input_dim)
     
+    # --- Training weights ---
     if train_df is not None:
         weight_df = train_df[["pt"]].copy().reset_index(drop=True)
         weight_df["label"] = y_train.values
@@ -441,6 +443,17 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         weight_tensor = None
+
+    # --- Validation weights ---
+    if val_df is not None:
+        weight_df_val = val_df[["pt"]].copy().reset_index(drop=True)
+        weight_df_val["label"] = y_val.values
+        val_sample_weights = compute_sample_weights(weight_df_val)
+        val_weight_tensor = torch.tensor(val_sample_weights, dtype=torch.float32).unsqueeze(1)
+        val_criterion = nn.BCEWithLogitsLoss(reduction='none')
+    else:
+        val_weight_tensor = None
+        val_criterion = nn.BCEWithLogitsLoss()
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -469,8 +482,10 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=None):
         model.eval() 
         with torch.no_grad():
             val_outputs = model(X_val_tensor)
-            # Use unweighted criterion for validation to assess pure generalization
-            val_loss = nn.BCEWithLogitsLoss()(val_outputs, y_val_tensor)
+            if val_weight_tensor is not None:
+                val_loss = (val_criterion(val_outputs, y_val_tensor) * val_weight_tensor).mean()
+            else:
+                val_loss = val_criterion(val_outputs, y_val_tensor)
             val_losses.append(val_loss.item())
 
         if (epoch + 1) % 20 == 0:
@@ -877,7 +892,9 @@ if __name__ == "__main__":
     # --- Run Unweighted Model ---
     if run_unweighted:
         print("\n========== NO BIN WEIGHTS ==========")
-        model_no_weights, train_losses_nw, val_losses_nw = train_model(X_train_scaled, y_train, X_val_scaled, y_val) 
+        model_no_weights, train_losses_nw, val_losses_nw = train_model(
+            X_train_scaled, y_train, X_val_scaled, y_val
+        )
         
         plot_loss(train_losses_nw, val_losses_nw, output_dir, filename="loss_curve_no_weights.png")
         evaluate_model(model_no_weights, X_val_scaled, y_val)
@@ -889,8 +906,12 @@ if __name__ == "__main__":
     # --- Run Weighted Model ---
     if run_weighted:
         print("\n========== WITH BIN WEIGHTS ==========")
-        model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=train_df) 
-        
+        # model_weights, train_losses_w, val_losses_w = train_model(X_train_scaled, y_train, X_val_scaled, y_val, train_df=train_df) 
+        model_weights, train_losses_w, val_losses_w = train_model(
+            X_train_scaled, y_train, X_val_scaled, y_val, 
+            train_df=train_df, val_df=val_df
+        )
+
         plot_loss(train_losses_w, val_losses_w, output_dir, filename="loss_curve_with_weights.png")
         evaluate_model(model_weights, X_val_scaled, y_val)
         evaluate_by_pt(model_weights, X_val_scaled, y_val, val_df, threshold="dynamic")
