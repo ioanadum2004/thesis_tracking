@@ -600,11 +600,11 @@ if __name__ == "__main__":
     # model = train_model_old(X_train_scaled, y_train)
 
     # with bin weights
-    model = train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=pt_train, y_val_pt=pt_val, use_bin_weights=True)
+    # model = train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=pt_train, y_val_pt=pt_val, use_bin_weights=True)
 
     # without
-    # print("WITHOUT")
-    # model = train_model_no_weights(X_train_scaled, y_train, X_val_scaled, y_val)
+    print("WITHOUT")
+    model = train_model_no_weights(X_train_scaled, y_train, X_val_scaled, y_val)
 
     plot_lgbm_loss(model, output_dir, filename="tree_loss_curve_weighted.png")
 
