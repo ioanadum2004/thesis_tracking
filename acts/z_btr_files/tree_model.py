@@ -556,8 +556,8 @@ def plot_lgbm_loss(model, output_dir, filename="tree_loss_curve.png"):
     val_loss = results['valid_1']['binary_logloss']
     
     plt.figure(figsize=(8, 6))
-    plt.plot(train_loss, label='Training Loss', color='#90CAF9')
-    plt.plot(val_loss, label='Validation Loss', color='#FFCC80')
+    plt.plot(train_loss, label='Training Loss', color='blue')
+    plt.plot(val_loss, label='Validation Loss', color='orange')
     plt.xlabel('Tree Iteration (n_estimators)')
     plt.ylabel('Binary Logloss')
     plt.title('LightGBM Training and Validation Loss')
