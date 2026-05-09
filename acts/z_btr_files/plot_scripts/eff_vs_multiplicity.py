@@ -76,7 +76,8 @@ def parse_timing(log_path):
 
 def eff_vs_mult():
 
-    multiplicities = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]
+#    multiplicities = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]
+    multiplicities = list(range(1, 301))
     efficiencies_baseline = []
     efficiencies_mlp = []
     efficiencies_tree = []
@@ -177,7 +178,7 @@ def eff_vs_mult():
                 timing_tree.append(t)
             print(f"timing: {t} ms" if t is not None else "timing: not found")
                 
-    particles_per_event = [m * 5 * 5 for m in multiplicities]
+    particles_per_event = [m * 3 * 5 for m in multiplicities]
 
     # --- TRACKING EFFICIENCY---
 
