@@ -349,6 +349,24 @@ def train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=None, y
 
     return model
 
+def train_model_no_weights(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=None):
+    pos_weight = len(y_train[y_train == 0]) / len(y_train[y_train == 1])
+    
+    model = lgb.LGBMClassifier(
+        n_estimators=50,
+        max_depth=4,
+        learning_rate=0.1,
+        scale_pos_weight=pos_weight,
+    )
+
+    model.fit(
+        X_train_scaled, y_train,
+        eval_set=[(X_train_scaled, y_train), (X_val_scaled, y_val)],
+        eval_metric="binary_logloss"
+    )
+
+    return model
+
 def evaluate_model(model, X_val_scaled, y_val, X_test_scaled, y_test):
     # Evaluate on val
     # y_val_pred  = model.predict(X_val_scaled) #make predictions on the validation data. It returns a hard decision for each seed: 0 (fake) or 1 (real).
@@ -619,7 +637,11 @@ if __name__ == "__main__":
 
     X_train_scaled, X_val_scaled, X_test_scaled, y_train, y_val, y_test, scaler, val_df, pt_train, pt_val = split_and_scale(df)
 
+    #with weights
     model = train_model(X_train_scaled, y_train, X_val_scaled, y_val, y_train_pt=pt_train, y_val_pt=pt_val, use_bin_weights=True)
+
+    #without
+    # model = train_model_no_weights(X_train_scaled, y_train, X_val_scaled, y_val)
 
     plot_lgbm_loss(model, output_dir, filename="tree_loss_curve_weighted.png")
 
