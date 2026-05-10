@@ -9,14 +9,14 @@
     "eventGenerator": {
       "_comment": "One Generator per entry in particleTypes is created. Each species contributes particlesPerVertex particles per vertex (multiplicity vertices per event). Total particles per event = particlesPerVertex \u00d7 len(particleTypes) \u00d7 multiplicity.",
       "particleTypes": [
-          "pionplus",
-	  "electron",
-	  "proton"
+        "pionplus",
+        "electron",
+        "proton"
       ],
       "momentum": {
         "_comment": "Units are in GeV. pTransverse=true means pT is sampled uniformly; false means total p.",
-        "min": 0.1,
-        "max": 0.5,
+        "min": 1,
+        "max": 10,
         "transverse": true
       },
       "eta": {
@@ -29,7 +29,7 @@
         "max": 360.0
       },
       "particlesPerVertex": 5,
-      "multiplicity": 20,
+      "multiplicity": 146,
       "randomizeCharge": true
     }
   },
