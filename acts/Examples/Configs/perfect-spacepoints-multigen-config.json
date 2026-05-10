@@ -1,6 +1,6 @@
 {
   "simulation": {
-    "events": 100,
+    "events": 20,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
@@ -15,8 +15,8 @@
       ],
       "momentum": {
         "_comment": "Units are in GeV. pTransverse=true means pT is sampled uniformly; false means total p.",
-        "min": 1,
-        "max": 10,
+        "min": 0.1,
+        "max": 0.5,
         "transverse": true
       },
       "eta": {
@@ -29,7 +29,7 @@
         "max": 360.0
       },
       "particlesPerVertex": 5,
-      "multiplicity": 146,
+      "multiplicity": 20,
       "randomizeCharge": true
     }
   },
