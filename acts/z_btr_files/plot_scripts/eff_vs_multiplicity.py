@@ -121,7 +121,7 @@ def eff_vs_mult():
                 ("mlp",      efficiencies_mlp,      fake_mlp, fake_count_mlp, total_seeds_mlp, truth_matched_mlp, duplicate_mlp, matched_mlp),
                 ("tree",     efficiencies_tree,      fake_tree, fake_count_tree, total_seeds_tree, truth_matched_tree, duplicate_tree, matched_tree),
         ]:
-            path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/tracksummary_ckf.root"
+            path = f"z_btr_files/multiplicity_sweep_conf_B/mult_{mult}/{label}/tracksummary_ckf.root"
             
             f_tracks = uproot.open(path)
             t_tracks = f_tracks["tracksummary"]
@@ -168,7 +168,7 @@ def eff_vs_mult():
             print("particle efficiency:", unu_count/total_count)
             print("track fake rate:", fake_rate)
 
-            log_path = f"z_btr_files/multiplicity_sweep/mult_{mult}/{label}/run.log"
+            log_path = f"z_btr_files/multiplicity_sweep_conf_B/mult_{mult}/{label}/run.log"
             t = parse_timing(log_path)
             if label == "baseline":
                 timing_baseline.append(t)
@@ -194,7 +194,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_12.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_B.png", dpi=150)
     plt.close()
 
    # # --- TYPES OF SEEDS ---
@@ -250,7 +250,7 @@ def eff_vs_mult():
 
     fig.suptitle("Seed Type Comparison vs Multiplicity", fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity_12.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity_B.png", dpi=150)
     plt.close()
 
     for title, baseline, mlp, tree in seed_types:
@@ -287,7 +287,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/fake_rate_vs_multiplicity_12.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/fake_rate_vs_multiplicity_B.png", dpi=150)
     plt.close()
 
     plt.figure()
@@ -305,7 +305,7 @@ def eff_vs_mult():
     plt.ylim(0, 1.05)
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/both_vs_multiplicity_12.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/both_vs_multiplicity_B.png", dpi=150)
     plt.close()
     
     efficiencies_sf_baseline = []
@@ -353,19 +353,19 @@ def eff_vs_mult():
     plt.ylabel("Total CKF time (ms)")
     plt.grid()
     plt.legend()
-    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/timing_vs_multiplicity_12.png", dpi=150)
+    plt.savefig("z_btr_files/efficiency_plots/multiplicity_plots/timing_vs_multiplicity_B.png", dpi=150)
     plt.close()
 
     print("\n" + "="*55)
     print(" ALL PLOTS SUCCESSFULLY GENERATED AND SAVED!")
     print("="*55)
     print("Main Performance Plots:")
-    print("  - Track Efficiency : z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_12.png")
-    print("  - Fake Rate        : z_btr_files/efficiency_plots/multiplicity_plots/fake_rate_vs_multiplicity_12.png")
-    print("  - Combined (Both)  : z_btr_files/efficiency_plots/multiplicity_plots/both_vs_multiplicity_12.png")
-    print("  - Computation Time : z_btr_files/efficiency_plots/multiplicity_plots/timing_vs_multiplicity_12.png")
+    print("  - Track Efficiency : z_btr_files/efficiency_plots/multiplicity_plots/efficiency_vs_multiplicity_B.png")
+    print("  - Fake Rate        : z_btr_files/efficiency_plots/multiplicity_plots/fake_rate_vs_multiplicity_B.png")
+    print("  - Combined (Both)  : z_btr_files/efficiency_plots/multiplicity_plots/both_vs_multiplicity_B.png")
+    print("  - Computation Time : z_btr_files/efficiency_plots/multiplicity_plots/timing_vs_multiplicity_B.png")
     print("\nSeed Comparison Plots:")
-    print("  - Grid Overview    : z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity_12.png")
+    print("  - Grid Overview    : z_btr_files/efficiency_plots/multiplicity_plots/seed_type_comparison_vs_multiplicity_B.png")
     print(f"  - Individual Types : Saved in '{output_dir}/'")
     print("                       (fake_seeds.png, matched.png, truth_matched.png, duplicate.png, total_seeds.png)")
     print("="*55 + "\n")

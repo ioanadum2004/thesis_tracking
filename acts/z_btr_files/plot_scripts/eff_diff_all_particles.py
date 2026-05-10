@@ -227,10 +227,12 @@ def track_metrics_diff_all_particles(
     # ------------------------------------------------------------------
     # Helper to draw one difference plot
     # ------------------------------------------------------------------
+
     def _plot_diff(diff, err, title, ylabel, filename, color):
         plt.figure()
         plt.axhline(0, color='black', linewidth=0.8, linestyle='--')
-        plt.errorbar(bin_centers, diff, yerr=err, fmt='o', color=color)
+        plt.plot(bin_centers, diff, color=color)
+        plt.scatter(bin_centers, diff, color=color, s=20)
         plt.title(title)
         plt.xlabel("pT [GeV]")
         plt.ylabel(ylabel)
@@ -244,28 +246,28 @@ def track_metrics_diff_all_particles(
     # ------------------------------------------------------------------
     _plot_diff(
         diff_efficiency, err_efficiency,
-        "Track Efficiency Difference vs pT (new − baseline)",
+        "Track Efficiency Difference vs pT (new - baseline)",
         "Δ Efficiency",
         output_efficiency_diff,
         color='blue',
     )
     _plot_diff(
         diff_fake, err_fake,
-        "Fake Rate Difference vs pT (new − baseline)",
+        "Fake Rate Difference vs pT (new - baseline)",
         "Δ Fake Rate",
         output_fake_diff,
         color='green',
     )
     _plot_diff(
         diff_duplicate, err_duplicate,
-        "Duplicate Rate Difference vs pT (new − baseline)",
+        "Duplicate Rate Difference vs pT (new - baseline)",
         "Δ Duplicate Rate",
         output_duplicate_diff,
         color='orange',
     )
     _plot_diff(
         diff_matched, err_matched,
-        "True Matched Efficiency Difference vs pT (new − baseline)",
+        "True Matched Efficiency Difference vs pT (new - baseline)",
         "Δ Matched Efficiency",
         output_matched_diff,
         color='red',
