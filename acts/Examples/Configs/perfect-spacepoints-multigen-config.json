@@ -1,4 +1,4 @@
-`{
+{
   "simulation": {
     "events": 20,
     "numThreads": -1,
@@ -29,7 +29,7 @@
         "max": 360.0
       },
       "particlesPerVertex": 5,
-      "multiplicity": 20,
+      "multiplicity": 124,
       "randomizeCharge": true
     }
   },
