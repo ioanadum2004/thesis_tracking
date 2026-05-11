@@ -81,16 +81,23 @@ Before running the pipelines below, ensure you are on the correct branch for the
 
 <summary><strong>1. Baseline Pipeline</strong></summary>
 
-Run the following commands to generate and plot the baseline tracking data.
+Run the following commands to generate and plot the baseline tracking data:
 
+1. Run simulation with no model (baseline)
 ```bash
-# 1. Run simulation with no model (baseline)
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model none
+```
 
-# 2. Plot efficiency for all particles
-python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_baseline/all_particles 
+2. Plot efficiency for all particles
+```bash
+python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir
+```
+```bash
+z_btr_files/efficiency_plots/final_baseline/all_particles 
+```
 
-# 3. Plot efficiency for each particle species
+3. Plot efficiency for each particle species
+```bash
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particle --out-dir z_btr_files/efficiency_plots/final_baseline/each_particle
 ```
 
