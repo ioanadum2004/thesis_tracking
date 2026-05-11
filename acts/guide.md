@@ -98,7 +98,7 @@ Note: You only need to train the model once per configuration. Use --without-wei
 
 ## MLP
 
-# 1. Run baseline (required for baseline data generation)
+1. Run baseline (required for baseline data generation)
 ```bash
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model none
 ```
