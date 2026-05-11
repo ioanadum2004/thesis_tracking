@@ -230,7 +230,9 @@ def track_metrics_diff_all_particles(
     def _plot_diff(diff, err, title, ylabel, filename, color):
         plt.figure()
         plt.axhline(0, color='black', linewidth=0.8, linestyle='--')
-        plt.errorbar(bin_centers, diff, yerr=err, fmt='o', color=color)
+        #plt.errorbar(bin_centers, diff, yerr=err, fmt='o', color=color)
+        plt.plot(bin_centers, diff, color=color)
+        plt.scatter(bin_centers, diff, color=color, s=20)
         plt.title(title)
         plt.xlabel("pT [GeV]")
         plt.ylabel(ylabel)

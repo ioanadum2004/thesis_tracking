@@ -52,7 +52,7 @@ BASELINE_SCRIPT   = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py
 SEEDFILTER_MLP    = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
 SEEDFILTER_BDT    = "Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py"
 SHARED_CONFIG     = Path("Examples/Configs/perfect-spacepoints-multigen-config.json")
-OUTPUT_ROOT       = Path("z_btr_files/multiplicity_sweep")
+OUTPUT_ROOT       = Path("z_btr_files/multiplicity_sweep_conf_c")
 # ─────────────────────────────────────────────────────────────────────────────
 
 FILES_TO_COLLECT = [
