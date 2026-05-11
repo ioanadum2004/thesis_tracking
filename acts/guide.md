@@ -126,7 +126,6 @@ python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model mlp
 4. Generate efficiency plots
 ```bash
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_mlp/all_particles 
-python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particle --out-dir z_btr_files/efficiency_plots/final_mlp/each_particle 
 ```
 
 5. Generate difference plots against baseline
@@ -163,7 +162,6 @@ python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model tree
 4. Generate efficiency plots
 ```bash
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_bdt/all_particles 
-python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particle --out-dir z_btr_files/efficiency_plots/final_bdt/each_particle 
 ```
 
 5. Generate difference plots against baseline
