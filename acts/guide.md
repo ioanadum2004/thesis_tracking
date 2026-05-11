@@ -90,10 +90,7 @@ python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model none
 
 2. Plot efficiency for all particles
 ```bash
-python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir
-```
-```bash
-z_btr_files/efficiency_plots/final_baseline/all_particles 
+python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_baseline/all_particles 
 ```
 
 3. Plot efficiency for each particle species
