@@ -102,10 +102,10 @@ python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particl
 ```
 </details>
 
-Note: You only need to train the model once per configuration. Use --without-weights for Configuration A, and --with-weights for Configuration B.
-
 <details>
 <summary><strong>2. MLP</strong></summary>
+
+Note: You only need to train the model once per configuration. Use --without-weights for Configuration A, and --with-weights for Configuration B.
 
 1. Run baseline (required for baseline data generation)
 ```bash
@@ -145,6 +145,8 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
 
 <details>
 <summary><strong>3. LightGBM</strong></summary>
+
+Note: You only need to train the model once per configuration. Use --without-weights for Configuration A, and --with-weights for Configuration B.
 
 1. Run baseline (required for baseline data generation)
 ```bash
