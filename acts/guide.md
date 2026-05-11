@@ -96,34 +96,34 @@ python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particl
 
 Note: You only need to train the model once per configuration. Use --without-weights for Configuration A, and --with-weights for Configuration B.
 
-## MLP
+<summary><strong>2. MLP</strong></summary>
 
 1. Run baseline (required for baseline data generation)
 ```bash
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model none
 ```
 
-# 2. Train the MLP model (Run ONLY ONE of these depending on your branch)
+2. Train the MLP model (Run ONLY ONE of these depending on your branch)
 ```bash
 python z_btr_files/mlp_model.py --without-weights  # Use for Configuration A
 ```
-# OR
+OR
 ```bash
 python z_btr_files/mlp_model.py --with-weights     # Use for Configuration B & C
 ```
 
-# 3. Run simulation using the trained MLP filter
+3. Run simulation using the trained MLP filter
 ```bash
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model mlp
 ```
 
-# 4. Generate efficiency plots
+4. Generate efficiency plots
 ```bash
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_mlp/all_particles 
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particle --out-dir z_btr_files/efficiency_plots/final_mlp/each_particle 
 ```
 
-# 5. Generate difference plots against baseline
+5. Generate difference plots against baseline
 ```bash
 python z_btr_files/plot_scripts/eff_diff_all_particles.py \
     --tracks tracksummary_ckf.root \
@@ -133,30 +133,30 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
     --out-dir z_btr_files/efficiency_plots/difference_mlp
 ```
 
-## LightGBM
+<summary><strong>3. LightGBM</strong></summary>
 
-# 1. Run baseline (required for baseline data generation)
+1. Run baseline (required for baseline data generation)
 ```bash
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model none
 ```
 
-# 2. Train the LightGBM model
+2. Train the LightGBM model
 ```bash
 python z_btr_files/tree_model.py
 ```
 
-# 3. Run simulation using the trained LightGBM filter
+3. Run simulation using the trained LightGBM filter
 ```bash
 python Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py --model tree
 ```
 
-# 4. Generate efficiency plots
+4. Generate efficiency plots
 ```bash
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode all_particles --out-dir z_btr_files/efficiency_plots/final_bdt/all_particles 
 python z_btr_files/plot_scripts/eff_plot_multiple_species.py --mode each_particle --out-dir z_btr_files/efficiency_plots/final_bdt/each_particle 
 ```
 
-# 5. Generate difference plots against baseline
+5. Generate difference plots against baseline
 ```bash
 python z_btr_files/plot_scripts/eff_diff_all_particles.py \
     --tracks tracksummary_ckf.root \
