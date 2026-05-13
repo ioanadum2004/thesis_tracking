@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+matplotlib.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as mpatches
@@ -62,13 +63,45 @@ plt.rcParams.update({
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def save_anim(anim_obj, path, fps=30, dpi=120):
-    writer = animation.FFMpegWriter(fps=fps, bitrate=2000,
-                                    extra_args=['-vcodec', 'libx264',
-                                                '-pix_fmt', 'yuv420p'])
-    anim_obj.save(str(path), writer=writer, dpi=dpi)
-    print(f"  saved → {path}")
+# def save_anim(anim_obj, path, fps=30, dpi=120):
+#     writer = animation.FFMpegWriter(fps=fps, bitrate=2000,
+#                                     extra_args=['-vcodec', 'libx264',
+#                                                 '-pix_fmt', 'yuv420p'])
+#     anim_obj.save(str(path), writer=writer, dpi=dpi)
+#     print(f"  saved → {path}")
 
+# def save_anim(anim_obj, path, fps=30, dpi=120):
+#     path = Path(path)
+#     # Try ffmpeg first
+#     ffmpeg_candidates = [
+#         '/usr/bin/ffmpeg',
+#         '/usr/local/bin/ffmpeg',
+#         '/cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/bin/ffmpeg',
+#     ]
+#     ffmpeg_path = None
+#     for candidate in ffmpeg_candidates:
+#         if Path(candidate).is_file():
+#             ffmpeg_path = candidate
+#             break
+#     # Also try whatever's in PATH
+#     if ffmpeg_path is None:
+#         import shutil
+#         ffmpeg_path = shutil.which('ffmpeg')
+
+#     if ffmpeg_path is not None:
+#         matplotlib.rcParams['animation.ffmpeg_path'] = ffmpeg_path
+#         out_path = path.with_suffix('.mp4')
+#         writer = animation.FFMpegWriter(fps=fps, bitrate=2000,
+#                                         extra_args=['-vcodec', 'libx264',
+#                                                     '-pix_fmt', 'yuv420p'])
+#         anim_obj.save(str(out_path), writer=writer, dpi=dpi)
+#         print(f"  saved → {out_path}")
+#     else:
+#         # Fallback: Pillow GIF (no external binary needed)
+#         out_path = path.with_suffix('.gif')
+#         writer = animation.PillowWriter(fps=fps)
+#         anim_obj.save(str(out_path), writer=writer, dpi=dpi)
+#         print(f"  saved (gif fallback) → {out_path}")
 
 def try_load_hits(hits_path):
     """Return (x, y, z, vol, pid) arrays or None on failure."""
@@ -93,6 +126,37 @@ def try_load_hits(hits_path):
         warnings.warn(f"Could not load hits: {e}")
         return None
 
+def save_anim(anim_obj, path, fps=30, dpi=120):
+    path = Path(path)
+    ffmpeg_candidates = [
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/bin/ffmpeg',
+    ]
+    ffmpeg_path = None
+    for candidate in ffmpeg_candidates:
+        if Path(candidate).is_file():
+            ffmpeg_path = candidate
+            break
+    if ffmpeg_path is None:
+        import shutil
+        ffmpeg_path = shutil.which('ffmpeg')
+
+    if ffmpeg_path is not None:
+        matplotlib.rcParams['animation.ffmpeg_path'] = ffmpeg_path
+        out_path = path.with_suffix('.mp4')
+        writer = animation.FFMpegWriter(fps=fps, bitrate=2000,
+                                        extra_args=['-vcodec', 'libx264',
+                                                    '-pix_fmt', 'yuv420p'])
+        anim_obj.save(str(out_path), writer=writer, dpi=dpi)
+        print(f"  saved → {out_path}")
+    else:
+        out_path = path.with_suffix('.gif')
+        writer = animation.PillowWriter(fps=fps)
+        anim_obj.save(str(out_path), writer=writer, dpi=dpi)
+        print(f"  saved (gif fallback) → {out_path}")
+
+    return out_path 
 
 def try_load_particles(particles_path):
     """Return dict {particle_id: (pt, eta)} or {}."""
@@ -764,9 +828,9 @@ def make_act4(outdir, fps=30):
     ax2.legend(facecolor=PANEL_BG, edgecolor=GREY, labelcolor=WHITE,
                fontsize=8)
 
-    fig.suptitle('ML Seed Filter  –  Results', color=WHITE, fontsize=13,
+    fig.suptitle('ML Seed Filter  -  Results', color=WHITE, fontsize=13,
                  fontweight='bold', y=1.01)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     grow_frames = fps * 2   # bars grow over 2 s
     total_frames = fps * 6
@@ -782,12 +846,18 @@ def make_act4(outdir, fps=30):
             bar.set_height(h)
         for bar, h in zip(bars_lgbm1, fake_lgbm * prog_e):
             bar.set_height(h)
-        for bar, h in zip(bars_base2, eff_base * prog_e + 60 * (1 - prog_e)):
-            bar.set_height(max(0, h - 60))
-        for bar, h in zip(bars_mlp2, eff_mlp * prog_e + 60 * (1 - prog_e)):
-            bar.set_height(max(0, h - 60))
-        for bar, h in zip(bars_lgbm2, eff_lgbm * prog_e + 60 * (1 - prog_e)):
-            bar.set_height(max(0, h - 60))
+        # for bar, h in zip(bars_base2, eff_base * prog_e + 60 * (1 - prog_e)):
+        #     bar.set_height(max(0, h - 60))
+        # for bar, h in zip(bars_mlp2, eff_mlp * prog_e + 60 * (1 - prog_e)):
+        #     bar.set_height(max(0, h - 60))
+        # for bar, h in zip(bars_lgbm2, eff_lgbm * prog_e + 60 * (1 - prog_e)):
+        #     bar.set_height(max(0, h - 60))
+        for bar, h in zip(bars_base2, (eff_base - 60) * prog_e):
+            bar.set_height(h)
+        for bar, h in zip(bars_mlp2, (eff_mlp - 60) * prog_e):
+            bar.set_height(h)
+        for bar, h in zip(bars_lgbm2, (eff_lgbm - 60) * prog_e):
+            bar.set_height(h)
 
         return (list(bars_base1) + list(bars_mlp1) + list(bars_lgbm1) +
                 list(bars_base2) + list(bars_mlp2) + list(bars_lgbm2))
@@ -804,24 +874,62 @@ def make_act4(outdir, fps=30):
 # COMBINE all acts into one MP4
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def combine(clips, outdir):
-    """Use ffmpeg to concatenate clips."""
-    import subprocess
-    list_file = outdir / 'concat_list.txt'
-    with open(list_file, 'w') as f:
-        for c in clips:
-            f.write(f"file '{c.resolve()}'\n")
+# def combine(clips, outdir):
+#     """Use ffmpeg to concatenate clips."""
+#     import subprocess
+#     list_file = outdir / 'concat_list.txt'
+#     with open(list_file, 'w') as f:
+#         for c in clips:
+#             f.write(f"file '{c.resolve()}'\n")
 
-    out = outdir / 'thesis_full_animation.mp4'
-    cmd = ['ffmpeg', '-y', '-f', 'concat', '-safe', '0',
-           '-i', str(list_file),
-           '-c', 'copy', str(out)]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("  ffmpeg concat failed:", result.stderr[-500:])
-        print("  individual clips are still in", outdir)
-    else:
-        print(f"  combined → {out}")
+#     out = outdir / 'thesis_full_animation.mp4'
+#     cmd = ['ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+#            '-i', str(list_file),
+#            '-c', 'copy', str(out)]
+#     result = subprocess.run(cmd, capture_output=True, text=True)
+#     if result.returncode != 0:
+#         print("  ffmpeg concat failed:", result.stderr[-500:])
+#         print("  individual clips are still in", outdir)
+#     else:
+#         print(f"  combined → {out}")
+#     return out
+
+def combine(clips, outdir):
+    """Concatenate gif clips using Pillow (no ffmpeg needed)."""
+    from PIL import Image
+    out = outdir / 'thesis_full_animation.gif'
+
+    frames = []
+    durations = []
+
+    for clip in clips:
+        # clips list may have .mp4 paths but files are actually .gif
+        gif_path = Path(clip).with_suffix('.gif')
+        if not gif_path.exists():
+            print(f"  warning: could not find {gif_path}, skipping")
+            continue
+        img = Image.open(gif_path)
+        try:
+            while True:
+                frames.append(img.copy().convert('RGBA'))
+                durations.append(img.info.get('duration', 33))  # default ~30fps
+                img.seek(img.tell() + 1)
+        except EOFError:
+            pass
+
+    if not frames:
+        print("  no frames collected, aborting combine")
+        return out
+
+    frames[0].save(
+        str(out),
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=False,
+    )
+    print(f"  combined → {out}")
     return out
 
 

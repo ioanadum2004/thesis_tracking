@@ -1,0 +1,4 @@
+file '/data/alice/idumitra/thesis_tracking/acts/animation_out/act1_detector.mp4'
+file '/data/alice/idumitra/thesis_tracking/acts/animation_out/act2_seeds.mp4'
+file '/data/alice/idumitra/thesis_tracking/acts/animation_out/act3_filter.mp4'
+file '/data/alice/idumitra/thesis_tracking/acts/animation_out/act4_results.mp4'
