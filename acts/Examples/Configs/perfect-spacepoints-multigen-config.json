@@ -1,6 +1,6 @@
 {
   "simulation": {
-    "events": 20,
+    "events": 1,
     "numThreads": -1,
     "randomSeed": 42,
     "comment": "MaxSteps: Maximal steps in propagator per particle (otherwise terminate)",
@@ -28,8 +28,8 @@
         "min": 0.0,
         "max": 360.0
       },
-      "particlesPerVertex": 5,
-      "multiplicity": 124,
+      "particlesPerVertex": 15,
+      "multiplicity": 1,
       "randomizeCharge": true
     }
   },

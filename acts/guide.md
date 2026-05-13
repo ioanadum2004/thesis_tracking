@@ -173,5 +173,9 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
     --particles-base particles_baseline.root \
     --out-dir z_btr_files/efficiency_plots/difference_bdt
 ```
+<<<<<<< HEAD
 
 </details>
+=======
+</details>
+>>>>>>> ba3aae8 (video html and final plots conf c)
