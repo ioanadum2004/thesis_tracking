@@ -28,7 +28,7 @@
         "min": 0.0,
         "max": 360.0
       },
-      "particlesPerVertex": 15,
+      "particlesPerVertex": 25,
       "multiplicity": 1,
       "randomizeCharge": true
     }
