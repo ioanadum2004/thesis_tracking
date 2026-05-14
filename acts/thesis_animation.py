@@ -195,6 +195,305 @@ def try_load_particles(particles_path):
         warnings.warn(f"Could not load particles: {e}")
         return {}
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ACT 0 - Collision
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
+    """Act 0: collision firework — 3D flyout then 2D detector hits + seeds."""
+    print("  building act0: collision firework…")
+
+    rng = np.random.default_rng(seed=3)
+    B_T = 2.0
+
+    # ── load real particles or synthesise ────────────────────────────────────
+    particle_list = []  # list of (pt, eta, phi, charge)
+    if particles_path is not None and Path(particles_path).exists():
+        try:
+            import uproot
+            f = uproot.open(str(particles_path))
+            keys = list(f.keys())
+            chosen = next((k for k in keys if 'particle' in k.lower()), keys[0])
+            t = f[chosen]
+            tkeys = set(t.keys())
+
+            def _flat(a):
+                a = np.asarray(a)
+                if a.dtype == object:
+                    return np.concatenate([np.atleast_1d(x) for x in a])
+                return a.flatten()
+
+            pt_arr  = _flat(t['pt'].array())
+            eta_arr = _flat(t['eta'].array()) if 'eta' in tkeys else np.zeros(len(pt_arr))
+            phi_arr = _flat(t['phi'].array()) if 'phi' in tkeys else rng.uniform(0, 2*np.pi, len(pt_arr))
+            q_arr   = _flat(t['q'].array())   if 'q'   in tkeys else rng.choice([-1,1], len(pt_arr))
+
+            # cap at 40 particles for visual clarity
+            n = min(40, len(pt_arr))
+            idx = rng.choice(len(pt_arr), n, replace=False)
+            for i in idx:
+                particle_list.append((float(pt_arr[i]), float(eta_arr[i]),
+                                      float(phi_arr[i]), float(q_arr[i])))
+            print(f"  loaded {len(particle_list)} particles from file")
+        except Exception as e:
+            warnings.warn(f"Could not load particles for act0: {e}")
+
+    if not particle_list:
+        # fallback: 25 synthetic particles
+        for _ in range(25):
+            pt  = rng.uniform(0.1, 0.5)
+            eta = rng.uniform(-0.14, 0.14)
+            phi = rng.uniform(0, 2*np.pi)
+            q   = rng.choice([-1, 1])
+            particle_list.append((pt, eta, phi, float(q)))
+
+    # ── precompute helices ────────────────────────────────────────────────────
+    layer_radii = [32, 72, 116, 172]   # mm
+
+    def helix_xyz(pt, eta, phi0, charge, s_max=400, n=300):
+        """Return (x,y,z) arrays along helix arc."""
+        R  = pt / (0.3 * B_T) * 1000   # mm
+        theta = 2 * np.arctan(np.exp(-eta))
+        tan_l = np.cos(theta) / np.sin(theta)   # dz/ds
+        s = np.linspace(0, s_max, n)
+        cx = -charge * R * np.sin(phi0)
+        cy =  charge * R * np.cos(phi0)
+        ang = phi0 + charge * s / R
+        x = cx + R * np.sin(ang)
+        y = cy - R * np.cos(ang)
+        z = s * tan_l
+        return x, y, z
+
+    tracks = []
+    colors_list = []
+    track_colors = [CYAN, GREEN, ORANGE, MAGENTA, YELLOW,
+                    '#ff6b9d', '#00ffcc', '#ff9500', '#7b68ee', '#ff4500']
+    for i, (pt, eta, phi, q) in enumerate(particle_list):
+        x, y, z = helix_xyz(pt, eta, phi, q)
+        tracks.append((x, y, z))
+        colors_list.append(track_colors[i % len(track_colors)])
+
+    # hit positions per track
+    all_hit_pts_2d = []   # (x, y) for 2D view
+    all_hit_pts_3d = []   # (x, y, z) for 3D view
+    for (x, y, z) in tracks:
+        r_arr = np.sqrt(x**2 + y**2)
+        hits2, hits3 = [], []
+        for r in layer_radii:
+            cross = np.where((r_arr[:-1] < r) & (r_arr[1:] >= r))[0]
+            if len(cross):
+                idx = cross[0]
+                hits2.append((x[idx], y[idx]))
+                hits3.append((x[idx], y[idx], z[idx]))
+        all_hit_pts_2d.append(hits2)
+        all_hit_pts_3d.append(hits3)
+
+    # ── timing (frames) ───────────────────────────────────────────────────────
+    # Phase A: 3D  (0  → t_switch)
+    # Phase B: 2D  (t_switch → end)
+    t_switch    = fps * 6    # switch to 2D at 6 s
+    t_flash     = fps * 2    # collision flash at 2 s
+    t_flyout    = fps * 4    # tracks fully drawn by 4 s (in 3D)
+    t_hits2d    = t_switch + fps * 2   # hits appear in 2D at 8 s
+    t_seeds     = t_switch + fps * 4   # seeds at 10 s
+    total_frames = fps * 13
+
+    # ── figure: two axes, only one visible at a time ──────────────────────────
+    fig = plt.figure(figsize=(10, 8))
+    fig.patch.set_facecolor(BG)
+
+    ax3d = fig.add_subplot(111, projection='3d')
+    ax3d.set_facecolor(BG)
+    ax3d.xaxis.pane.fill = False
+    ax3d.yaxis.pane.fill = False
+    ax3d.zaxis.pane.fill = False
+    ax3d.xaxis.pane.set_edgecolor(GRID)
+    ax3d.yaxis.pane.set_edgecolor(GRID)
+    ax3d.zaxis.pane.set_edgecolor(GRID)
+    ax3d.tick_params(colors=GREY, labelsize=7)
+    ax3d.set_xlabel('x (mm)', color=GREY, fontsize=8)
+    ax3d.set_ylabel('y (mm)', color=GREY, fontsize=8)
+    ax3d.set_zlabel('z (mm)', color=GREY, fontsize=8)
+    ax3d.set_xlim(-220, 220)
+    ax3d.set_ylim(-220, 220)
+    ax3d.set_zlim(-300, 300)
+
+    # detector rings in 3D (circles in z=0 plane)
+    ring_lines_3d = []
+    th = np.linspace(0, 2*np.pi, 200)
+    for r, col in zip(layer_radii, [CYAN, CYAN, ORANGE, ORANGE]):
+        rl, = ax3d.plot(r*np.cos(th), r*np.sin(th), np.zeros(200),
+                        color=col, lw=1, alpha=0.15, linestyle='--')
+        ring_lines_3d.append(rl)
+
+    # beam lines in 3D
+    beam_l, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+    beam_r, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+
+    # flash marker 3D
+    flash_3d, = ax3d.plot([], [], [], '*', color=WHITE, markersize=25,
+                          alpha=0.0, zorder=20)
+
+    # track lines 3D
+    track_lines_3d = []
+    for col in colors_list:
+        ln, = ax3d.plot([], [], [], color=col, lw=1.2, alpha=0.0)
+        track_lines_3d.append(ln)
+
+    # title
+    title_txt = fig.text(0.5, 0.97, '', color=WHITE, fontsize=12,
+                         ha='center', va='top', fontweight='bold')
+
+    # ── 2D axis (hidden initially) ────────────────────────────────────────────
+    ax2d = fig.add_axes([0.08, 0.08, 0.88, 0.86])
+    ax2d.set_facecolor(BG)
+    ax2d.set_aspect('equal')
+    ax2d.set_xlim(-220, 220)
+    ax2d.set_ylim(-220, 220)
+    ax2d.axis('off')
+    ax2d.set_visible(False)
+
+    # detector rings 2D
+    for r, col in zip(layer_radii, [CYAN, CYAN, ORANGE, ORANGE]):
+        ax2d.add_patch(plt.Circle((0,0), r, color=col, fill=False,
+                                  lw=1.2, alpha=0.3, linestyle='--'))
+
+    vtx2d = ax2d.plot(0, 0, 'o', color=YELLOW, markersize=6,
+                      alpha=0.0, zorder=10)[0]
+
+    # all hit dots 2D
+    all_hx = [h[0] for hits in all_hit_pts_2d for h in hits]
+    all_hy = [h[1] for hits in all_hit_pts_2d for h in hits]
+    hits_plot2d, = ax2d.plot(all_hx, all_hy, 'o', color=GREY,
+                             markersize=3, alpha=0.0, zorder=5)
+
+    # track curves 2D
+    track_lines_2d = []
+    for (x,y,z), col in zip(tracks, colors_list):
+        ln, = ax2d.plot(x, y, color=col, lw=1.0, alpha=0.0)
+        track_lines_2d.append(ln)
+
+    # seed lines 2D (pick first particle with >=3 hits as true seed)
+    true_hits_2d, fake_hits_2d = [], []
+    for i, hits in enumerate(all_hit_pts_2d):
+        if len(hits) >= 3 and not true_hits_2d:
+            sh = sorted(hits, key=lambda h: h[0]**2+h[1]**2)
+            true_hits_2d = sh[:3]
+        elif len(hits) >= 1 and len(fake_hits_2d) < 3:
+            if abs(hits[0][0]) < 190 and abs(hits[0][1]) < 190:
+                fake_hits_2d.append(hits[0])
+
+    from matplotlib.collections import LineCollection
+    true_lc  = LineCollection([], colors=GREEN,  lw=2,   alpha=0.0, zorder=9)
+    fake_lc  = LineCollection([], colors=ORANGE, lw=2,   alpha=0.0,
+                              linestyles='dashed', zorder=9)
+    ax2d.add_collection(true_lc)
+    ax2d.add_collection(fake_lc)
+
+    true_dots, = ax2d.plot([], [], 'o', color=GREEN,  markersize=8, alpha=0.0, zorder=10)
+    fake_dots, = ax2d.plot([], [], 'x', color=ORANGE, markersize=8,
+                           markeredgewidth=2, alpha=0.0, zorder=10)
+
+    seed_lbl = ax2d.text(0, -195,
+                         '● True seed (same particle)    ✗ Fake seed (mixed particles)',
+                         color=WHITE, fontsize=8, ha='center', alpha=0.0)
+
+    subtitle = ax2d.text(0, -210,
+                         'At low pT, tight curvature → many accidental hit combinations → fake seeds',
+                         color=GREY, fontsize=7, ha='center',
+                         style='italic', alpha=0.0)
+
+    def seg(frame, start, dur):
+        return max(0.0, min(1.0, (frame - start) / max(1, dur)))
+
+    def update(frame):
+        if frame < t_switch:
+            # ── 3D phase ──────────────────────────────────────────────────
+            ax3d.set_visible(True)
+            ax2d.set_visible(False)
+            title_txt.set_text('pp Collision  |  3D View')
+            title_txt.set_alpha(min(1.0, frame / fps))
+
+            # rotate camera slowly
+            ax3d.view_init(elev=20, azim=frame * 1.5)
+
+            # beams approach from ±z
+            beam_prog = seg(frame, 0, t_flash)
+            z_beam = 280 * (1 - beam_prog)
+            beam_l.set_data_3d([-5, -5], [0, 0], [-z_beam, -10])
+            beam_r.set_data_3d([ 5,  5], [0, 0], [ z_beam,  10])
+            beam_l.set_alpha(0.8 * beam_prog + 0.1)
+            beam_r.set_alpha(0.8 * beam_prog + 0.1)
+
+            # flash at collision
+            flash_alpha = max(0.0, 1.0 - abs(frame - t_flash) / (fps * 0.4))
+            flash_3d.set_data_3d([0], [0], [0])
+            flash_3d.set_alpha(flash_alpha)
+
+            # tracks fly out
+            if frame >= t_flash:
+                track_prog = seg(frame, t_flash, t_flyout - t_flash)
+                n_pts = max(2, int(track_prog * 300))
+                for ln, (x, y, z) in zip(track_lines_3d, tracks):
+                    ln.set_data_3d(x[:n_pts], y[:n_pts], z[:n_pts])
+                    ln.set_alpha(min(0.85, track_prog * 1.2))
+
+            # ring alpha
+            for rl in ring_lines_3d:
+                rl.set_alpha(min(0.35, frame / (fps*2) * 0.35))
+
+        else:
+            # ── 2D phase ──────────────────────────────────────────────────
+            ax3d.set_visible(False)
+            ax2d.set_visible(True)
+            title_txt.set_text('Detector Hits & Seed Formation  |  Transverse View')
+
+            local = frame - t_switch
+
+            # vertex
+            vtx2d.set_alpha(min(1.0, local / fps))
+
+            # track curves fade in
+            t_alpha = seg(frame, t_switch, fps * 1.5)
+            for ln in track_lines_2d:
+                ln.set_alpha(t_alpha * 0.4)
+
+            # hits appear
+            h_alpha = seg(frame, t_hits2d, fps)
+            hits_plot2d.set_alpha(h_alpha * 0.7)
+
+            # seeds
+            s_alpha = seg(frame, t_seeds, fps * 1.5)
+            if true_hits_2d and s_alpha > 0:
+                true_dots.set_data([h[0] for h in true_hits_2d],
+                                   [h[1] for h in true_hits_2d])
+                true_dots.set_alpha(s_alpha)
+                segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
+                          (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
+                        for i in range(len(true_hits_2d)-1)]
+                true_lc.set_segments(segs)
+                true_lc.set_alpha(s_alpha * 0.9)
+
+            if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
+                fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
+                fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
+                fake_dots.set_alpha(s_alpha)
+                fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
+                         for i in range(len(fh)-1)]
+                fake_lc.set_segments(fsegs)
+                fake_lc.set_alpha(s_alpha * 0.9)
+
+            seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
+            subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
+
+        return []
+
+    anim = animation.FuncAnimation(fig, update, frames=total_frames,
+                                   blit=False)
+    out = outdir / 'act0_collision.mp4'
+    path = save_anim(anim, out, fps=fps)
+    plt.close(fig)
+    return path
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACT 1 – Detector layers + muon track
@@ -386,19 +685,41 @@ def make_act2(outdir, hits_data=None, particles=None, fps=30):
                 true_pid = p
                 break
 
+        # if true_pid is not None:
+        #     mask_t = pid_all == true_pid
+        #     true_hits = list(zip(x_all[mask_t], y_all[mask_t]))[:3]
+        #     # fake: pick 3 hits from 3 different other particles
+        #     fake_hits = []
+        #     for p in unique_pids:
+        #         if p != true_pid:
+        #             m = pid_all == p
+        #             if np.sum(m) >= 1:
+        #                 idx0 = np.where(m)[0][0]
+        #                 fake_hits.append((x_all[idx0], y_all[idx0]))
+        #             if len(fake_hits) == 3:
+        #                 break
+
         if true_pid is not None:
             mask_t = pid_all == true_pid
-            true_hits = list(zip(x_all[mask_t], y_all[mask_t]))[:3]
-            # fake: pick 3 hits from 3 different other particles
+            raw = list(zip(x_all[mask_t], y_all[mask_t]))
+            # sort by radius so lines go inner → middle → outer
+            raw.sort(key=lambda h: h[0]**2 + h[1]**2)
+            true_hits = raw[:3]
+
             fake_hits = []
             for p in unique_pids:
                 if p != true_pid:
                     m = pid_all == p
                     if np.sum(m) >= 1:
                         idx0 = np.where(m)[0][0]
-                        fake_hits.append((x_all[idx0], y_all[idx0]))
-                    if len(fake_hits) == 3:
-                        break
+                        hx, hy = x_all[idx0], y_all[idx0]
+                        # clamp to view window
+                        if abs(hx) < 190 and abs(hy) < 190:
+                            fake_hits.append((hx, hy))
+                if len(fake_hits) == 3:
+                    break
+            # sort fake hits by radius too so lines look intentional
+            fake_hits.sort(key=lambda h: h[0]**2 + h[1]**2)
         else:
             true_hits, fake_hits = None, None
     else:
@@ -1065,7 +1386,7 @@ def main():
     ap.add_argument('--seeds',     default=None, help='path to estimatedparams.root (unused for now)')
     ap.add_argument('--outdir',    default='./animation_out', help='output directory')
     ap.add_argument('--fps',       type=int, default=30, help='frames per second (default 30; use 24 for smaller files)')
-    ap.add_argument('--acts',      default='1,2,3,4', help='comma-separated acts to render, e.g. 1,3')
+    ap.add_argument('--acts',      default='0,1,2,3,4', help='comma-separated acts to render, e.g. 1,3')
     args = ap.parse_args()
 
     outdir = Path(args.outdir)
@@ -1084,6 +1405,11 @@ def main():
         particles = try_load_particles(args.particles)
 
     clips = []
+    if 0 in acts:
+        clips.append(make_act0(outdir,
+                            particles_path=args.particles,
+                            hits_path=args.hits,
+                            fps=args.fps))
     if 1 in acts:
         clips.append(make_act1(outdir, hits_data, particles, fps=args.fps))
     if 2 in acts:
