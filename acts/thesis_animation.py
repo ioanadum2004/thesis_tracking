@@ -39,27 +39,31 @@ from matplotlib.collections import LineCollection
 from matplotlib.patches import FancyArrowPatch
 
 # ── colour palette (dark physics aesthetic) ──────────────────────────────────
-# BG        = '#0a0e1a'   # near-black blue
-# GRID      = '#1a2035'
-# CYAN      = '#00e5ff'
-# ORANGE    = '#ff6b35'
-# GREEN     = '#39ff14'
-# MAGENTA   = '#ff00ff'
-# YELLOW    = '#ffd600'
-# GREY      = '#4a5568'
-# WHITE     = '#e8eaf6'
-# PANEL_BG  = '#111827'
+BG        = '#0a0e1a'   # near-black blue
+GRID      = '#1a2035'
+CYAN      = '#00e5ff'
+ORANGE    = '#ff6b35'
+GREEN     = '#39ff14'
+MAGENTA   = '#ff00ff'
+YELLOW    = '#ffd600'
+GREY      = '#4a5568'
+WHITE     = '#e8eaf6'
+PANEL_BG  = '#111827'
+PINK      = '#fc998e'
+BLUE      = '#1f77b4'
 
-BG        = '#ffffff'   # near-black blue
-GRID      = '#0a0e1a'
-CYAN      = '#a5dcd2'
-ORANGE    = '#f79d1d'
-GREEN     = '#c7e792'
-MAGENTA   = '#cd376a'
-YELLOW    = '#ffdd00'
-GREY      = '#a6a6a6'
-WHITE     = '#ffffff'
-PANEL_BG  = '#fc998e'
+# BG        = '#ffffff'   # near-black blue
+# GRID      = '#0a0e1a'
+# CYAN      = '#a5dcd2'
+# BLUE      = '#1f77b4'
+# ORANGE    = '#f79d1d'
+# GREEN     = '#c7e792'
+# MAGENTA   = '#cd376a'
+# YELLOW    = '#ffdd00'
+# GREY      = '#a6a6a6'
+# WHITE     = '#ffffff'
+# PINK      = '#fc998e'
+# PANEL_BG  = '#fef4e7'
 
 plt.rcParams.update({
     'figure.facecolor': BG,
@@ -211,7 +215,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
     # --- detector layer radii (generic detector approximate values) -----------
     layer_radii = [32, 72, 116, 172, 228]   # mm  (pixel + strip layers)
     layer_names = ['Pixel L1', 'Pixel L2', 'Pixel L3', 'Strip L1', 'Strip L2']
-    layer_colors = [CYAN, CYAN, CYAN, ORANGE, ORANGE]
+    layer_colors = [BLUE, BLUE, BLUE, ORANGE, ORANGE]
 
     total_frames = fps * 7   # 7 seconds
 
@@ -776,80 +780,185 @@ def make_act3(outdir, fps=30):
 # ACT 4 – Before / after results (fake rate per pT bin)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# def make_act4(outdir, fps=30):
+#     """Animate a bar chart comparison: baseline vs ML filter fake rate per bin."""
+#     print("  building act4: results…")
+
+#     # Representative numbers from your thesis (edit as needed)
+#     pt_bins   = ['0.10–0.15', '0.15–0.20', '0.20–0.25',
+#                  '0.25–0.30', '0.30–0.40', '0.40–0.50']
+#     fake_base = np.array([36.2, 28.4, 21.1, 15.3, 10.2, 7.4])   # %
+#     fake_mlp  = np.array([14.8, 11.2,  8.6,  6.1,  4.3, 3.2])   # %  (example)
+#     fake_lgbm = np.array([12.1,  9.8,  7.2,  5.0,  3.6, 2.8])   # %  (example)
+
+#     eff_base  = np.array([78.0, 82.0, 85.0, 88.0, 91.0, 93.0])   # %
+#     eff_mlp   = np.array([74.0, 79.0, 83.0, 86.5, 90.0, 92.5])   # %
+#     eff_lgbm  = np.array([73.0, 78.0, 82.0, 86.0, 89.5, 92.0])   # %
+
+#     x = np.arange(len(pt_bins))
+#     w = 0.26
+
+#     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+#     for ax in (ax1, ax2):
+#         ax.set_facecolor(BG)
+#         ax.tick_params(colors=GREY, labelsize=8)
+#         ax.spines[:].set_color(GRID)
+#         for spine in ax.spines.values():
+#             spine.set_edgecolor(GRID)
+#     fig.patch.set_facecolor(BG)
+
+#     # pre-create bars at height 0
+#     bars_base1 = ax1.bar(x - w, np.zeros(len(x)), w, color=GREY,
+#                          label='Baseline (no filter)', alpha=0.85)
+#     bars_mlp1  = ax1.bar(x,     np.zeros(len(x)), w, color=CYAN,
+#                          label='MLP filter', alpha=0.85)
+#     bars_lgbm1 = ax1.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
+#                          label='LightGBM filter', alpha=0.85)
+
+#     ax1.set_xticks(x)
+#     ax1.set_xticklabels(pt_bins, rotation=30, ha='right', color=GREY, fontsize=7)
+#     ax1.set_ylabel('Fake rate  (%)', color=WHITE, fontsize=9)
+#     ax1.set_xlabel('pT bin (GeV)', color=WHITE, fontsize=9)
+#     ax1.set_ylim(0, 42)
+#     ax1.set_title('Fake Rate per pT Bin', color=WHITE, fontsize=10,
+#                   fontweight='bold', pad=10)
+#     ax1.legend(facecolor=PANEL_BG, edgecolor=GREY, labelcolor=WHITE,
+#                fontsize=8)
+#     ax1.axhline(0, color=GRID, linewidth=0.5)
+
+#     bars_base2 = ax2.bar(x - w, np.zeros(len(x)), w, color=GREY,
+#                          label='Baseline', alpha=0.85)
+#     bars_mlp2  = ax2.bar(x,     np.zeros(len(x)), w, color=CYAN,
+#                          label='MLP filter', alpha=0.85)
+#     bars_lgbm2 = ax2.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
+#                          label='LightGBM filter', alpha=0.85)
+
+#     ax2.set_xticks(x)
+#     ax2.set_xticklabels(pt_bins, rotation=30, ha='right', color=GREY, fontsize=7)
+#     ax2.set_ylabel('Track efficiency  (%)', color=WHITE, fontsize=9)
+#     ax2.set_xlabel('pT bin (GeV)', color=WHITE, fontsize=9)
+#     ax2.set_ylim(60, 100)
+#     ax2.set_title('Track Efficiency per pT Bin', color=WHITE, fontsize=10,
+#                   fontweight='bold', pad=10)
+#     ax2.legend(facecolor=PANEL_BG, edgecolor=GREY, labelcolor=WHITE,
+#                fontsize=8)
+
+#     fig.suptitle('ML Seed Filter  -  Results', color=WHITE, fontsize=13,
+#                  fontweight='bold', y=1.01)
+#     plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+#     grow_frames = fps * 2   # bars grow over 2 s
+#     total_frames = fps * 6
+
+#     def update(frame):
+#         prog = min(1.0, frame / grow_frames)
+#         # ease-in-out
+#         prog_e = prog * prog * (3 - 2 * prog)
+
+#         for bar, h in zip(bars_base1, fake_base * prog_e):
+#             bar.set_height(h)
+#         for bar, h in zip(bars_mlp1, fake_mlp * prog_e):
+#             bar.set_height(h)
+#         for bar, h in zip(bars_lgbm1, fake_lgbm * prog_e):
+#             bar.set_height(h)
+#         # for bar, h in zip(bars_base2, eff_base * prog_e + 60 * (1 - prog_e)):
+#         #     bar.set_height(max(0, h - 60))
+#         # for bar, h in zip(bars_mlp2, eff_mlp * prog_e + 60 * (1 - prog_e)):
+#         #     bar.set_height(max(0, h - 60))
+#         # for bar, h in zip(bars_lgbm2, eff_lgbm * prog_e + 60 * (1 - prog_e)):
+#         #     bar.set_height(max(0, h - 60))
+#         for bar, h in zip(bars_base2, (eff_base - 60) * prog_e):
+#             bar.set_height(h)
+#         for bar, h in zip(bars_mlp2, (eff_mlp - 60) * prog_e):
+#             bar.set_height(h)
+#         for bar, h in zip(bars_lgbm2, (eff_lgbm - 60) * prog_e):
+#             bar.set_height(h)
+
+#         return (list(bars_base1) + list(bars_mlp1) + list(bars_lgbm1) +
+#                 list(bars_base2) + list(bars_mlp2) + list(bars_lgbm2))
+
+#     anim = animation.FuncAnimation(fig, update, frames=total_frames,
+#                                    blit=True)
+#     out = outdir / 'act4_results.mp4'
+#     save_anim(anim, out, fps=fps)
+#     plt.close(fig)
+#     return out
+
 def make_act4(outdir, fps=30):
-    """Animate a bar chart comparison: baseline vs ML filter fake rate per bin."""
+    """Animate a bar chart comparison: baseline vs ML filter, 3 metrics."""
     print("  building act4: results…")
 
-    # Representative numbers from your thesis (edit as needed)
-    pt_bins   = ['0.10–0.15', '0.15–0.20', '0.20–0.25',
-                 '0.25–0.30', '0.30–0.40', '0.40–0.50']
-    fake_base = np.array([36.2, 28.4, 21.1, 15.3, 10.2, 7.4])   # %
-    fake_mlp  = np.array([14.8, 11.2,  8.6,  6.1,  4.3, 3.2])   # %  (example)
-    fake_lgbm = np.array([12.1,  9.8,  7.2,  5.0,  3.6, 2.8])   # %  (example)
+    pt_bins = ['0.10-0.15', '0.15-0.20', '0.20-0.25',
+               '0.25-0.30', '0.30-0.40', '0.40-0.50']
 
-    eff_base  = np.array([78.0, 82.0, 85.0, 88.0, 91.0, 93.0])   # %
-    eff_mlp   = np.array([74.0, 79.0, 83.0, 86.5, 90.0, 92.5])   # %
-    eff_lgbm  = np.array([73.0, 78.0, 82.0, 86.0, 89.5, 92.0])   # %
+    # ── EDIT THESE NUMBERS ────────────────────────────────────────────────────
+    fake_base = np.array([36.2, 28.4, 21.1, 15.3, 10.2,  7.4])   # %
+    fake_mlp  = np.array([14.8, 11.2,  8.6,  6.1,  4.3,  3.2])   # %
+    fake_lgbm = np.array([12.1,  9.8,  7.2,  5.0,  3.6,  2.8])   # %
+
+    matched_base = np.array([5000, 8000, 10000, 12000, 14000, 15000])  # counts
+    matched_mlp  = np.array([4800, 7800,  9800, 11800, 13800, 14800])
+    matched_lgbm = np.array([4800, 7800,  9800, 11800, 13800, 14800])
+
+    eff_base = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])   # fraction 0-1
+    eff_mlp  = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
+    eff_lgbm = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
+    # ─────────────────────────────────────────────────────────────────────────
 
     x = np.arange(len(pt_bins))
     w = 0.26
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-    for ax in (ax1, ax2):
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+    for ax in (ax1, ax2, ax3):
         ax.set_facecolor(BG)
         ax.tick_params(colors=GREY, labelsize=8)
-        ax.spines[:].set_color(GRID)
         for spine in ax.spines.values():
             spine.set_edgecolor(GRID)
     fig.patch.set_facecolor(BG)
 
-    # pre-create bars at height 0
-    bars_base1 = ax1.bar(x - w, np.zeros(len(x)), w, color=GREY,
-                         label='Baseline (no filter)', alpha=0.85)
-    bars_mlp1  = ax1.bar(x,     np.zeros(len(x)), w, color=CYAN,
-                         label='MLP filter', alpha=0.85)
-    bars_lgbm1 = ax1.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
-                         label='LightGBM filter', alpha=0.85)
+    def make_bars(ax):
+        b = ax.bar(x - w, np.zeros(len(x)), w, color=GREY,
+                   label='Baseline', alpha=0.85)
+        m = ax.bar(x,     np.zeros(len(x)), w, color=CYAN,
+                   label='MLP', alpha=0.85)
+        l = ax.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
+                   label='LightGBM', alpha=0.85)
+        ax.set_xticks(x)
+        ax.set_xticklabels(pt_bins, rotation=30, ha='right',
+                           color=GREY, fontsize=7)
+        ax.legend(facecolor=PANEL_BG, edgecolor=GREY,
+                  labelcolor=WHITE, fontsize=8)
+        return b, m, l
 
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(pt_bins, rotation=30, ha='right', color=GREY, fontsize=7)
-    ax1.set_ylabel('Fake rate  (%)', color=WHITE, fontsize=9)
-    ax1.set_xlabel('pT bin (GeV)', color=WHITE, fontsize=9)
+    bars_base1, bars_mlp1, bars_lgbm1 = make_bars(ax1)
     ax1.set_ylim(0, 42)
-    ax1.set_title('Fake Rate per pT Bin', color=WHITE, fontsize=10,
+    ax1.set_ylabel('Fake rate (%)', color=GREY, fontsize=9)
+    ax1.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
+    ax1.set_title('Fake Seeds', color=GREY, fontsize=10, fontweight='bold', pad=10)
+
+    bars_base2, bars_mlp2, bars_lgbm2 = make_bars(ax2)
+    ax2.set_ylim(0, max(matched_base) * 1.15)
+    ax2.set_ylabel('Seed count', color=GREY, fontsize=9)
+    ax2.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
+    ax2.set_title('Matched Seeds', color=GREY, fontsize=10, fontweight='bold', pad=10)
+
+    bars_base3, bars_mlp3, bars_lgbm3 = make_bars(ax3)
+    ax3.set_ylim(0, 1.0)
+    ax3.set_ylabel('Track efficiency', color=GREY, fontsize=9)
+    ax3.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
+    ax3.set_title('Track Efficiency vs Multiplicity', color=GREY, fontsize=10,
                   fontweight='bold', pad=10)
-    ax1.legend(facecolor=PANEL_BG, edgecolor=GREY, labelcolor=WHITE,
-               fontsize=8)
-    ax1.axhline(0, color=GRID, linewidth=0.5)
 
-    bars_base2 = ax2.bar(x - w, np.zeros(len(x)), w, color=GREY,
-                         label='Baseline', alpha=0.85)
-    bars_mlp2  = ax2.bar(x,     np.zeros(len(x)), w, color=CYAN,
-                         label='MLP filter', alpha=0.85)
-    bars_lgbm2 = ax2.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
-                         label='LightGBM filter', alpha=0.85)
-
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(pt_bins, rotation=30, ha='right', color=GREY, fontsize=7)
-    ax2.set_ylabel('Track efficiency  (%)', color=WHITE, fontsize=9)
-    ax2.set_xlabel('pT bin (GeV)', color=WHITE, fontsize=9)
-    ax2.set_ylim(60, 100)
-    ax2.set_title('Track Efficiency per pT Bin', color=WHITE, fontsize=10,
-                  fontweight='bold', pad=10)
-    ax2.legend(facecolor=PANEL_BG, edgecolor=GREY, labelcolor=WHITE,
-               fontsize=8)
-
-    fig.suptitle('ML Seed Filter  -  Results', color=WHITE, fontsize=13,
-                 fontweight='bold', y=1.01)
+    fig.suptitle('ML Seed Filter  —  Results', color=GREY, fontsize=13,
+                 fontweight='bold')
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
-    grow_frames = fps * 2   # bars grow over 2 s
+    grow_frames  = fps * 2
     total_frames = fps * 6
 
     def update(frame):
-        prog = min(1.0, frame / grow_frames)
-        # ease-in-out
-        prog_e = prog * prog * (3 - 2 * prog)
+        prog   = min(1.0, frame / grow_frames)
+        prog_e = prog * prog * (3 - 2 * prog)   # ease-in-out
 
         for bar, h in zip(bars_base1, fake_base * prog_e):
             bar.set_height(h)
@@ -857,29 +966,30 @@ def make_act4(outdir, fps=30):
             bar.set_height(h)
         for bar, h in zip(bars_lgbm1, fake_lgbm * prog_e):
             bar.set_height(h)
-        # for bar, h in zip(bars_base2, eff_base * prog_e + 60 * (1 - prog_e)):
-        #     bar.set_height(max(0, h - 60))
-        # for bar, h in zip(bars_mlp2, eff_mlp * prog_e + 60 * (1 - prog_e)):
-        #     bar.set_height(max(0, h - 60))
-        # for bar, h in zip(bars_lgbm2, eff_lgbm * prog_e + 60 * (1 - prog_e)):
-        #     bar.set_height(max(0, h - 60))
-        for bar, h in zip(bars_base2, (eff_base - 60) * prog_e):
+
+        for bar, h in zip(bars_base2, matched_base * prog_e):
             bar.set_height(h)
-        for bar, h in zip(bars_mlp2, (eff_mlp - 60) * prog_e):
+        for bar, h in zip(bars_mlp2, matched_mlp * prog_e):
             bar.set_height(h)
-        for bar, h in zip(bars_lgbm2, (eff_lgbm - 60) * prog_e):
+        for bar, h in zip(bars_lgbm2, matched_lgbm * prog_e):
+            bar.set_height(h)
+
+        for bar, h in zip(bars_base3, eff_base * prog_e):
+            bar.set_height(h)
+        for bar, h in zip(bars_mlp3, eff_mlp * prog_e):
+            bar.set_height(h)
+        for bar, h in zip(bars_lgbm3, eff_lgbm * prog_e):
             bar.set_height(h)
 
         return (list(bars_base1) + list(bars_mlp1) + list(bars_lgbm1) +
-                list(bars_base2) + list(bars_mlp2) + list(bars_lgbm2))
+                list(bars_base2) + list(bars_mlp2) + list(bars_lgbm2) +
+                list(bars_base3) + list(bars_mlp3) + list(bars_lgbm3))
 
-    anim = animation.FuncAnimation(fig, update, frames=total_frames,
-                                   blit=True)
-    out = outdir / 'act4_results.mp4'
+    anim = animation.FuncAnimation(fig, update, frames=total_frames, blit=True)
+    out  = outdir / 'act4_results.mp4'
     save_anim(anim, out, fps=fps)
     plt.close(fig)
     return out
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMBINE all acts into one MP4
