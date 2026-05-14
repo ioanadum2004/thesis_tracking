@@ -39,16 +39,27 @@ from matplotlib.collections import LineCollection
 from matplotlib.patches import FancyArrowPatch
 
 # ── colour palette (dark physics aesthetic) ──────────────────────────────────
-BG        = '#0a0e1a'   # near-black blue
-GRID      = '#1a2035'
-CYAN      = '#00e5ff'
-ORANGE    = '#ff6b35'
-GREEN     = '#39ff14'
-MAGENTA   = '#ff00ff'
-YELLOW    = '#ffd600'
-GREY      = '#4a5568'
-WHITE     = '#e8eaf6'
-PANEL_BG  = '#111827'
+# BG        = '#0a0e1a'   # near-black blue
+# GRID      = '#1a2035'
+# CYAN      = '#00e5ff'
+# ORANGE    = '#ff6b35'
+# GREEN     = '#39ff14'
+# MAGENTA   = '#ff00ff'
+# YELLOW    = '#ffd600'
+# GREY      = '#4a5568'
+# WHITE     = '#e8eaf6'
+# PANEL_BG  = '#111827'
+
+BG        = '#ffffff'   # near-black blue
+GRID      = '#0a0e1a'
+CYAN      = '#a5dcd2'
+ORANGE    = '#f79d1d'
+GREEN     = '#c7e792'
+MAGENTA   = '#cd376a'
+YELLOW    = '#ffdd00'
+GREY      = '#a6a6a6'
+WHITE     = '#ffffff'
+PANEL_BG  = '#fc998e'
 
 plt.rcParams.update({
     'figure.facecolor': BG,
