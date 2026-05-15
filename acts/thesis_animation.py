@@ -400,24 +400,24 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
                 fake_hits_2d.append(hits[0])
 
     from matplotlib.collections import LineCollection
-    true_lc  = LineCollection([], colors=GREEN,  lw=2,   alpha=0.0, zorder=9)
-    fake_lc  = LineCollection([], colors=ORANGE, lw=2,   alpha=0.0,
-                              linestyles='dashed', zorder=9)
-    ax2d.add_collection(true_lc)
-    ax2d.add_collection(fake_lc)
+    # true_lc  = LineCollection([], colors=GREEN,  lw=2,   alpha=0.0, zorder=9)
+    # fake_lc  = LineCollection([], colors=ORANGE, lw=2,   alpha=0.0,
+    #                           linestyles='dashed', zorder=9)
+    # ax2d.add_collection(true_lc)
+    # ax2d.add_collection(fake_lc)
 
-    true_dots, = ax2d.plot([], [], 'o', color=GREEN,  markersize=8, alpha=0.0, zorder=10)
-    fake_dots, = ax2d.plot([], [], 'x', color=ORANGE, markersize=8,
-                           markeredgewidth=2, alpha=0.0, zorder=10)
+    # true_dots, = ax2d.plot([], [], 'o', color=GREEN,  markersize=8, alpha=0.0, zorder=10)
+    # fake_dots, = ax2d.plot([], [], 'x', color=ORANGE, markersize=8,
+    #                        markeredgewidth=2, alpha=0.0, zorder=10)
 
-    seed_lbl = ax2d.text(0, -195,
-                         '● True seed (same particle)    ✗ Fake seed (mixed particles)',
-                         color=WHITE, fontsize=8, ha='center', alpha=0.0)
+    # seed_lbl = ax2d.text(0, -195,
+    #                      '● True seed (same particle)    ✗ Fake seed (mixed particles)',
+    #                      color=WHITE, fontsize=8, ha='center', alpha=0.0)
 
-    subtitle = ax2d.text(0, -210,
-                         'At low pT, tight curvature → many accidental hit combinations → fake seeds',
-                         color=GREY, fontsize=7, ha='center',
-                         style='italic', alpha=0.0)
+    # subtitle = ax2d.text(0, -210,
+    #                      'At low pT, tight curvature → many accidental hit combinations → fake seeds',
+    #                      color=GREY, fontsize=7, ha='center',
+    #                      style='italic', alpha=0.0)
 
     def seg(frame, start, dur):
         return max(0.0, min(1.0, (frame - start) / max(1, dur)))
@@ -440,12 +440,17 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
             # beam_r.set_data_3d([ 5,  5], [0, 0], [ z_beam,  10])
 
             # a line of ~20 dots spaced along z
-            z_dots = np.linspace(-z_beam, -10, 20)
-            beam_l.set_data_3d(np.full(20, -5), np.zeros(20), z_dots)
-            beam_r.set_data_3d(np.full(20,  5), np.zeros(20), z_dots[::-1])
+            z_dots_l = np.linspace(-280, -280 * (1 - beam_prog), 20)
+            z_dots_r = np.linspace( 280,  280 * (1 - beam_prog), 20)
+            beam_l.set_data_3d(np.zeros(20), np.zeros(20), z_dots_l)
+            beam_r.set_data_3d(np.zeros(20), np.zeros(20), z_dots_r)
+            # fade out as they reach vertex
+            beam_alpha = max(0.0, 1.0 - beam_prog * 1.2)
+            beam_l.set_alpha(beam_alpha)
+            beam_r.set_alpha(beam_alpha)
 
-            beam_l.set_alpha(0.8 * beam_prog + 0.1)
-            beam_r.set_alpha(0.8 * beam_prog + 0.1)
+            # beam_l.set_alpha(0.8 * beam_prog + 0.1)
+            # beam_r.set_alpha(0.8 * beam_prog + 0.1)
 
             # flash at collision
             # flash_alpha = max(0.0, 1.0 - abs(frame - t_flash) / (fps * 0.4))
@@ -529,28 +534,28 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
                     ln.set_alpha(t_alpha * 0.5)
 
             # seeds after tracks
-            s_alpha = seg(frame, t_seeds, fps * 1.5)
-            if true_hits_2d and s_alpha > 0:
-                true_dots.set_data([h[0] for h in true_hits_2d],
-                                   [h[1] for h in true_hits_2d])
-                true_dots.set_alpha(s_alpha)
-                segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
-                          (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
-                        for i in range(len(true_hits_2d)-1)]
-                true_lc.set_segments(segs)
-                true_lc.set_alpha(s_alpha * 0.9)
+            # s_alpha = seg(frame, t_seeds, fps * 1.5)
+            # if true_hits_2d and s_alpha > 0:
+            #     true_dots.set_data([h[0] for h in true_hits_2d],
+            #                        [h[1] for h in true_hits_2d])
+            #     true_dots.set_alpha(s_alpha)
+            #     segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
+            #               (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
+            #             for i in range(len(true_hits_2d)-1)]
+            #     true_lc.set_segments(segs)
+            #     true_lc.set_alpha(s_alpha * 0.9)
 
-            if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
-                fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
-                fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
-                fake_dots.set_alpha(s_alpha)
-                fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
-                         for i in range(len(fh)-1)]
-                fake_lc.set_segments(fsegs)
-                fake_lc.set_alpha(s_alpha * 0.9)
+            # if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
+            #     fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
+            #     fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
+            #     fake_dots.set_alpha(s_alpha)
+            #     fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
+            #              for i in range(len(fh)-1)]
+            #     fake_lc.set_segments(fsegs)
+            #     fake_lc.set_alpha(s_alpha * 0.9)
 
-            seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
-            subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
+            # seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
+            # subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
 
         return []
 
@@ -772,20 +777,40 @@ def make_act2(outdir, hits_data=None, particles=None, fps=30):
             raw.sort(key=lambda h: h[0]**2 + h[1]**2)
             true_hits = raw[:3]
 
+            # fake_hits = []
+            # for p in unique_pids:
+            #     if p != true_pid:
+            #         m = pid_all == p
+            #         if np.sum(m) >= 1:
+            #             idx0 = np.where(m)[0][0]
+            #             hx, hy = x_all[idx0], y_all[idx0]
+            #             # clamp to view window
+            #             if abs(hx) < 190 and abs(hy) < 190:
+            #                 fake_hits.append((hx, hy))
+            #     if len(fake_hits) == 3:
+            #         break
+            # # sort fake hits by radius too so lines look intentional
+            # fake_hits.sort(key=lambda h: h[0]**2 + h[1]**2)
+
             fake_hits = []
-            for p in unique_pids:
-                if p != true_pid:
-                    m = pid_all == p
-                    if np.sum(m) >= 1:
-                        idx0 = np.where(m)[0][0]
-                        hx, hy = x_all[idx0], y_all[idx0]
-                        # clamp to view window
-                        if abs(hx) < 190 and abs(hy) < 190:
-                            fake_hits.append((hx, hy))
-                if len(fake_hits) == 3:
-                    break
-            # sort fake hits by radius too so lines look intentional
-            fake_hits.sort(key=lambda h: h[0]**2 + h[1]**2)
+            target_radii = [32, 72, 116]  # one hit near each layer
+            for target_r in target_radii:
+                best = None
+                best_dr = 999
+                for p in unique_pids:
+                    if p != true_pid:
+                        m = pid_all == p
+                        idxs = np.where(m)[0]
+                        for idx0 in idxs:
+                            hx, hy = x_all[idx0], y_all[idx0]
+                            hr = np.sqrt(hx**2 + hy**2)
+                            dr = abs(hr - target_r)
+                            if dr < best_dr and abs(hx) < 190 and abs(hy) < 190:
+                                best_dr = dr
+                                best = (hx, hy)
+                if best is not None:
+                    fake_hits.append(best)
+
         else:
             true_hits, fake_hits = None, None
     else:
@@ -1273,26 +1298,38 @@ def make_act3(outdir, fps=30):
 
 def make_act4(outdir, fps=30):
     """Animate a bar chart comparison: baseline vs ML filter, 3 metrics."""
+
+    # total seeds
+    # matched particles
+    # time
+
     print("  building act4: results…")
 
-    pt_bins = ['0.10-0.15', '0.15-0.20', '0.20-0.25',
-               '0.25-0.30', '0.30-0.40', '0.40-0.50']
+    particles_per_event_bins = ['0-375', '375-750', '750-1125',
+               '1125-1500', '1500-1875', '1875-2250']
 
     # ── EDIT THESE NUMBERS ────────────────────────────────────────────────────
-    fake_base = np.array([36.2, 28.4, 21.1, 15.3, 10.2,  7.4])   # %
-    fake_mlp  = np.array([14.8, 11.2,  8.6,  6.1,  4.3,  3.2])   # %
-    fake_lgbm = np.array([12.1,  9.8,  7.2,  5.0,  3.6,  2.8])   # %
+    
+    # fake = total number of seeds
+    
+    fake_base = np.array([26000, 60000, 105000, 172500, 200000, 270000])   # %
+    fake_mlp  = np.array([13300, 27000,  45000,  60000,  73000,  90100])   # %
+    fake_lgbm = np.array([13000, 26700,  44800,  59900,  72850,  90000])   # %
+
+    # matched = matched seeds
 
     matched_base = np.array([5000, 8000, 10000, 12000, 14000, 15000])  # counts
     matched_mlp  = np.array([4800, 7800,  9800, 11800, 13800, 14800])
     matched_lgbm = np.array([4800, 7800,  9800, 11800, 13800, 14800])
+
+    # eff = time
 
     eff_base = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])   # fraction 0-1
     eff_mlp  = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
     eff_lgbm = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
     # ─────────────────────────────────────────────────────────────────────────
 
-    x = np.arange(len(pt_bins))
+    x = np.arange(len(particles_per_event_bins))
     w = 0.26
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
@@ -1311,7 +1348,7 @@ def make_act4(outdir, fps=30):
         l = ax.bar(x + w, np.zeros(len(x)), w, color=MAGENTA,
                    label='LightGBM', alpha=0.85)
         ax.set_xticks(x)
-        ax.set_xticklabels(pt_bins, rotation=30, ha='right',
+        ax.set_xticklabels(particles_per_event_bins, rotation=30, ha='right',
                            color=GREY, fontsize=7)
         ax.legend(facecolor=PANEL_BG, edgecolor=GREY,
                   labelcolor=WHITE, fontsize=8)
