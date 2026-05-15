@@ -37,6 +37,8 @@ import matplotlib.patches as mpatches
 import matplotlib.patheffects as pe
 from matplotlib.collections import LineCollection
 from matplotlib.patches import FancyArrowPatch
+import os
+os.environ['UPROOT_ARRAY_CACHE'] = '0'
 
 # ── colour palette (dark physics aesthetic) ──────────────────────────────────
 BG        = '#0a0e1a'   # near-black blue
@@ -122,19 +124,20 @@ def try_load_hits(hits_path):
     """Return (x, y, z, vol, pid) arrays or None on failure."""
     try:
         import uproot
-        f = uproot.open(str(hits_path))
+        #f = uproot.open(str(hits_path))
+        f = uproot.open(str(hits_path), object_cache=None, array_cache=None)
         keys = list(f.keys())
         chosen = next((k for k in keys if k.lower().startswith('hits')), keys[0])
         t = f[chosen]
         req = ['tx', 'ty', 'tz', 'sensitive_id', 'volume_id']
         if any(r not in t.keys() for r in req):
             return None
-        tx  = np.asarray(t['tx'].array())
-        ty  = np.asarray(t['ty'].array())
-        tz  = np.asarray(t['tz'].array())
-        mod = np.asarray(t['sensitive_id'].array())
-        vol = np.asarray(t['volume_id'].array())
-        pid = np.asarray(t['particle_id'].array()) if 'particle_id' in t.keys() else np.zeros_like(tx, dtype=int)
+        tx  = np.asarray(t['tx'].array(library="np"))
+        ty  = np.asarray(t['ty'].array(library="np"))
+        tz  = np.asarray(t['tz'].array(library="np"))
+        mod = np.asarray(t['sensitive_id'].array(library="np"))
+        vol = np.asarray(t['volume_id'].array(library="np"))
+        pid = np.asarray(t['particle_id'].array(library="np")) if 'particle_id' in t.keys() else np.zeros_like(tx, dtype=int)
         mask = mod != 0
         return tx[mask], ty[mask], tz[mask], vol[mask], pid[mask]
     except Exception as e:
@@ -177,13 +180,14 @@ def try_load_particles(particles_path):
     """Return dict {particle_id: (pt, eta)} or {}."""
     try:
         import uproot
-        f = uproot.open(str(particles_path))
+        #f = uproot.open(str(particles_path))
+        f = uproot.open(str(particles_path), object_cache=None, array_cache=None)
         keys = list(f.keys())
         chosen = next((k for k in keys if 'particle' in k.lower()), keys[0])
         t = f[chosen]
-        pid_arr = np.asarray(t['particle_id'].array())
-        pt_arr  = np.asarray(t['pt'].array())
-        eta_arr = np.asarray(t['eta'].array()) if 'eta' in t.keys() else np.zeros_like(pt_arr)
+        pid_arr = np.asarray(t['particle_id'].array(library="np"))
+        pt_arr  = np.asarray(t['pt'].array(library="np"))
+        eta_arr = np.asarray(t['eta'].array(library="np")) if 'eta' in t.keys() else np.zeros_like(pt_arr)
         # flatten jagged if needed
         def flat(a):
             if a.dtype == object:
@@ -211,7 +215,8 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
     if particles_path is not None and Path(particles_path).exists():
         try:
             import uproot
-            f = uproot.open(str(particles_path))
+            # f = uproot.open(str(particles_path))
+            f = uproot.open(str(particles_path), object_cache=None, array_cache=None)
             keys = list(f.keys())
             chosen = next((k for k in keys if 'particle' in k.lower()), keys[0])
             t = f[chosen]
@@ -223,10 +228,10 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
                     return np.concatenate([np.atleast_1d(x) for x in a])
                 return a.flatten()
 
-            pt_arr  = _flat(t['pt'].array())
-            eta_arr = _flat(t['eta'].array()) if 'eta' in tkeys else np.zeros(len(pt_arr))
-            phi_arr = _flat(t['phi'].array()) if 'phi' in tkeys else rng.uniform(0, 2*np.pi, len(pt_arr))
-            q_arr   = _flat(t['q'].array())   if 'q'   in tkeys else rng.choice([-1,1], len(pt_arr))
+            pt_arr  = _flat(t['pt'].array(library="np"))
+            eta_arr = _flat(t['eta'].array(library="np")) if 'eta' in tkeys else np.zeros(len(pt_arr))
+            phi_arr = _flat(t['phi'].array(library="np")) if 'phi' in tkeys else rng.uniform(0, 2*np.pi, len(pt_arr))
+            q_arr   = _flat(t['q'].array(library="np"))   if 'q'   in tkeys else rng.choice([-1,1], len(pt_arr))
 
             # cap at 40 particles for visual clarity
             n = min(40, len(pt_arr))
@@ -327,12 +332,18 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
         ring_lines_3d.append(rl)
 
     # beam lines in 3D
-    beam_l, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
-    beam_r, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+    # beam_l, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+    # beam_r, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+
+    # beam dots
+    beam_l, = ax3d.plot([], [], [], 'o', color=YELLOW, markersize=3,
+                    alpha=0.8, linestyle='none')
+    beam_r, = ax3d.plot([], [], [], 'o', color=YELLOW, markersize=3,
+                        alpha=0.8, linestyle='none')
 
     # flash marker 3D
-    flash_3d, = ax3d.plot([], [], [], '*', color=WHITE, markersize=25,
-                          alpha=0.0, zorder=20)
+    # flash_3d, = ax3d.plot([], [], [], '*', color=WHITE, markersize=25,
+    #                       alpha=0.0, zorder=20)
 
     # track lines 3D
     track_lines_3d = []
@@ -368,9 +379,14 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
                              markersize=3, alpha=0.0, zorder=5)
 
     # track curves 2D
+    # track_lines_2d = []
+    # for (x,y,z), col in zip(tracks, colors_list):
+    #     ln, = ax2d.plot(x, y, color=col, lw=1.0, alpha=0.0)
+    #     track_lines_2d.append(ln)
+
     track_lines_2d = []
     for (x,y,z), col in zip(tracks, colors_list):
-        ln, = ax2d.plot(x, y, color=col, lw=1.0, alpha=0.0)
+        ln, = ax2d.plot([], [], color=col, lw=1.0, alpha=0.0)
         track_lines_2d.append(ln)
 
     # seed lines 2D (pick first particle with >=3 hits as true seed)
@@ -420,15 +436,21 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
             # beams approach from ±z
             beam_prog = seg(frame, 0, t_flash)
             z_beam = 280 * (1 - beam_prog)
-            beam_l.set_data_3d([-5, -5], [0, 0], [-z_beam, -10])
-            beam_r.set_data_3d([ 5,  5], [0, 0], [ z_beam,  10])
+            # beam_l.set_data_3d([-5, -5], [0, 0], [-z_beam, -10])
+            # beam_r.set_data_3d([ 5,  5], [0, 0], [ z_beam,  10])
+
+            # a line of ~20 dots spaced along z
+            z_dots = np.linspace(-z_beam, -10, 20)
+            beam_l.set_data_3d(np.full(20, -5), np.zeros(20), z_dots)
+            beam_r.set_data_3d(np.full(20,  5), np.zeros(20), z_dots[::-1])
+
             beam_l.set_alpha(0.8 * beam_prog + 0.1)
             beam_r.set_alpha(0.8 * beam_prog + 0.1)
 
             # flash at collision
-            flash_alpha = max(0.0, 1.0 - abs(frame - t_flash) / (fps * 0.4))
-            flash_3d.set_data_3d([0], [0], [0])
-            flash_3d.set_alpha(flash_alpha)
+            # flash_alpha = max(0.0, 1.0 - abs(frame - t_flash) / (fps * 0.4))
+            # flash_3d.set_data_3d([0], [0], [0])
+            # flash_3d.set_alpha(flash_alpha)
 
             # tracks fly out
             if frame >= t_flash:
@@ -443,26 +465,70 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
                 rl.set_alpha(min(0.35, frame / (fps*2) * 0.35))
 
         else:
+            # # ── 2D phase ──────────────────────────────────────────────────
+            # ax3d.set_visible(False)
+            # ax2d.set_visible(True)
+            # title_txt.set_text('Detector Hits & Seed Formation  |  Transverse View')
+
+            # local = frame - t_switch
+
+            # # vertex
+            # vtx2d.set_alpha(min(1.0, local / fps))
+
+            # # track curves fade in
+            # t_alpha = seg(frame, t_switch, fps * 1.5)
+            # for ln in track_lines_2d:
+            #     ln.set_alpha(t_alpha * 0.4)
+
+            # # hits appear
+            # h_alpha = seg(frame, t_hits2d, fps)
+            # hits_plot2d.set_alpha(h_alpha * 0.7)
+
+            # # seeds
+            # s_alpha = seg(frame, t_seeds, fps * 1.5)
+            # if true_hits_2d and s_alpha > 0:
+            #     true_dots.set_data([h[0] for h in true_hits_2d],
+            #                        [h[1] for h in true_hits_2d])
+            #     true_dots.set_alpha(s_alpha)
+            #     segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
+            #               (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
+            #             for i in range(len(true_hits_2d)-1)]
+            #     true_lc.set_segments(segs)
+            #     true_lc.set_alpha(s_alpha * 0.9)
+
+            # if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
+            #     fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
+            #     fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
+            #     fake_dots.set_alpha(s_alpha)
+            #     fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
+            #              for i in range(len(fh)-1)]
+            #     fake_lc.set_segments(fsegs)
+            #     fake_lc.set_alpha(s_alpha * 0.9)
+
+            # seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
+            # subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
+
             # ── 2D phase ──────────────────────────────────────────────────
             ax3d.set_visible(False)
             ax2d.set_visible(True)
             title_txt.set_text('Detector Hits & Seed Formation  |  Transverse View')
 
-            local = frame - t_switch
+            # vertex appears immediately
+            vtx2d.set_alpha(min(1.0, (frame - t_switch) / (fps * 0.5)))
 
-            # vertex
-            vtx2d.set_alpha(min(1.0, local / fps))
-
-            # track curves fade in
-            t_alpha = seg(frame, t_switch, fps * 1.5)
-            for ln in track_lines_2d:
-                ln.set_alpha(t_alpha * 0.4)
-
-            # hits appear
-            h_alpha = seg(frame, t_hits2d, fps)
+            # hits appear first
+            h_alpha = seg(frame, t_switch + fps * 0.5, fps)
             hits_plot2d.set_alpha(h_alpha * 0.7)
 
-            # seeds
+            # tracks grow from origin after hits are visible
+            t_alpha = seg(frame, t_switch + fps * 1.5, fps * 2)
+            if t_alpha > 0:
+                n_pts = max(2, int(t_alpha * 300))
+                for ln, (x, y, z) in zip(track_lines_2d, tracks):
+                    ln.set_data(x[:n_pts], y[:n_pts])
+                    ln.set_alpha(t_alpha * 0.5)
+
+            # seeds after tracks
             s_alpha = seg(frame, t_seeds, fps * 1.5)
             if true_hits_2d and s_alpha > 0:
                 true_dots.set_data([h[0] for h in true_hits_2d],
