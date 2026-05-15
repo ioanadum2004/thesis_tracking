@@ -53,6 +53,7 @@ WHITE     = '#e8eaf6'
 PANEL_BG  = '#111827'
 PINK      = '#fc998e'
 BLUE      = '#1f77b4'
+LIGHT_GREY= '#f4f4f4'
 
 # BG        = '#ffffff'   # near-black blue
 # GRID      = '#0a0e1a'
@@ -670,7 +671,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
     subtitle = ax.text(0, -210,
                        'Charged particles curve in the magnetic field — '
                        'curvature encodes momentum',
-                       color=GREY, fontsize=8, ha='center', alpha=0.0,
+                       color=LIGHT_GREY, fontsize=8, ha='center', alpha=0.0,
                        style='italic')
 
     ring_fade_frames = fps  # 1 s
@@ -1318,15 +1319,15 @@ def make_act4(outdir, fps=30):
 
     # matched = matched seeds
 
-    matched_base = np.array([5000, 8000, 10000, 12000, 14000, 15000])  # counts
-    matched_mlp  = np.array([4800, 7800,  9800, 11800, 13800, 14800])
-    matched_lgbm = np.array([4800, 7800,  9800, 11800, 13800, 14800])
+    matched_base = np.array([2500, 7460, 10200, 14400, 15600, 17000])  # counts
+    matched_mlp  = np.array([2470, 7420, 10100, 14000, 15300, 16700])
+    matched_lgbm = np.array([2460, 7400, 10070, 13960, 15000, 16500])
 
     # eff = time
 
-    eff_base = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])   # fraction 0-1
-    eff_mlp  = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
-    eff_lgbm = np.array([0.55, 0.50, 0.45, 0.40, 0.35, 0.30])
+    eff_base = np.array([0.2,  0.50, 0.9,  1.40, 1.70, 2.25])   # fraction 0-1
+    eff_mlp  = np.array([0.1,  0.19, 0.4,  0.60, 0.75, 0.90])
+    eff_lgbm = np.array([0.09, 0.20, 0.38, 0.63, 0.74, 0.91])
     # ─────────────────────────────────────────────────────────────────────────
 
     x = np.arange(len(particles_per_event_bins))
@@ -1355,25 +1356,25 @@ def make_act4(outdir, fps=30):
         return b, m, l
 
     bars_base1, bars_mlp1, bars_lgbm1 = make_bars(ax1)
-    ax1.set_ylim(0, 42)
-    ax1.set_ylabel('Fake rate (%)', color=GREY, fontsize=9)
-    ax1.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
-    ax1.set_title('Fake Seeds', color=GREY, fontsize=10, fontweight='bold', pad=10)
+    ax1.set_ylim(0, max(fake_base) * 1.05)
+    ax1.set_ylabel('Seed Count', color=LIGHT_GREY, fontsize=9)
+    ax1.set_xlabel('Particles per Event', color=LIGHT_GREY, fontsize=9)
+    ax1.set_title('Total Seeds', color=LIGHT_GREY, fontsize=10, fontweight='bold', pad=10)
 
     bars_base2, bars_mlp2, bars_lgbm2 = make_bars(ax2)
     ax2.set_ylim(0, max(matched_base) * 1.15)
-    ax2.set_ylabel('Seed count', color=GREY, fontsize=9)
-    ax2.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
-    ax2.set_title('Matched Seeds', color=GREY, fontsize=10, fontweight='bold', pad=10)
+    ax2.set_ylabel('Seed count', color=LIGHT_GREY, fontsize=9)
+    ax2.set_xlabel('Particles per Event', color=LIGHT_GREY, fontsize=9)
+    ax2.set_title('Matched Seeds', color=LIGHT_GREY, fontsize=10, fontweight='bold', pad=10)
 
     bars_base3, bars_mlp3, bars_lgbm3 = make_bars(ax3)
-    ax3.set_ylim(0, 1.0)
-    ax3.set_ylabel('Track efficiency', color=GREY, fontsize=9)
-    ax3.set_xlabel('pT bin (GeV)', color=GREY, fontsize=9)
-    ax3.set_title('Track Efficiency vs Multiplicity', color=GREY, fontsize=10,
+    ax3.set_ylim(0, max(eff_base) * 1.05)
+    ax3.set_ylabel('Total CKF Time (1e6 ms)', color=LIGHT_GREY, fontsize=9)
+    ax3.set_xlabel('Particles per Event', color=LIGHT_GREY, fontsize=9)
+    ax3.set_title('Computational Time vs Multiplicity', color=LIGHT_GREY, fontsize=10,
                   fontweight='bold', pad=10)
 
-    fig.suptitle('ML Seed Filter  —  Results', color=GREY, fontsize=13,
+    fig.suptitle('ML Seed Filter  —  Results', color=LIGHT_GREY, fontsize=13,
                  fontweight='bold')
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
