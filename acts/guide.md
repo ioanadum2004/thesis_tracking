@@ -1,5 +1,11 @@
 # Acts Tracking Pipeline: Replication Guide
 
+This project develops and evaluates a machine learning seed filter integrated into the ACTS (A Common Tracking Software) particle tracking framework, targeting the low transverse momentum regime (pT ∈ [0.10, 0.50] GeV). The filter is applied between the seeding stage and the Combinatorial Kalman Filter (CKF), reducing the number of fake seed candidates before the computationally expensive track-finding stage.
+
+Two architectures are compared: a PyTorch Multilayer Perceptron (MLP) and a LightGBM Boosted Decision Tree (BDT), both exported to ONNX for C++ inference via ONNX Runtime. Three configurations are evaluated, varying the feature set (12 vs 27 features), classification threshold (fixed vs pT-dependent), and sample weighting strategy. Results show that per-bin sample weighting is essential in the low-pT regime, where severe class imbalance causes unweighted models to collapse in the lowest momentum bin. Weighted configurations reduce the CKF runtime by 27-40% while preserving particle-level reconstruction efficiency.
+
+Developed as a bachelor's thesis at Maastricht University in collaboration with Nikhef, the Dutch National Institute for Subatomic Physics.
+
 This guide provides step-by-step instructions on how to set up the environment, compile the ACTS framework, and run the tracking scripts.
 
 ---
