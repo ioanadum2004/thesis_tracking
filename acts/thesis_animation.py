@@ -204,7 +204,7 @@ def try_load_particles(particles_path):
 # ACT 0 - Collision
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
+def make_act0_original(outdir, particles_path=None, hits_path=None, fps=30):
     """Act 0: collision firework — 3D flyout then 2D detector hits + seeds."""
     print("  building act0: collision firework…")
 
@@ -269,6 +269,385 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
         y = cy - R * np.cos(ang)
         z = s * tan_l
         return x, y, z
+
+    tracks = []
+    colors_list = []
+    track_colors = [CYAN, GREEN, ORANGE, MAGENTA, YELLOW,
+                    '#ff6b9d', '#00ffcc', '#ff9500', '#7b68ee', '#ff4500']
+    for i, (pt, eta, phi, q) in enumerate(particle_list):
+        x, y, z = helix_xyz(pt, eta, phi, q)
+        tracks.append((x, y, z))
+        colors_list.append(track_colors[i % len(track_colors)])
+
+    # hit positions per track
+    all_hit_pts_2d = []   # (x, y) for 2D view
+    all_hit_pts_3d = []   # (x, y, z) for 3D view
+    for (x, y, z) in tracks:
+        r_arr = np.sqrt(x**2 + y**2)
+        hits2, hits3 = [], []
+        for r in layer_radii:
+            cross = np.where((r_arr[:-1] < r) & (r_arr[1:] >= r))[0]
+            if len(cross):
+                idx = cross[0]
+                hits2.append((x[idx], y[idx]))
+                hits3.append((x[idx], y[idx], z[idx]))
+        all_hit_pts_2d.append(hits2)
+        all_hit_pts_3d.append(hits3)
+
+    # ── timing (frames) ───────────────────────────────────────────────────────
+    # Phase A: 3D  (0  → t_switch)
+    # Phase B: 2D  (t_switch → end)
+    t_switch    = fps * 6    # switch to 2D at 6 s
+    t_flash     = fps * 2    # collision flash at 2 s
+    t_flyout    = fps * 4    # tracks fully drawn by 4 s (in 3D)
+    t_hits2d    = t_switch + fps * 2   # hits appear in 2D at 8 s
+    t_seeds     = t_switch + fps * 4   # seeds at 10 s
+    total_frames = fps * 13
+
+    # ── figure: two axes, only one visible at a time ──────────────────────────
+    fig = plt.figure(figsize=(10, 8))
+    fig.patch.set_facecolor(BG)
+
+    ax3d = fig.add_subplot(111, projection='3d')
+    ax3d.set_facecolor(BG)
+    ax3d.xaxis.pane.fill = False
+    ax3d.yaxis.pane.fill = False
+    ax3d.zaxis.pane.fill = False
+    ax3d.xaxis.pane.set_edgecolor(GRID)
+    ax3d.yaxis.pane.set_edgecolor(GRID)
+    ax3d.zaxis.pane.set_edgecolor(GRID)
+    ax3d.tick_params(colors=GREY, labelsize=7)
+    ax3d.set_xlabel('x (mm)', color=GREY, fontsize=8)
+    ax3d.set_ylabel('y (mm)', color=GREY, fontsize=8)
+    ax3d.set_zlabel('z (mm)', color=GREY, fontsize=8)
+    ax3d.set_xlim(-220, 220)
+    ax3d.set_ylim(-220, 220)
+    ax3d.set_zlim(-300, 300)
+
+    # detector layers in 3D (circles in z=0 plane)
+    ring_lines_3d = []
+    th = np.linspace(0, 2*np.pi, 200)
+    z_cyl = np.linspace(-200, 200, 50)
+    for r, col in zip(layer_radii, [CYAN, CYAN, ORANGE, ORANGE]):
+        # ring at z=0
+        rl, = ax3d.plot(r*np.cos(th), r*np.sin(th), np.zeros(200),
+                        color=col, lw=1.2, alpha=0.3, linestyle='--')
+        ring_lines_3d.append(rl)
+        # vertical lines along cylinder to suggest barrel shape
+        for phi in np.linspace(0, 2*np.pi, 12, endpoint=False):
+            ax3d.plot([r*np.cos(phi)]*50, [r*np.sin(phi)]*50, z_cyl,
+                    color=col, lw=0.4, alpha=0.12, linestyle='-')
+        # top and bottom rings
+        ax3d.plot(r*np.cos(th), r*np.sin(th), np.full(200,  200),
+                color=col, lw=0.6, alpha=0.15, linestyle='--')
+        ax3d.plot(r*np.cos(th), r*np.sin(th), np.full(200, -200),
+                color=col, lw=0.6, alpha=0.15, linestyle='--')
+
+    # beam lines in 3D
+    # beam_l, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+    # beam_r, = ax3d.plot([], [], [], color=YELLOW, lw=2, alpha=0.8)
+
+    # beam dots
+    beam_l, = ax3d.plot([], [], [], 'o', color=YELLOW, markersize=3,
+                    alpha=0.8, linestyle='none')
+    beam_r, = ax3d.plot([], [], [], 'o', color=YELLOW, markersize=3,
+                        alpha=0.8, linestyle='none')
+
+    # flash marker 3D
+    # flash_3d, = ax3d.plot([], [], [], '*', color=WHITE, markersize=25,
+    #                       alpha=0.0, zorder=20)
+
+    # track lines 3D
+    track_lines_3d = []
+    for col in colors_list:
+        ln, = ax3d.plot([], [], [], color=col, lw=1.2, alpha=0.0)
+        track_lines_3d.append(ln)
+
+    # title
+    title_txt = fig.text(0.5, 0.97, '', color=WHITE, fontsize=12,
+                         ha='center', va='top', fontweight='bold')
+
+    # ── 2D axis (hidden initially) ────────────────────────────────────────────
+    ax2d = fig.add_axes([0.08, 0.08, 0.88, 0.86])
+    ax2d.set_facecolor(BG)
+    ax2d.set_aspect('equal')
+    ax2d.set_xlim(-220, 220)
+    ax2d.set_ylim(-220, 220)
+    ax2d.axis('off')
+    ax2d.set_visible(False)
+
+    # detector rings 2D
+    for r, col in zip(layer_radii, [CYAN, CYAN, ORANGE, ORANGE]):
+        ax2d.add_patch(plt.Circle((0,0), r, color=col, fill=False,
+                                  lw=1.2, alpha=0.3, linestyle='--'))
+
+    vtx2d = ax2d.plot(0, 0, 'o', color=YELLOW, markersize=6,
+                      alpha=0.0, zorder=10)[0]
+
+    # all hit dots 2D
+    all_hx = [h[0] for hits in all_hit_pts_2d for h in hits]
+    all_hy = [h[1] for hits in all_hit_pts_2d for h in hits]
+    hits_plot2d, = ax2d.plot(all_hx, all_hy, 'o', color=GREY,
+                             markersize=3, alpha=0.0, zorder=5)
+
+    # track curves 2D
+    # track_lines_2d = []
+    # for (x,y,z), col in zip(tracks, colors_list):
+    #     ln, = ax2d.plot(x, y, color=col, lw=1.0, alpha=0.0)
+    #     track_lines_2d.append(ln)
+
+    track_lines_2d = []
+    for (x,y,z), col in zip(tracks, colors_list):
+        ln, = ax2d.plot([], [], color=col, lw=1.0, alpha=0.0)
+        track_lines_2d.append(ln)
+
+    # seed lines 2D (pick first particle with >=3 hits as true seed)
+    true_hits_2d, fake_hits_2d = [], []
+    for i, hits in enumerate(all_hit_pts_2d):
+        if len(hits) >= 3 and not true_hits_2d:
+            sh = sorted(hits, key=lambda h: h[0]**2+h[1]**2)
+            true_hits_2d = sh[:3]
+        elif len(hits) >= 1 and len(fake_hits_2d) < 3:
+            if abs(hits[0][0]) < 190 and abs(hits[0][1]) < 190:
+                fake_hits_2d.append(hits[0])
+
+    from matplotlib.collections import LineCollection
+    # true_lc  = LineCollection([], colors=GREEN,  lw=2,   alpha=0.0, zorder=9)
+    # fake_lc  = LineCollection([], colors=ORANGE, lw=2,   alpha=0.0,
+    #                           linestyles='dashed', zorder=9)
+    # ax2d.add_collection(true_lc)
+    # ax2d.add_collection(fake_lc)
+
+    # true_dots, = ax2d.plot([], [], 'o', color=GREEN,  markersize=8, alpha=0.0, zorder=10)
+    # fake_dots, = ax2d.plot([], [], 'x', color=ORANGE, markersize=8,
+    #                        markeredgewidth=2, alpha=0.0, zorder=10)
+
+    # seed_lbl = ax2d.text(0, -195,
+    #                      '● True seed (same particle)    ✗ Fake seed (mixed particles)',
+    #                      color=WHITE, fontsize=8, ha='center', alpha=0.0)
+
+    # subtitle = ax2d.text(0, -210,
+    #                      'At low pT, tight curvature → many accidental hit combinations → fake seeds',
+    #                      color=GREY, fontsize=7, ha='center',
+    #                      style='italic', alpha=0.0)
+
+    def seg(frame, start, dur):
+        return max(0.0, min(1.0, (frame - start) / max(1, dur)))
+
+    def update(frame):
+        if frame < t_switch:
+            # ── 3D phase ──────────────────────────────────────────────────
+            ax3d.set_visible(True)
+            ax2d.set_visible(False)
+            title_txt.set_text('pp Collision  |  3D View')
+            title_txt.set_alpha(min(1.0, frame / fps))
+
+            # rotate camera slowly
+            ax3d.view_init(elev=20, azim=frame * 1.5)
+
+            # beams approach from ±z
+            beam_prog = seg(frame, 0, t_flash)
+            z_beam = 280 * (1 - beam_prog)
+            # beam_l.set_data_3d([-5, -5], [0, 0], [-z_beam, -10])
+            # beam_r.set_data_3d([ 5,  5], [0, 0], [ z_beam,  10])
+
+            # a line of ~20 dots spaced along z
+            z_dots_l = np.linspace(-280, -280 * (1 - beam_prog), 20)
+            z_dots_r = np.linspace( 280,  280 * (1 - beam_prog), 20)
+            beam_l.set_data_3d(np.zeros(20), np.zeros(20), z_dots_l)
+            beam_r.set_data_3d(np.zeros(20), np.zeros(20), z_dots_r)
+            # fade out as they reach vertex
+            beam_alpha = max(0.0, 1.0 - beam_prog * 1.2)
+            beam_l.set_alpha(beam_alpha)
+            beam_r.set_alpha(beam_alpha)
+
+            # beam_l.set_alpha(0.8 * beam_prog + 0.1)
+            # beam_r.set_alpha(0.8 * beam_prog + 0.1)
+
+            # flash at collision
+            # flash_alpha = max(0.0, 1.0 - abs(frame - t_flash) / (fps * 0.4))
+            # flash_3d.set_data_3d([0], [0], [0])
+            # flash_3d.set_alpha(flash_alpha)
+
+            # tracks fly out
+            if frame >= t_flash:
+                track_prog = seg(frame, t_flash, t_flyout - t_flash)
+                n_pts = max(2, int(track_prog * 300))
+                for ln, (x, y, z) in zip(track_lines_3d, tracks):
+                    ln.set_data_3d(x[:n_pts], y[:n_pts], z[:n_pts])
+                    ln.set_alpha(min(0.85, track_prog * 1.2))
+
+            # ring alpha
+            for rl in ring_lines_3d:
+                rl.set_alpha(min(0.35, frame / (fps*2) * 0.35))
+
+        else:
+            # # ── 2D phase ──────────────────────────────────────────────────
+            # ax3d.set_visible(False)
+            # ax2d.set_visible(True)
+            # title_txt.set_text('Detector Hits & Seed Formation  |  Transverse View')
+
+            # local = frame - t_switch
+
+            # # vertex
+            # vtx2d.set_alpha(min(1.0, local / fps))
+
+            # # track curves fade in
+            # t_alpha = seg(frame, t_switch, fps * 1.5)
+            # for ln in track_lines_2d:
+            #     ln.set_alpha(t_alpha * 0.4)
+
+            # # hits appear
+            # h_alpha = seg(frame, t_hits2d, fps)
+            # hits_plot2d.set_alpha(h_alpha * 0.7)
+
+            # # seeds
+            # s_alpha = seg(frame, t_seeds, fps * 1.5)
+            # if true_hits_2d and s_alpha > 0:
+            #     true_dots.set_data([h[0] for h in true_hits_2d],
+            #                        [h[1] for h in true_hits_2d])
+            #     true_dots.set_alpha(s_alpha)
+            #     segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
+            #               (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
+            #             for i in range(len(true_hits_2d)-1)]
+            #     true_lc.set_segments(segs)
+            #     true_lc.set_alpha(s_alpha * 0.9)
+
+            # if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
+            #     fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
+            #     fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
+            #     fake_dots.set_alpha(s_alpha)
+            #     fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
+            #              for i in range(len(fh)-1)]
+            #     fake_lc.set_segments(fsegs)
+            #     fake_lc.set_alpha(s_alpha * 0.9)
+
+            # seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
+            # subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
+
+            # ── 2D phase ──────────────────────────────────────────────────
+            ax3d.set_visible(False)
+            ax2d.set_visible(True)
+            title_txt.set_text('Detector Hits & Seed Formation  |  Transverse View')
+
+            # vertex appears immediately
+            vtx2d.set_alpha(min(1.0, (frame - t_switch) / (fps * 0.5)))
+
+            # hits appear first
+            h_alpha = seg(frame, t_switch + fps * 0.5, fps)
+            hits_plot2d.set_alpha(h_alpha * 0.7)
+
+            # tracks grow from origin after hits are visible
+            t_alpha = seg(frame, t_switch + fps * 1.5, fps * 2)
+            if t_alpha > 0:
+                n_pts = max(2, int(t_alpha * 300))
+                for ln, (x, y, z) in zip(track_lines_2d, tracks):
+                    ln.set_data(x[:n_pts], y[:n_pts])
+                    ln.set_alpha(t_alpha * 0.5)
+
+            # seeds after tracks
+            # s_alpha = seg(frame, t_seeds, fps * 1.5)
+            # if true_hits_2d and s_alpha > 0:
+            #     true_dots.set_data([h[0] for h in true_hits_2d],
+            #                        [h[1] for h in true_hits_2d])
+            #     true_dots.set_alpha(s_alpha)
+            #     segs = [[(true_hits_2d[i][0], true_hits_2d[i][1]),
+            #               (true_hits_2d[i+1][0], true_hits_2d[i+1][1])]
+            #             for i in range(len(true_hits_2d)-1)]
+            #     true_lc.set_segments(segs)
+            #     true_lc.set_alpha(s_alpha * 0.9)
+
+            # if fake_hits_2d and len(fake_hits_2d) >= 3 and s_alpha > 0.3:
+            #     fh = sorted(fake_hits_2d, key=lambda h: h[0]**2+h[1]**2)
+            #     fake_dots.set_data([h[0] for h in fh], [h[1] for h in fh])
+            #     fake_dots.set_alpha(s_alpha)
+            #     fsegs = [[(fh[i][0], fh[i][1]), (fh[i+1][0], fh[i+1][1])]
+            #              for i in range(len(fh)-1)]
+            #     fake_lc.set_segments(fsegs)
+            #     fake_lc.set_alpha(s_alpha * 0.9)
+
+            # seed_lbl.set_alpha(seg(frame, t_seeds + fps, fps))
+            # subtitle.set_alpha(seg(frame, t_seeds + fps, fps) * 0.8)
+
+        return []
+
+    anim = animation.FuncAnimation(fig, update, frames=total_frames,
+                                   blit=False)
+    out = outdir / 'act0_collision.mp4'
+    path = save_anim(anim, out, fps=fps)
+    plt.close(fig)
+    return path
+
+def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
+    """Act 0: collision firework — 3D flyout then 2D detector hits + seeds."""
+    print("  building act0: collision firework…")
+
+    rng = np.random.default_rng(seed=3)
+    B_T = 2.0
+
+    # ── load real particles or synthesise ────────────────────────────────────
+    particle_list = []  # list of (pt, eta, phi, charge)
+    if particles_path is not None and Path(particles_path).exists():
+        try:
+            import uproot
+            # f = uproot.open(str(particles_path))
+            f = uproot.open(str(particles_path), object_cache=None, array_cache=None)
+            keys = list(f.keys())
+            chosen = next((k for k in keys if 'particle' in k.lower()), keys[0])
+            t = f[chosen]
+            tkeys = set(t.keys())
+
+            def _flat(a):
+                a = np.asarray(a)
+                if a.dtype == object:
+                    return np.concatenate([np.atleast_1d(x) for x in a])
+                return a.flatten()
+
+            pt_arr  = _flat(t['pt'].array(library="np"))
+            eta_arr = _flat(t['eta'].array(library="np")) if 'eta' in tkeys else np.zeros(len(pt_arr))
+            phi_arr = _flat(t['phi'].array(library="np")) if 'phi' in tkeys else rng.uniform(0, 2*np.pi, len(pt_arr))
+            q_arr   = _flat(t['q'].array(library="np"))   if 'q'   in tkeys else rng.choice([-1,1], len(pt_arr))
+
+            # cap at 40 particles for visual clarity
+            n = min(40, len(pt_arr))
+            idx = rng.choice(len(pt_arr), n, replace=False)
+            for i in idx:
+                particle_list.append((float(pt_arr[i]), float(eta_arr[i]),
+                                      float(phi_arr[i]), float(q_arr[i])))
+            print(f"  loaded {len(particle_list)} particles from file")
+        except Exception as e:
+            warnings.warn(f"Could not load particles for act0: {e}")
+
+    if not particle_list:
+        # fallback: 25 synthetic particles
+        for _ in range(25):
+            pt  = rng.uniform(0.1, 0.5)
+            eta = rng.uniform(-0.14, 0.14)
+            phi = rng.uniform(0, 2*np.pi)
+            q   = rng.choice([-1, 1])
+            particle_list.append((pt, eta, phi, float(q)))
+
+    # ── precompute helices ────────────────────────────────────────────────────
+    layer_radii = [32, 72, 116, 172]   # mm
+
+    def helix_xyz(pt, eta, phi0, charge, n=300):
+        """Return (x,y,z) arrays along helix arc."""
+        R     = pt / (0.3 * B_T) * 1000   # mm
+        theta = 2 * np.arctan(np.exp(-eta))
+        tan_l = np.cos(theta) / np.sin(theta)   # dz/ds
+        # give high-eta tracks enough arc length to reach detector
+        s_max = min(800, 300 / max(abs(tan_l), 0.02))
+        s     = np.linspace(0, s_max, n)
+        cx    = -charge * R * np.sin(phi0)
+        cy    =  charge * R * np.cos(phi0)
+        ang   = phi0 + charge * s / R
+        x     = cx + R * np.sin(ang)
+        y     = cy - R * np.cos(ang)
+        z     = s * tan_l
+        # clamp to axis limits so tracks don't fly off screen
+        mask  = (np.abs(x) < 220) & (np.abs(y) < 220) & (np.abs(z) < 300)
+        cut   = np.argmin(mask) if not np.all(mask) else n
+        return x[:cut], y[:cut], z[:cut]
 
     tracks = []
     colors_list = []
@@ -567,11 +946,12 @@ def make_act0(outdir, particles_path=None, hits_path=None, fps=30):
     plt.close(fig)
     return path
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACT 1 – Detector layers + muon track
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def make_act1(outdir, hits_data=None, particles=None, fps=30):
+def make_act1_simple(outdir, hits_data=None, particles=None, fps=30):
     """Animate a charged particle curving through detector barrel layers."""
     print("  building act1: detector + track…")
 
@@ -729,6 +1109,386 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
     plt.close(fig)
     return out
 
+
+def make_act1(outdir, hits_data=None, particles=None, fps=30):
+    """Animate: hits → seed triplet → CKF propagation → final track."""
+    print("  building act1 v2: hits → seed → CKF → track…")
+
+    def helix_xy(s_arr, R, phi0, charge):
+        """s_arr: arc-length parameter in mm."""
+        cx = -charge * R * np.sin(phi0)
+        cy =  charge * R * np.cos(phi0)
+        theta = phi0 + charge * s_arr / R
+        x = cx + R * np.sin(theta)
+        y = cy - R * np.cos(theta)
+        return x, y
+ 
+    # ── timing (frames) ─────────────────────────────────────────────────────
+    T_DETECTOR   = fps * 2           # 0  – 2 s : detector + hits reveal
+    T_SEED_START = fps * 2           # 2  – 5 s : seed construction
+    T_SEED_END   = fps * 5
+    T_CKF_START  = fps * 5           # 5  – 9 s : CKF propagation
+    T_CKF_END    = fps * 9
+    T_TRACK_START= fps * 9           # 9  – 12 s: final track
+    TOTAL        = fps * 12
+ 
+    # ── detector geometry (Generic Detector, approximate layer radii) ────────
+    layer_radii  = [32, 72, 116, 172]          # pixel layers 1-4 (mm)
+    layer_names  = ['Pixel L1', 'Pixel L2', 'Pixel L3', 'Pixel L4']
+    layer_colors = [BLUE, BLUE, BLUE, BLUE]
+ 
+    strip_radii  = [260, 360]                  # short-strip layers
+    strip_names  = ['Strip L1', 'Strip L2']
+    strip_colors = [ORANGE, ORANGE]
+ 
+    all_radii  = layer_radii  + strip_radii
+    all_names  = layer_names  + strip_names
+    all_colors = layer_colors + strip_colors
+ 
+    # ── generate the "signal" muon track ────────────────────────────────────
+    # pT = 0.18 GeV in B = 2 T  →  R ≈ 300 mm  (clearly curved, still exits)
+    pt_sig  = 0.18
+    B_T     = 2.0
+    R_sig   = pt_sig / (0.3 * B_T) * 1000    # ≈ 300 mm
+    phi_sig = np.deg2rad(52)
+    chg_sig = +1
+ 
+    s_dense = np.linspace(0, 520, 4000)
+    stx, sty = helix_xy(s_dense, R_sig, phi_sig, chg_sig)
+ 
+    # hit positions on pixel layers (seed uses first 3; CKF picks up 4th+strips)
+    sig_hits = []
+    for r in all_radii:
+        idx = first_crossing(stx, sty, r)
+        if idx is not None:
+            sig_hits.append((stx[idx], sty[idx], r))
+ 
+    # seed triplet = hits on L1, L2, L3
+    seed_bot = sig_hits[0][:2]   # layer 1
+    seed_mid = sig_hits[1][:2]   # layer 2
+    seed_top = sig_hits[2][:2]   # layer 3
+ 
+    # CKF picks up additional hits beyond seed_top
+    ckf_hits = sig_hits[3:]      # layer 4, strip layers
+ 
+    # ── generate background hits (other particles, various radii) ───────────
+    rng = np.random.default_rng(seed=7)
+    n_bg_particles = 14
+ 
+    bg_hit_collections = []   # list of lists of (x,y) per background track
+    for _ in range(n_bg_particles):
+        pt_bg   = rng.uniform(0.12, 0.45)
+        R_bg    = pt_bg / (0.3 * B_T) * 1000
+        phi_bg  = rng.uniform(0, 2 * np.pi)
+        chg_bg  = rng.choice([-1, +1])
+        s_bg    = np.linspace(0, 500, 3000)
+        bx, by  = helix_xy(s_bg, R_bg, phi_bg, chg_bg)
+        track_hits = []
+        for r in all_radii:
+            idx = first_crossing(bx, by, r)
+            if idx is not None:
+                track_hits.append((bx[idx], by[idx]))
+        bg_hit_collections.append(track_hits)
+ 
+    # all background hit positions flattened
+    all_bg_hits = [(hx, hy) for th in bg_hit_collections for hx, hy in th]
+ 
+    # ── figure setup ────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_facecolor(BG)
+    fig.patch.set_facecolor(BG)
+    ax.set_aspect('equal')
+    ax.set_xlim(-430, 430)
+    ax.set_ylim(-430, 430)
+    ax.axis('off')
+ 
+    # ── static elements ──────────────────────────────────────────────────────
+ 
+    # title
+    title_txt = ax.text(
+        0, 410,
+        'ACTS Generic Detector  |  Transverse (x–y) View',
+        color=WHITE, fontsize=11, ha='center', alpha=0.0, fontweight='bold',
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
+    )
+ 
+    # beam pipe
+    bp = plt.Circle((0, 0), 23, color=GREY, fill=False, linewidth=1, alpha=0.0)
+    ax.add_patch(bp)
+    bp_lbl = ax.text(0, -28, 'beam pipe', color=GREY, fontsize=7,
+                     ha='center', alpha=0.0)
+ 
+    # vertex
+    vtx = ax.plot(0, 0, 'o', color=YELLOW, markersize=6, alpha=0.0, zorder=10)[0]
+    vtx_lbl = ax.text(5, 5, 'collision vertex', color=YELLOW, fontsize=8,
+                      alpha=0.0,
+                      path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+ 
+    # detector layer rings
+    rings = []
+    ring_labels = []
+    for r, name, col in zip(all_radii, all_names, all_colors):
+        circle = plt.Circle((0, 0), r, color=col, fill=False,
+                             linewidth=1.4, alpha=0.0, linestyle='--')
+        ax.add_patch(circle)
+        rings.append(circle)
+        lbl_x =  r * np.cos(np.deg2rad(40))
+        lbl_y =  r * np.sin(np.deg2rad(40))
+        lbl = ax.text(lbl_x + 3, lbl_y + 3, name, color=col, fontsize=7,
+                      alpha=0.0,
+                      path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+        ring_labels.append(lbl)
+ 
+    # ── background hit markers (all start invisible) ─────────────────────────
+    bg_scatter = ax.scatter(
+        [hx for hx, hy in all_bg_hits],
+        [hy for hx, hy in all_bg_hits],
+        c=LIGHT_GREY, s=22, alpha=0.0, zorder=5,
+        edgecolors='none', marker='o'
+    )
+ 
+    # ── phase labels (top-left corner) ───────────────────────────────────────
+    phase_lbl = ax.text(
+        -420, 400, '', color=CYAN, fontsize=9, alpha=0.0, style='italic',
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
+    )
+ 
+    # ── seed triplet elements ────────────────────────────────────────────────
+    seed_points_x = [seed_bot[0], seed_mid[0], seed_top[0]]
+    seed_points_y = [seed_bot[1], seed_mid[1], seed_top[1]]
+ 
+    seed_markers = []
+    seed_labels_art = []
+    for (sx, sy), name, col in zip(
+            [seed_bot, seed_mid, seed_top],
+            ['bottom SP', 'middle SP', 'top SP'],
+            [MAGENTA, YELLOW, GREEN]):
+        mk = ax.plot(sx, sy, 'o', color=col, markersize=11,
+                     markerfacecolor='none', markeredgewidth=2.5,
+                     alpha=0.0, zorder=12)[0]
+        seed_markers.append(mk)
+        lbl = ax.text(sx + 6, sy + 6, name, color=col, fontsize=8,
+                      alpha=0.0,
+                      path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+        seed_labels_art.append(lbl)
+ 
+    # triplet connector lines
+    triplet_line, = ax.plot(seed_points_x + [seed_points_x[0]],
+                            seed_points_y + [seed_points_y[0]],
+                            color=CYAN, linewidth=1.2, linestyle='--',
+                            alpha=0.0, zorder=11)
+ 
+    # ── CKF propagation elements ─────────────────────────────────────────────
+    # partial track drawn progressively during CKF phase; starts from seed_bot
+    ckf_track_line,  = ax.plot([], [], color=GREEN, linewidth=2.2,
+                               alpha=0.0, zorder=8)
+    ckf_glow_line,   = ax.plot([], [], color=GREEN, linewidth=7,
+                               alpha=0.0, zorder=7)
+ 
+    # CKF hit markers (become visible as track reaches each one)
+    ckf_markers = []
+    for (hx, hy, _) in ckf_hits:
+        mk = ax.plot(hx, hy, '*', color=ORANGE, markersize=14,
+                     alpha=0.0, zorder=13)[0]
+        ckf_markers.append(mk)
+ 
+    # propagation arc (from seed top to each new hit)
+    prop_line, = ax.plot([], [], color=PURPLE, linewidth=1.5,
+                         linestyle=':', alpha=0.0, zorder=9)
+ 
+    # ── final track elements ─────────────────────────────────────────────────
+    final_line, = ax.plot([], [], color=GREEN,  linewidth=2.5,
+                          alpha=0.0, zorder=8)
+    final_glow, = ax.plot([], [], color=GREEN,  linewidth=9,
+                          alpha=0.0, zorder=7)
+ 
+    # annotation
+    ann_txt = ax.text(
+        0, -400,
+        f'μ⁺   pT = {pt_sig:.2f} GeV   B = {B_T:.0f} T   '
+        f'R_curve ≈ {R_sig:.0f} mm',
+        color=CYAN, fontsize=9, ha='center', alpha=0.0,
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
+    )
+    subtitle = ax.text(
+        0, -416,
+        'GridTriplet seeding → ML seed filter → '
+        'Combinatorial Kalman Filter',
+        color=LIGHT_GREY, fontsize=8, ha='center', alpha=0.0,
+        style='italic',
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
+    )
+ 
+    # ── helper: smooth fade ──────────────────────────────────────────────────
+    def fade(frame, start, duration):
+        return float(np.clip((frame - start) / max(duration, 1), 0.0, 1.0))
+ 
+    # ── precompute signal helix up to the extent we need ────────────────────
+    # restrict signal track to outermost strip hit radius + a little padding
+    r_max_drawn = all_radii[-1] + 20 if ckf_hits else all_radii[-1]
+    mask_track = np.sqrt(stx**2 + sty**2) <= r_max_drawn
+    # keep only the contiguous leading segment
+    first_bad = np.where(~mask_track)[0]
+    if len(first_bad):
+        n_track = first_bad[0]
+    else:
+        n_track = len(stx)
+    track_x = stx[:n_track]
+    track_y = sty[:n_track]
+ 
+    # arc-length from beam spot for each point (used to drive CKF animation)
+    arc = np.cumsum(np.sqrt(np.diff(track_x)**2 + np.diff(track_y)**2))
+    arc = np.concatenate([[0], arc])
+ 
+    # ── init ─────────────────────────────────────────────────────────────────
+    def init():
+        for obj in [ckf_track_line, ckf_glow_line, prop_line,
+                    final_line, final_glow, triplet_line,
+                    vtx, bp_lbl, ann_txt, subtitle, title_txt,
+                    phase_lbl, bp]:
+            try:
+                obj.set_data([], [])
+            except Exception:
+                pass
+            try:
+                obj.set_alpha(0.0)
+            except Exception:
+                pass
+        bg_scatter.set_alpha(0.0)
+        for m in seed_markers + ckf_markers:
+            m.set_alpha(0.0)
+        for l in seed_labels_art + ring_labels:
+            l.set_alpha(0.0)
+        for r in rings:
+            r.set_alpha(0.0)
+        vtx.set_alpha(0.0)
+        vtx_lbl.set_alpha(0.0)
+        return []
+ 
+    # ── update ───────────────────────────────────────────────────────────────
+    def update(frame):  # noqa: C901 (complexity OK for animation)
+ 
+        artists = []
+ 
+        # ────────────────────────────────────────────────────────────────────
+        # PHASE 1  (0 → T_DETECTOR)  detector reveal + scatter all hits
+        # ────────────────────────────────────────────────────────────────────
+        det_alpha = fade(frame, 0, fps * 1.2)
+        title_txt.set_alpha(det_alpha)
+        bp.set_alpha(det_alpha * 0.6)
+        bp_lbl.set_alpha(det_alpha * 0.5)
+        vtx.set_alpha(det_alpha)
+        vtx_lbl.set_alpha(det_alpha * 0.8)
+ 
+        for i, (ring, lbl, col) in enumerate(zip(rings, ring_labels, all_colors)):
+            r_alpha = fade(frame, i * fps // 6, fps * 0.8)
+            ring.set_alpha(r_alpha * 0.65)
+            lbl.set_alpha(r_alpha * 0.65)
+ 
+        # hits appear in a staggered scatter during first phase
+        bg_alpha = fade(frame, fps // 2, fps * 1.5)
+        bg_scatter.set_alpha(bg_alpha * 0.45)
+ 
+        # phase label
+        if frame < T_SEED_START:
+            phase_lbl.set_text('Phase 1 — Raw hits in detector layers')
+            phase_lbl.set_alpha(fade(frame, fps // 3, fps // 2))
+        elif frame < T_CKF_START:
+            phase_lbl.set_text('Phase 2 — Seed triplet construction')
+            phase_lbl.set_alpha(1.0)
+        elif frame < T_TRACK_START:
+            phase_lbl.set_text('Phase 3 — CKF track propagation')
+            phase_lbl.set_alpha(1.0)
+        else:
+            phase_lbl.set_text('Phase 4 — Fitted track')
+            phase_lbl.set_alpha(1.0)
+ 
+        # ────────────────────────────────────────────────────────────────────
+        # PHASE 2  (T_SEED_START → T_SEED_END)  seed triplet
+        # ────────────────────────────────────────────────────────────────────
+        if frame >= T_SEED_START:
+            seed_dur = (T_SEED_END - T_SEED_START) // 3
+ 
+            for i, (mk, lbl) in enumerate(zip(seed_markers, seed_labels_art)):
+                a = fade(frame, T_SEED_START + i * seed_dur // 2, seed_dur // 2)
+                mk.set_alpha(a)
+                lbl.set_alpha(a * 0.9)
+ 
+            # triplet lines appear after all 3 markers are in
+            triplet_alpha = fade(frame, T_SEED_START + seed_dur * 2,
+                                 seed_dur // 2)
+            triplet_line.set_alpha(triplet_alpha * 0.7)
+ 
+        # ────────────────────────────────────────────────────────────────────
+        # PHASE 3  (T_CKF_START → T_CKF_END)  CKF propagation
+        # ────────────────────────────────────────────────────────────────────
+        if frame >= T_CKF_START:
+            ckf_progress = fade(frame, T_CKF_START,
+                                T_CKF_END - T_CKF_START)
+ 
+            # total arc length to draw proportional to progress
+            arc_target = ckf_progress * arc[-1]
+            n_pts = np.searchsorted(arc, arc_target) + 1
+            n_pts = int(np.clip(n_pts, 2, len(track_x)))
+ 
+            tx_now = track_x[:n_pts]
+            ty_now = track_y[:n_pts]
+            ckf_track_line.set_data(tx_now, ty_now)
+            ckf_track_line.set_alpha(0.9)
+            ckf_glow_line.set_data(tx_now, ty_now)
+            ckf_glow_line.set_alpha(0.12)
+ 
+            # light up CKF hit markers as track reaches them
+            cur_r = np.sqrt(tx_now[-1]**2 + ty_now[-1]**2)
+            for mk, (hx, hy, hr) in zip(ckf_markers, ckf_hits):
+                if cur_r >= hr:
+                    mk.set_alpha(0.9)
+                else:
+                    mk.set_alpha(0.0)
+ 
+            # propagation dotted arc (ahead of current front)
+            if n_pts < len(track_x) - 1:
+                look_ahead = min(n_pts + fps * 2, len(track_x))
+                prop_line.set_data(track_x[n_pts - 1:look_ahead],
+                                   track_y[n_pts - 1:look_ahead])
+                prop_line.set_alpha(0.35)
+            else:
+                prop_line.set_alpha(0.0)
+ 
+        # ────────────────────────────────────────────────────────────────────
+        # PHASE 4  (T_TRACK_START → end)  final fitted track
+        # ────────────────────────────────────────────────────────────────────
+        if frame >= T_TRACK_START:
+            fin_prog = fade(frame, T_TRACK_START, fps * 1.5)
+            n_fin = max(2, int(fin_prog * len(track_x)))
+ 
+            final_line.set_data(track_x[:n_fin], track_y[:n_fin])
+            final_line.set_alpha(0.95)
+            final_glow.set_data(track_x[:n_fin], track_y[:n_fin])
+            final_glow.set_alpha(0.18)
+ 
+            # fade out the CKF dotted line and partial track
+            fade_out = 1.0 - fade(frame, T_TRACK_START, fps // 2)
+            ckf_track_line.set_alpha(fade_out * 0.9)
+            ckf_glow_line.set_alpha(fade_out * 0.12)
+            prop_line.set_alpha(0.0)
+ 
+            # annotation
+            ann_alpha = fade(frame, T_TRACK_START + fps, fps)
+            ann_txt.set_alpha(ann_alpha)
+            subtitle.set_alpha(ann_alpha * 0.8)
+ 
+        return []   # blit=False → returning [] is fine; matplotlib redraws all
+ 
+    anim = animation.FuncAnimation(
+        fig, update, frames=TOTAL,
+        init_func=init, blit=False, interval=1000 / fps
+    )
+ 
+    out = outdir / 'act1_detector.mp4'
+    save_anim(anim, out, fps=fps)
+    plt.close(fig)
+    return out
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACT 2 – Hit cloud → seed formation (true vs fake)

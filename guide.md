@@ -16,7 +16,24 @@ This guide provides step-by-step instructions on how to set up the environment, 
 
 <summary><strong>1. First-Time Setup</strong></summary>
 
-clone git plus builiding acts and everything
+On the Nikhef Stoomboot cluster, navigate to your working directory under /data/alice/:
+
+```bash
+cd /data/alice/<username>
+```
+
+Activate the LCG software environment (required for C++20/GCC 13 compatibility). This must be run in every new shell session:
+```bash
+source /cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/setup.sh
+```
+
+Clone this GitHub repository into your working directory:
+
+```bash
+git clone https://github.com/ioanadum2004/thesis_tracking.git <source>
+cd <source>
+```
+Replace <source> with your desired directory name (e.g. acts).
 
 Compile the ACTS Python bindings using CMake according to: https://wiki.nikhef.nl/alice/How_to_start_using_the_ACTS_framework
 
@@ -26,6 +43,23 @@ cmake -B build -S . -DACTS_BUILD_EXAMPLES=ON -DACTS_BUILD_EXAMPLES_PYTHON_BINDIN
 
 ```bash
 cmake --build build
+```
+
+Source the ACTS Python setup script to make the C++ bindings importable. This must be run in every new shell session:
+```bash
+source build/python/setup.sh
+```
+
+Install Python dependencies into a local directory to avoid hitting disk quota on /user/:
+```bash
+pip install uproot numpy matplotlib lightgbm scikit-learn torch onnxruntime \
+  skl2onnx onnxmltools pandas plotly \
+  --target /data/alice/<username>/python_packages/
+```
+
+Add the package directory to your Python path:
+```bash
+export PYTHONPATH=/data/alice/<username>/python_packages/:$PYTHONPATH
 ```
 
 </details>
@@ -179,9 +213,5 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
     --particles-base particles_baseline.root \
     --out-dir z_btr_files/efficiency_plots/difference_bdt
 ```
-<<<<<<< HEAD
-
-</details>
-=======
 </details>
 
