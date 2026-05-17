@@ -37,3 +37,4 @@ __pycache__/
 # Editor files
 *.swp
 .DS_Storehome_backup/
+python_packages/
