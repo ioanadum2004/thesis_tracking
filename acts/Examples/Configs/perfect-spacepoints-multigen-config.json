@@ -20,8 +20,8 @@
         "transverse": true
       },
       "eta": {
-        "min": -0.14,
-        "max": 0.14,
+        "min": -2,
+        "max": 2,
         "uniform": true
       },
       "phi": {

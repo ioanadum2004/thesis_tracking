@@ -54,6 +54,7 @@ PANEL_BG  = '#111827'
 PINK      = '#fc998e'
 BLUE      = '#1f77b4'
 LIGHT_GREY= '#f4f4f4'
+PURPLE    = '#bf5fff'
 
 # BG        = '#ffffff'   # near-black blue
 # GRID      = '#0a0e1a'
@@ -1109,6 +1110,13 @@ def make_act1_simple(outdir, hits_data=None, particles=None, fps=30):
     plt.close(fig)
     return out
 
+def first_crossing(x, y, r):
+    """Return index where track (x,y) first crosses radius r, or None."""
+    r_arr = np.sqrt(x**2 + y**2)
+    cross = np.where((r_arr[:-1] < r) & (r_arr[1:] >= r))[0]
+    if len(cross):
+        return cross[0]
+    return None
 
 def make_act1(outdir, hits_data=None, particles=None, fps=30):
     """Animate: hits → seed triplet → CKF propagation → final track."""
