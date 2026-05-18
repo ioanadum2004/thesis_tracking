@@ -1295,10 +1295,10 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
  
     # CKF hit markers (become visible as track reaches each one)
     ckf_markers = []
-    for (hx, hy, _) in ckf_hits:
-        mk = ax.plot(hx, hy, '*', color=ORANGE, markersize=14,
-                     alpha=0.0, zorder=13)[0]
-        ckf_markers.append(mk)
+    # for (hx, hy, _) in ckf_hits:
+    #     mk = ax.plot(hx, hy, '*', color=ORANGE, markersize=14,
+    #                  alpha=0.0, zorder=13)[0]
+    #     ckf_markers.append(mk)
  
     # propagation arc (from seed top to each new hit)
     prop_line, = ax.plot([], [], color=PURPLE, linewidth=1.5,
@@ -1363,7 +1363,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
             except Exception:
                 pass
         bg_scatter.set_alpha(0.0)
-        for m in seed_markers + ckf_markers:
+        for m in seed_markers: # + ckf_markers:
             m.set_alpha(0.0)
         for l in seed_labels_art + ring_labels:
             l.set_alpha(0.0)
@@ -1446,13 +1446,13 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
             ckf_glow_line.set_data(tx_now, ty_now)
             ckf_glow_line.set_alpha(0.12)
  
-            # light up CKF hit markers as track reaches them
-            cur_r = np.sqrt(tx_now[-1]**2 + ty_now[-1]**2)
-            for mk, (hx, hy, hr) in zip(ckf_markers, ckf_hits):
-                if cur_r >= hr:
-                    mk.set_alpha(0.9)
-                else:
-                    mk.set_alpha(0.0)
+            # # light up CKF hit markers as track reaches them
+            # cur_r = np.sqrt(tx_now[-1]**2 + ty_now[-1]**2)
+            # for mk, (hx, hy, hr) in zip(ckf_markers, ckf_hits):
+            #     if cur_r >= hr:
+            #         mk.set_alpha(0.9)
+            #     else:
+            #         mk.set_alpha(0.0)
  
             # propagation dotted arc (ahead of current front)
             if n_pts < len(track_x) - 1:
