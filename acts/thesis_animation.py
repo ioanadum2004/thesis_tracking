@@ -2184,6 +2184,246 @@ def make_act4(outdir, fps=30):
     plt.close(fig)
     return out
 
+# acts 5
+
+def make_act5(outdir, fps=30):
+    """Act: side-by-side low-pT (curling) vs high-pT (straight) track animation."""
+    print("  building act_pt_comparison: low-pT curl vs high-pT straight…")
+
+    def helix_xy(s_arr, R, phi0, charge):
+        cx = -charge * R * np.sin(phi0)
+        cy =  charge * R * np.cos(phi0)
+        theta = phi0 + charge * s_arr / R
+        x = cx + R * np.sin(theta)
+        y = cy - R * np.cos(theta)
+        return x, y
+
+    B_T = 2.0
+    layer_radii = [32, 72, 116, 172]
+
+    # ── two tracks ────────────────────────────────────────────────────────────
+    # low-pT: 0.15 GeV → R ≈ 250 mm → visibly curls back
+    pt_lo  = 0.15
+    R_lo   = pt_lo / (0.3 * B_T) * 1000      # ≈ 250 mm
+    phi_lo = np.deg2rad(80)
+    chg_lo = +1
+
+    # high-pT: 5.0 GeV → R ≈ 8333 mm → nearly straight
+    pt_hi  = 5.0
+    R_hi   = pt_hi / (0.3 * B_T) * 1000      # ≈ 8333 mm
+    phi_hi = np.deg2rad(80)
+    chg_hi = +1
+
+    s_dense = np.linspace(0, 700, 6000)
+
+    lox, loy = helix_xy(s_dense, R_lo, phi_lo, chg_lo)
+    hix, hiy = helix_xy(s_dense, R_hi, phi_hi, chg_hi)
+
+    # clip to plot bounds
+    BOUND = 420
+    def clip_track(x, y):
+        mask = (np.abs(x) < BOUND) & (np.abs(y) < BOUND)
+        cut  = np.where(~mask)[0]
+        n    = cut[0] if len(cut) else len(x)
+        return x[:n], y[:n]
+
+    lox, loy = clip_track(lox, loy)
+    hix, hiy = clip_track(hix, hiy)
+
+    # hit positions
+    def get_hits(x, y):
+        hits = []
+        r_arr = np.sqrt(x**2 + y**2)
+        for r in layer_radii:
+            cross = np.where((r_arr[:-1] < r) & (r_arr[1:] >= r))[0]
+            if len(cross):
+                i = cross[0]
+                hits.append((x[i], y[i]))
+        return hits
+
+    lo_hits = get_hits(lox, loy)
+    hi_hits = get_hits(hix, hiy)
+
+    # ── timing ────────────────────────────────────────────────────────────────
+    T_DETECTOR  = fps * 2       # 0–2 s: detector rings fade in
+    T_DRAW      = fps * 2       # 2–6 s: both tracks draw simultaneously
+    T_DRAW_END  = fps * 6
+    T_LABEL     = fps * 6       # 6–8 s: labels + annotations appear
+    T_CURL      = fps * 8       # 8–11 s: zoom into low-pT curl
+    T_CURL_END  = fps * 11
+    TOTAL       = fps * 13
+
+    # ── figure ────────────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_facecolor(BG)
+    fig.patch.set_facecolor(BG)
+    ax.set_aspect('equal')
+    ax.set_xlim(-BOUND, BOUND)
+    ax.set_ylim(-BOUND, BOUND)
+    ax.axis('off')
+
+    # detector rings
+    rings = []
+    for r in layer_radii:
+        c = plt.Circle((0, 0), r, color=CYAN, fill=False,
+                        linewidth=1.2, linestyle='--', alpha=0.0)
+        ax.add_patch(c)
+        rings.append(c)
+
+    # beam pipe
+    bp = plt.Circle((0, 0), 23, color=GREY, fill=False,
+                    linewidth=1.0, alpha=0.0)
+    ax.add_patch(bp)
+
+    # vertex dot
+    vtx, = ax.plot(0, 0, 'o', color=YELLOW, markersize=7,
+                   alpha=0.0, zorder=10)
+
+    # ── track lines ───────────────────────────────────────────────────────────
+    # low-pT: magenta/pink — visually "hot", signals danger/complexity
+    lo_glow, = ax.plot([], [], color=MAGENTA, linewidth=9,  alpha=0.0, zorder=6)
+    lo_line, = ax.plot([], [], color=MAGENTA, linewidth=2.5, alpha=0.0, zorder=7)
+
+    # high-pT: cyan/teal — cool, clean, straight
+    hi_glow, = ax.plot([], [], color=CYAN, linewidth=9,  alpha=0.0, zorder=6)
+    hi_line, = ax.plot([], [], color=CYAN, linewidth=2.5, alpha=0.0, zorder=7)
+
+    # hit markers
+    lo_hit_marks = [ax.plot(hx, hy, 'o', color=MAGENTA, markersize=8,
+                            markerfacecolor='none', markeredgewidth=2,
+                            alpha=0.0, zorder=11)[0]
+                    for hx, hy in lo_hits]
+    hi_hit_marks = [ax.plot(hx, hy, 'o', color=CYAN, markersize=8,
+                            markerfacecolor='none', markeredgewidth=2,
+                            alpha=0.0, zorder=11)[0]
+                    for hx, hy in hi_hits]
+
+    # ── labels ────────────────────────────────────────────────────────────────
+    title_txt = ax.text(0, 400,
+        'Track Curvature vs. Transverse Momentum',
+        color=WHITE, fontsize=12, ha='center', fontweight='bold', alpha=0.0,
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # floating label near end of each track
+    lo_end_x, lo_end_y = lox[-1], loy[-1]
+    hi_end_x, hi_end_y = hix[-1], hiy[-1]
+
+    lo_label = ax.text(lo_end_x + 8, lo_end_y + 8,
+        f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
+        color=MAGENTA, fontsize=9, alpha=0.0, va='bottom',
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    hi_label = ax.text(hi_end_x + 8, hi_end_y - 20,
+        f'high pT = {pt_hi:.1f} GeV\nR ≈ {R_hi:.0f} mm\n→ nearly straight',
+        color=CYAN, fontsize=9, alpha=0.0, va='top',
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # radius-of-curvature arc annotation for low-pT
+    # draw a dashed circle showing R_lo centred at the helix centre
+    cx_lo = -chg_lo * R_lo * np.sin(phi_lo)
+    cy_lo =  chg_lo * R_lo * np.cos(phi_lo)
+    th_arc = np.linspace(0, 2 * np.pi, 300)
+    curv_x = cx_lo + R_lo * np.cos(th_arc)
+    curv_y = cy_lo + R_lo * np.sin(th_arc)
+    curv_circle, = ax.plot(curv_x, curv_y, color=MAGENTA, linewidth=0.8,
+                           linestyle=':', alpha=0.0, zorder=5)
+
+    # R annotation line from centre to track
+    r_ann_line, = ax.plot([cx_lo, cx_lo + R_lo * np.cos(np.deg2rad(200))],
+                          [cy_lo, cy_lo + R_lo * np.sin(np.deg2rad(200))],
+                          color=MAGENTA, linewidth=1.0, linestyle='-',
+                          alpha=0.0, zorder=5)
+    r_ann_txt = ax.text(
+        cx_lo + R_lo * 0.5 * np.cos(np.deg2rad(200)) - 10,
+        cy_lo + R_lo * 0.5 * np.sin(np.deg2rad(200)) - 10,
+        f'R = {R_lo:.0f} mm', color=MAGENTA, fontsize=8, alpha=0.0,
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # formula bottom centre
+    formula_txt = ax.text(0, -400,
+        r'$R = \frac{p_T}{0.3 \cdot B}$   →   '
+        r'low $p_T$ = small $R$ = tight curl',
+        color=LIGHT_GREY, fontsize=10, ha='center', alpha=0.0,
+        path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+    def fade(frame, start, dur):
+        return float(np.clip((frame - start) / max(dur, 1), 0.0, 1.0))
+
+    def ease_out(t):
+        return 1 - (1 - t) ** 3
+
+    # view limits for zoom phase
+    ZOOM_XC  = (cx_lo + 0) / 2      # centre between helix centre and origin
+    ZOOM_YC  = (cy_lo + 0) / 2
+    ZOOM_HALF = 280                  # half-width when fully zoomed
+
+    # ── update ────────────────────────────────────────────────────────────────
+    def update(frame):
+        # — Phase 1: detector fades in (0 → T_DETECTOR) ———————————————————
+        det_a = fade(frame, 0, T_DETECTOR)
+        for ring in rings:
+            ring.set_alpha(det_a * 0.4)
+        bp.set_alpha(det_a * 0.5)
+        vtx.set_alpha(det_a)
+        title_txt.set_alpha(det_a)
+
+        # — Phase 2: tracks draw (T_DETECTOR → T_DRAW_END) ————————————————
+        if frame >= T_DETECTOR:
+            prog = ease_out(fade(frame, T_DETECTOR, T_DRAW_END - T_DETECTOR))
+            n_lo = max(2, int(prog * len(lox)))
+            n_hi = max(2, int(prog * len(hix)))
+
+            lo_line.set_data(lox[:n_lo], loy[:n_lo])
+            lo_glow.set_data(lox[:n_lo], loy[:n_lo])
+            hi_line.set_data(hix[:n_hi], hiy[:n_hi])
+            hi_glow.set_data(hix[:n_hi], hiy[:n_hi])
+
+            lo_line.set_alpha(min(0.95, prog * 1.2))
+            lo_glow.set_alpha(min(0.15, prog * 0.18))
+            hi_line.set_alpha(min(0.95, prog * 1.2))
+            hi_glow.set_alpha(min(0.15, prog * 0.18))
+
+            # hits appear as track reaches them
+            cur_r_lo = np.sqrt(lox[n_lo-1]**2 + loy[n_lo-1]**2)
+            cur_r_hi = np.sqrt(hix[n_hi-1]**2 + hiy[n_hi-1]**2)
+            for mk, (hx, hy) in zip(lo_hit_marks, lo_hits):
+                mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_lo else 0.0)
+            for mk, (hx, hy) in zip(hi_hit_marks, hi_hits):
+                mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_hi else 0.0)
+
+        # — Phase 3: labels appear (T_LABEL → ) ———————————————————————————
+        lbl_a = fade(frame, T_LABEL, fps)
+        lo_label.set_alpha(lbl_a)
+        hi_label.set_alpha(lbl_a)
+        formula_txt.set_alpha(lbl_a)
+
+        # curvature circle + R annotation fade in with labels
+        curv_circle.set_alpha(lbl_a * 0.5)
+        r_ann_line.set_alpha(lbl_a * 0.7)
+        r_ann_txt.set_alpha(lbl_a)
+
+        # — Phase 4: zoom into curl (T_CURL → T_CURL_END) ————————————————
+        if frame >= T_CURL:
+            z = ease_out(fade(frame, T_CURL, T_CURL_END - T_CURL))
+            # interpolate from full view to zoomed view
+            xc = ZOOM_XC * z
+            yc = ZOOM_YC * z
+            half = BOUND + (ZOOM_HALF - BOUND) * z
+            ax.set_xlim(xc - half, xc + half)
+            ax.set_ylim(yc - half, yc + half)
+        elif frame < T_CURL:
+            ax.set_xlim(-BOUND, BOUND)
+            ax.set_ylim(-BOUND, BOUND)
+
+        return []
+
+    anim = animation.FuncAnimation(fig, update, frames=TOTAL, blit=False)
+    out  = outdir / 'act5.mp4'
+    path = save_anim(anim, out, fps=fps)
+    plt.close(fig)
+    return path
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMBINE all acts into one MP4
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2258,7 +2498,7 @@ def main():
     ap.add_argument('--seeds',     default=None, help='path to estimatedparams.root (unused for now)')
     ap.add_argument('--outdir',    default='./animation_out', help='output directory')
     ap.add_argument('--fps',       type=int, default=30, help='frames per second (default 30; use 24 for smaller files)')
-    ap.add_argument('--acts',      default='0,1,2,3,4', help='comma-separated acts to render, e.g. 1,3')
+    ap.add_argument('--acts',      default='0,1,2,3,4,5', help='comma-separated acts to render, e.g. 1,3')
     args = ap.parse_args()
 
     outdir = Path(args.outdir)
@@ -2290,6 +2530,8 @@ def main():
         clips.append(make_act3(outdir, fps=args.fps))
     if 4 in acts:
         clips.append(make_act4(outdir, fps=args.fps))
+    if 5 in acts:
+        clips.append(make_act5(outdir, fps=args.fps))
 
     if len(clips) > 1:
         combine(clips, outdir)
