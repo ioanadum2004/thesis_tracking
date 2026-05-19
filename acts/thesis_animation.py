@@ -1,25 +1,33 @@
 """
 thesis_animation.py  -  Full pipeline animation for bachelor's thesis video.
 
-Produces 4 animation clips (each saved as a separate MP4) plus one combined
-MP4 that plays them back-to-back:
+Produces animation clips (each saved as a separate GIF/MP4) plus one combined
+file that plays them back-to-back:
 
-  1. act1_detector.mp4   - A muon flying through concentric detector layers
-  2. act2_seeds.mp4      - Hit cloud appears, then true vs fake seed formation
-  3. act3_filter.mp4     - ML filter scoring seeds (bouncer metaphor)
-  4. act4_results.mp4    - Before/after comparison: fake rate per pT bin
+  0. act0_collision.gif  - 3D collision firework → 2D detector hits
+  1. act1_detector.gif   - Hits → seed triplet → CKF propagation → fitted track
+  2. act2_seeds.gif      - Hit cloud appears, true vs fake seed formation
+  3. act3_filter.gif     - ML filter pipeline (bouncer metaphor)
+  4. act4_results.gif    - Bar chart: seed count, matched seeds, CKF time vs multiplicity
+  5. act5.gif            - Low-pT curling track vs high-pT straight track
 
 Usage (run on the Nikhef cluster, pointing at one event's output):
   python thesis_animation.py \
       --hits  /path/to/event/hits.root \
       --particles /path/to/event/particles.root \
-      --seeds /path/to/estimatedparams.root \
       --outdir ./animation_out
+
+To render a single act (e.g. act1 only):
+  python thesis_animation.py \
+      --hits  hits.root \
+      --particles particles.root \
+      --outdir ./animation_dark \
+      --acts 1
 
 All arguments are optional - if a file is missing the script falls back to
 synthetic toy data for that act so you can preview everything immediately.
 
-Dependencies: uproot, numpy, matplotlib (with ffmpeg writer for MP4)
+Dependencies: uproot, numpy, matplotlib, Pillow
 """
 
 import argparse
@@ -1230,7 +1238,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
  
     # vertex
     vtx = ax.plot(0, 0, 'o', color=YELLOW, markersize=6, alpha=0.0, zorder=10)[0]
-    vtx_lbl = ax.text(20, 5, 'collision vertex', color=YELLOW, fontsize=8,
+    vtx_lbl = ax.text(40, 15, 'collision vertex', color=YELLOW, fontsize=8,
                       alpha=0.0,
                       path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
  
@@ -1283,7 +1291,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
                      alpha=0.0, zorder=12)[0]
         seed_markers.append(mk)
         # lbl = ax.text(sx + 6, sy + 6, name, color=col, fontsize=8,
-        lbl = ax.text(sx + 20, sy + 6, name, color=col, fontsize=8,
+        lbl = ax.text(sx + 40, sy + 16, name, color=col, fontsize=8,
                       alpha=0.0,
                       path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
         seed_labels_art.append(lbl)
