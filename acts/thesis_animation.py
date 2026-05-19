@@ -1784,7 +1784,7 @@ def make_act2(outdir, hits_data=None, particles=None, fps=30):
 # ACT 3 – ML seed filter (bouncer metaphor)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def make_act3(outdir, fps=30):
+def make_act3_original(outdir, fps=30):
     """Animate seeds arriving at the ML filter; green pass, red blocked."""
     print("  building act3: ML filter…")
 
@@ -1959,6 +1959,215 @@ def make_act3(outdir, fps=30):
     plt.close(fig)
     return out
 
+
+def make_act3(outdir, fps=30):
+    """Animate seeds arriving at the ML filter; green pass, red blocked."""
+    print("  building act3: ML filter…")
+
+    rng = np.random.default_rng(42)
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+    ax.set_facecolor(BG)
+    fig.patch.set_facecolor(BG)
+    ax.set_xlim(0, 12)
+    ax.set_ylim(0, 7)
+    ax.axis('off')
+
+    # ── static layout ─────────────────────────────────────────────────────────
+    # pipeline boxes: [Simulation] → [Seeding] → [ML Filter] → [CKF]
+    boxes = [
+        (1.2, 3.5, 'Simulation\n(ACTS)', CYAN),
+        (3.8, 3.5, 'Seeding\n(GridTriplet)', ORANGE),
+        (6.5, 3.5, 'ML Filter\n(MLP / LightGBM)', MAGENTA),
+        (9.8, 3.5, 'CKF\n(Track Fit)', GREEN),
+    ]
+
+    box_patches = []
+    box_texts   = []
+    for bx, by, label, col in boxes:
+        rect = mpatches.FancyBboxPatch((bx - 0.9, by - 0.55), 1.8, 1.1,
+                                       boxstyle='round,pad=0.08',
+                                       facecolor=PANEL_BG,
+                                       edgecolor=col, linewidth=2,
+                                       alpha=0.0, zorder=5)
+        ax.add_patch(rect)
+        box_patches.append(rect)
+        txt = ax.text(bx, by, label, color=col, fontsize=8,
+                      ha='center', va='center', fontweight='bold',
+                      alpha=0.0, zorder=6)
+        box_texts.append(txt)
+
+    # arrows between boxes
+    arrow_xs = [(2.1, 2.9), (4.7, 5.6), (7.4, 8.9)]
+    arrow_objs = []
+    for x0, x1 in arrow_xs:
+        arr = ax.annotate('', xy=(x1, 3.5), xytext=(x0, 3.5),
+                          arrowprops=dict(arrowstyle='->', color=GREY,
+                                         lw=1.5),
+                          annotation_clip=False, alpha=0.0)
+        arrow_objs.append(arr)
+
+    title_txt = ax.text(6, 6.5, 'ML Seed Filter Pipeline',
+                        color=WHITE, fontsize=13, ha='center',
+                        fontweight='bold', alpha=0.0)
+
+    filter_lbl = ax.text(6.5, 4.8,
+                         '"Bouncer" — scores each seed before the\n'
+                         'expensive CKF runs',
+                         color=MAGENTA, fontsize=8, ha='center',
+                         alpha=0.0, style='italic')
+
+    # ── animated hit dots (Simulation → Seeding) ──────────────────────────────
+    n_hits       = 30
+    hit_stagger  = 4   # frames between hits
+    hit_travel   = int(fps * 0.6)   # faster than seeds
+
+    hit_dots = []
+    for _ in range(n_hits):
+        dot, = ax.plot([], [], 'o', markersize=4,
+                    color=LIGHT_GREY, alpha=0.0, zorder=9)
+        hit_dots.append(dot)
+
+    def hit_pos(i, frame):
+        start_f = int(fps * 0.5) + i * hit_stagger
+        if frame < start_f:
+            return None
+        elapsed = frame - start_f
+        if elapsed > hit_travel:
+            return None
+        prog = elapsed / hit_travel
+        x = 1.2 + (3.8 - 1.2) * prog
+        # slight vertical scatter per hit, fixed per index
+        y_offset = (((i * 7) % 11) - 5) / 5 * 0.25
+        y = 3.5 + y_offset * np.sin(prog * np.pi)
+        return (x, y)
+
+    # ── animated seed dots ────────────────────────────────────────────────────
+    # seeds travel from seeding box (3.8) to filter (6.5)
+    # then either pass (→ CKF, green) or get blocked (drop down, red)
+
+    n_seeds      = 18
+    fake_indices = {2, 5, 8, 11, 14, 16}   # which are fake
+    seed_colors  = [ORANGE if i in fake_indices else GREEN
+                    for i in range(n_seeds)]
+
+    # stagger seeds: each starts at a different frame
+    stagger = 8   # frames between seeds
+    travel_frames = fps   # frames to cross from seeding to filter
+
+    # each seed: phase = 'travel' | 'pass' | 'block'
+    seed_dots = []
+    seed_labels_dots = []
+    for i in range(n_seeds):
+        dot, = ax.plot([], [], 'o', markersize=8,
+                       color=seed_colors[i], alpha=0.0, zorder=10)
+        seed_dots.append(dot)
+
+    blocked_xs = []
+    pass_xs    = []
+
+    stat_lbl = ax.text(6.5, 0.4, '', color=WHITE, fontsize=9,
+                       ha='center', alpha=0.8)
+
+    total_frames = fps * 10
+
+    # compute per-seed position at each frame
+    def seed_pos(i, frame):
+        start_f = 2 * fps + i * stagger   # travel begins
+        if frame < start_f:
+            return None, 'wait'
+        elapsed = frame - start_f
+        # phase 1: travel to filter (3.8 → 6.5)
+        if elapsed < travel_frames:
+            prog = elapsed / travel_frames
+            x = 3.8 + (6.5 - 3.8) * prog
+            y = 3.5 + rng.uniform(-0.3, 0.3) * np.sin(prog * np.pi)
+            return (x, y), 'travel'
+        # phase 2: judged at filter
+        if i not in fake_indices:
+            # pass: continue to CKF
+            elapsed2 = elapsed - travel_frames
+            if elapsed2 < travel_frames:
+                prog = elapsed2 / travel_frames
+                x = 6.5 + (9.8 - 6.5) * prog
+                y = 3.5
+                return (x, y), 'pass'
+            return None, 'done'
+        else:
+            # blocked: drop down
+            elapsed2 = elapsed - travel_frames
+            drop_frames = int(fps * 0.6)
+            if elapsed2 < drop_frames:
+                prog = elapsed2 / drop_frames
+                x = 6.5
+                y = 3.5 - 2.0 * prog
+                return (x, y), 'block'
+            return None, 'done'
+
+    def init():
+        for d in seed_dots + hit_dots:
+            d.set_data([], [])
+        stat_lbl.set_text('')
+        return seed_dots + hit_dots + [stat_lbl, title_txt, filter_lbl]
+
+    def update(frame):
+        # fade in layout
+        layout_alpha = min(1.0, frame / fps)
+        title_txt.set_alpha(layout_alpha)
+        for bp2, bt in zip(box_patches, box_texts):
+            bp2.set_alpha(layout_alpha * 0.9)
+            bt.set_alpha(layout_alpha)
+        for arr in arrow_objs:
+            arr.set_alpha(layout_alpha * 0.8)
+
+        # filter label
+        filter_lbl.set_alpha(min(1.0, max(0.0,
+                                          (frame - fps * 2) / fps)))
+
+        # move hit dots (Simulation → Seeding)
+        for i, dot in enumerate(hit_dots):
+            pos = hit_pos(i, frame)
+            if pos is None:
+                dot.set_data([], [])
+            else:
+                dot.set_data([pos[0]], [pos[1]])
+                dot.set_alpha(0.75)
+        
+        # move seeds
+        n_passed = 0
+        n_blocked = 0
+        for i, dot in enumerate(seed_dots):
+            pos, phase = seed_pos(i, frame)
+            if pos is None:
+                dot.set_data([], [])
+            else:
+                dot.set_data([pos[0]], [pos[1]])
+                dot.set_alpha(0.9)
+            if phase == 'done':
+                if i not in fake_indices:
+                    n_passed += 1
+                else:
+                    n_blocked += 1
+
+        # stats label
+        total_done = n_passed + n_blocked
+        if total_done > 0:
+            n_total = n_seeds
+            stat_lbl.set_text(
+                f'{n_total} seeds → {n_total - len(fake_indices)} passed  '
+                f'({100*(n_total-len(fake_indices))//n_total}%)   '
+                f'{len(fake_indices)} blocked  '
+                f'({100*len(fake_indices)//n_total}%)'
+            )
+
+        return seed_dots + hit_dots + [stat_lbl, title_txt, filter_lbl]
+
+    anim = animation.FuncAnimation(fig, update, frames=total_frames,
+                                   init_func=init, blit=True)
+    out = outdir / 'act3_filter.mp4'
+    save_anim(anim, out, fps=fps)
+    plt.close(fig)
+    return out
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACT 4 – Before / after results (fake rate per pT bin)
