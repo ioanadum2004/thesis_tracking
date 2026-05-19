@@ -1248,11 +1248,10 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
         # lbl = ax.text(lbl_x + 3, lbl_y + 3, name, color=col, fontsize=7,
         #               alpha=0.0,
         #               path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
-        lbl_x = r + 5
-        lbl_y = -15 + i * 18   # stagger vertically so none overlap
+        lbl_x = -(r + 5)
+        lbl_y = -15 + i * 18
         lbl = ax.text(lbl_x, lbl_y, name, color=col, fontsize=7,
-                        alpha=0.0,
-                      path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+                        alpha=0.0, path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
         ring_labels.append(lbl)
  
     # ── background hit markers (all start invisible) ─────────────────────────

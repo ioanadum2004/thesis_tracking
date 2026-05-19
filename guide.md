@@ -215,3 +215,17 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
 ```
 </details>
 
+<details>
+<summary><strong>4. How to recreate the animations</strong></summary>
+
+The entire script can be found in thesis_animation.py and can be run using:
+
+```bash
+python thesis_animation.py \
+    --hits hits.root \
+    --particles particles.root \
+    --outdir ./desires_output_directory
+```
+
+The animations are based on the simulated events, and they take information from hits.root and particles.root. If data is stored in different file names, change the call accordingly.
+</details>
