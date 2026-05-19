@@ -109,6 +109,7 @@ Understanding the inputs, scripts, and outputs is key to modifying this pipeline
 ### Pipeline Scripts
 *   **`Examples/Scripts/Python/perfect_spacepoints_multigen_btr.py`**: The main ACTS simulation and reconstruction script. It handles particle generation, simulation, seed finding, the ML filter application, and the Combinatorial Kalman Filter (CKF).
 *   **`z_btr_files/mlp_model.py`**: Handles data loading, PyTorch Multilayer Perceptron training, per-bin sample weighting, and exports the trained model to ONNX format.
+*   **`estimatedparameters.root`**: Contains the estimated track parameters (e.g., initial pT, direction) for each seed candidate directly after the seeding stage, before they are processed by the ML filter or CKF.
 *   **`z_btr_files/tree_model.py`**: Trains the LightGBM Boosted Decision Tree (BDT) and handles the SKLearn-to-ONNX conversion.
 
 ### Generated Data Products
@@ -230,17 +231,20 @@ python z_btr_files/plot_scripts/eff_diff_all_particles.py \
 ```
 </details>
 
+## Event Visualization & Animations
+
+To gain an intuitive understanding of the tracking environment, you can generate both interactive 3D event displays of the detector collisions and simplified, truth-matched animations of specific particle trajectories.
+
 <details>
-<summary><strong>4. How to recreate the animations</strong></summary>
+<summary><strong>1. Interactive 3D Collision Displays</strong></summary>
 
-The entire script can be found in thesis_animation.py and can be run using:
+This script parses the raw spacepoints and truth tracks to build an interactive, rotatable 3D display of the entire collision event using Plotly. It is highly useful for visually auditing dense track environments and checking for geometric edge cases.
 
-```bash
-python thesis_animation.py \
-    --hits hits.root \
-    --particles particles.root \
-    --outdir ./desires_output_directory
+*   **Inputs required:** `hits.root` (detector spacepoints) and `particles.root` (MC truth).
+*   **Execution:**
+    ```bash
+    python thesis_animation.py \
+        --hits hits.root \
+        --particles particles.root \
+        --outdir ./event_visualizations
 ```
-
-The animations are based on the simulated events, and they take information from hits.root and particles.root. If data is stored in different file names, change the call accordingly.
-</details>
