@@ -2557,7 +2557,23 @@ def make_act5(outdir, fps=30):
 
     # lo_label = ax.text(lo_end_x + 8, lo_end_y + 8,
     #     f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
-    lo_label = ax.text(cx_lo + R_lo + 20, cy_lo,
+    # lo_label = ax.text(cx_lo + R_lo + 80, cy_lo + 150,
+    #     f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
+    #     color=MAGENTA, fontsize=9, alpha=0.0, va='bottom',
+    #     path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # hi_label = ax.text(hi_end_x + 8, hi_end_y - 20,
+    #     f'high pT = {pt_hi:.1f} GeV\nR ≈ {R_hi:.0f} mm\n→ nearly straight',
+    #     color=CYAN, fontsize=9, alpha=0.0, va='top',
+    #     path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+
+    # radius-of-curvature arc annotation for low-pT
+    # draw a dashed circle showing R_lo centred at the helix centre
+    cx_lo = -chg_lo * R_lo * np.sin(phi_lo)
+    cy_lo =  chg_lo * R_lo * np.cos(phi_lo)
+
+    # floating labels — defined here because they depend on cx_lo/cy_lo
+    lo_label = ax.text(cx_lo + R_lo + 80, cy_lo + 150,
         f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
         color=MAGENTA, fontsize=9, alpha=0.0, va='bottom',
         path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
@@ -2567,10 +2583,6 @@ def make_act5(outdir, fps=30):
         color=CYAN, fontsize=9, alpha=0.0, va='top',
         path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
 
-    # radius-of-curvature arc annotation for low-pT
-    # draw a dashed circle showing R_lo centred at the helix centre
-    cx_lo = -chg_lo * R_lo * np.sin(phi_lo)
-    cy_lo =  chg_lo * R_lo * np.cos(phi_lo)
     th_arc = np.linspace(0, 2 * np.pi, 300)
     curv_x = cx_lo + R_lo * np.cos(th_arc)
     curv_y = cy_lo + R_lo * np.sin(th_arc)
@@ -2606,6 +2618,9 @@ def make_act5(outdir, fps=30):
     ZOOM_XC  = (cx_lo + 0) / 2      # centre between helix centre and origin
     ZOOM_YC  = (cy_lo + 0) / 2
     ZOOM_HALF = 320                  # half-width when fully zoomed
+
+    lo_hits_shown = set()
+    hi_hits_shown = set()
 
     # ── update ────────────────────────────────────────────────────────────────
     def update(frame):
@@ -2643,15 +2658,30 @@ def make_act5(outdir, fps=30):
 
             # hits appear when track arc reaches them — use arc index not radius
             # (radius check fails for looping low-pT tracks)
-            for mk, (hx, hy) in zip(lo_hit_marks, lo_hits):
-                # find index of this hit in lox/loy
-                dists = (lox - hx)**2 + (loy - hy)**2
-                hit_idx = int(np.argmin(dists))
-                mk.set_alpha(0.9 if n_lo > hit_idx else 0.0)
-            for mk, (hx, hy) in zip(hi_hit_marks, hi_hits):
-                dists = (hix - hx)**2 + (hiy - hy)**2
-                hit_idx = int(np.argmin(dists))
-                mk.set_alpha(0.9 if n_hi > hit_idx else 0.0)
+            # for mk, (hx, hy) in zip(lo_hit_marks, lo_hits):
+            #     # find index of this hit in lox/loy
+            #     dists = (lox - hx)**2 + (loy - hy)**2
+            #     hit_idx = int(np.argmin(dists))
+            #     mk.set_alpha(0.9 if n_lo > hit_idx else 0.0)
+            # for mk, (hx, hy) in zip(hi_hit_marks, hi_hits):
+            #     dists = (hix - hx)**2 + (hiy - hy)**2
+            #     hit_idx = int(np.argmin(dists))
+            #     mk.set_alpha(0.9 if n_hi > hit_idx else 0.0)
+
+            for j, (mk, (hx, hy)) in enumerate(zip(lo_hit_marks, lo_hits)):
+                if j not in lo_hits_shown:
+                    dists = (lox - hx)**2 + (loy - hy)**2
+                    hit_idx = int(np.argmin(dists))
+                    if n_lo > hit_idx:
+                        mk.set_alpha(0.9)
+                        lo_hits_shown.add(j)
+            for j, (mk, (hx, hy)) in enumerate(zip(hi_hit_marks, hi_hits)):
+                if j not in hi_hits_shown:
+                    dists = (hix - hx)**2 + (hiy - hy)**2
+                    hit_idx = int(np.argmin(dists))
+                    if n_hi > hit_idx:
+                        mk.set_alpha(0.9)
+                        hi_hits_shown.add(j)
 
         # — Phase 3: labels appear (T_LABEL → ) ———————————————————————————
         lbl_a = fade(frame, T_LABEL, fps)
