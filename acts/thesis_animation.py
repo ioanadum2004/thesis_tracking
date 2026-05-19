@@ -389,8 +389,7 @@ def make_act0_original(outdir, particles_path=None, hits_path=None, fps=30):
     # all hit dots 2D
     all_hx = [h[0] for hits in all_hit_pts_2d for h in hits]
     all_hy = [h[1] for hits in all_hit_pts_2d for h in hits]
-    hits_plot2d, = ax2d.plot(all_hx, all_hy, 'o', color=GREY,
-                             markersize=3, alpha=0.0, zorder=5)
+    hits_plot2d, = ax2d.plot(all_hx, all_hy, 'o', color=WHITE, markersize=3, alpha=0.0, zorder=5)
 
     # track curves 2D
     # track_lines_2d = []
@@ -1238,15 +1237,21 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
     # detector layer rings
     rings = []
     ring_labels = []
-    for r, name, col in zip(all_radii, all_names, all_colors):
+    # for r, name, col in zip(all_radii, all_names, all_colors):
+    for i, (r, name, col) in enumerate(zip(all_radii, all_names, all_colors)):
         circle = plt.Circle((0, 0), r, color=col, fill=False,
                              linewidth=1.4, alpha=0.0, linestyle='--')
         ax.add_patch(circle)
         rings.append(circle)
-        lbl_x =  r * np.cos(np.deg2rad(40))
-        lbl_y =  r * np.sin(np.deg2rad(40))
-        lbl = ax.text(lbl_x + 3, lbl_y + 3, name, color=col, fontsize=7,
-                      alpha=0.0,
+        # lbl_x =  r * np.cos(np.deg2rad(40))
+        # lbl_y =  r * np.sin(np.deg2rad(40))
+        # lbl = ax.text(lbl_x + 3, lbl_y + 3, name, color=col, fontsize=7,
+        #               alpha=0.0,
+        #               path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+        lbl_x = r + 5
+        lbl_y = -15 + i * 18   # stagger vertically so none overlap
+        lbl = ax.text(lbl_x, lbl_y, name, color=col, fontsize=7,
+                        alpha=0.0,
                       path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
         ring_labels.append(lbl)
  
@@ -1260,7 +1265,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
  
     # ── phase labels (top-left corner) ───────────────────────────────────────
     phase_lbl = ax.text(
-        -420, 400, '', color=CYAN, fontsize=9, alpha=0.0, style='italic',
+        -420, 380, '', color=CYAN, fontsize=9, alpha=0.0, style='italic',
         path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
     )
  
@@ -1321,14 +1326,14 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
         color=CYAN, fontsize=9, ha='center', alpha=0.0,
         path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
     )
-    subtitle = ax.text(
-        0, -416,
-        'GridTriplet seeding → ML seed filter → '
-        'Combinatorial Kalman Filter',
-        color=LIGHT_GREY, fontsize=8, ha='center', alpha=0.0,
-        style='italic',
-        path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
-    )
+    # subtitle = ax.text(
+    #     0, -416,
+    #     'GridTriplet seeding → ML seed filter → '
+    #     'Combinatorial Kalman Filter',
+    #     color=LIGHT_GREY, fontsize=8, ha='center', alpha=0.0,
+    #     style='italic',
+    #     path_effects=[pe.withStroke(linewidth=2, foreground=BG)]
+    # )
  
     # ── helper: smooth fade ──────────────────────────────────────────────────
     def fade(frame, start, duration):
@@ -1355,7 +1360,8 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
     def init():
         for obj in [ckf_track_line, ckf_glow_line, prop_line,
                     final_line, final_glow, triplet_line,
-                    vtx, bp_lbl, ann_txt, subtitle, title_txt,
+                    # vtx, bp_lbl, ann_txt, subtitle, title_txt,
+                    vtx, bp_lbl, ann_txt, title_txt,
                     phase_lbl, bp]:
             try:
                 obj.set_data([], [])
@@ -1487,7 +1493,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
             # annotation
             ann_alpha = fade(frame, T_TRACK_START + fps, fps)
             ann_txt.set_alpha(ann_alpha)
-            subtitle.set_alpha(ann_alpha * 0.8)
+            # subtitle.set_alpha(ann_alpha * 0.8)
  
         return []   # blit=False → returning [] is fine; matplotlib redraws all
  
