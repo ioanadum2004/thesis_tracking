@@ -1230,7 +1230,7 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
  
     # vertex
     vtx = ax.plot(0, 0, 'o', color=YELLOW, markersize=6, alpha=0.0, zorder=10)[0]
-    vtx_lbl = ax.text(5, 5, 'collision vertex', color=YELLOW, fontsize=8,
+    vtx_lbl = ax.text(20, 5, 'collision vertex', color=YELLOW, fontsize=8,
                       alpha=0.0,
                       path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
  
@@ -1282,7 +1282,8 @@ def make_act1(outdir, hits_data=None, particles=None, fps=30):
                      markerfacecolor='none', markeredgewidth=2.5,
                      alpha=0.0, zorder=12)[0]
         seed_markers.append(mk)
-        lbl = ax.text(sx + 6, sy + 6, name, color=col, fontsize=8,
+        # lbl = ax.text(sx + 6, sy + 6, name, color=col, fontsize=8,
+        lbl = ax.text(sx + 20, sy + 6, name, color=col, fontsize=8,
                       alpha=0.0,
                       path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
         seed_labels_art.append(lbl)
