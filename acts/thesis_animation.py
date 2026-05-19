@@ -2555,7 +2555,9 @@ def make_act5(outdir, fps=30):
     lo_end_x, lo_end_y = lox[-1], loy[-1]
     hi_end_x, hi_end_y = hix[-1], hiy[-1]
 
-    lo_label = ax.text(lo_end_x + 8, lo_end_y + 8,
+    # lo_label = ax.text(lo_end_x + 8, lo_end_y + 8,
+    #     f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
+    lo_label = ax.text(cx_lo + R_lo + 20, cy_lo,
         f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ tight curl',
         color=MAGENTA, fontsize=9, alpha=0.0, va='bottom',
         path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
@@ -2632,12 +2634,24 @@ def make_act5(outdir, fps=30):
             hi_glow.set_alpha(min(0.15, prog * 0.18))
 
             # hits appear as track reaches them
-            cur_r_lo = np.sqrt(lox[n_lo-1]**2 + loy[n_lo-1]**2)
-            cur_r_hi = np.sqrt(hix[n_hi-1]**2 + hiy[n_hi-1]**2)
+            # cur_r_lo = np.sqrt(lox[n_lo-1]**2 + loy[n_lo-1]**2)
+            # cur_r_hi = np.sqrt(hix[n_hi-1]**2 + hiy[n_hi-1]**2)
+            # for mk, (hx, hy) in zip(lo_hit_marks, lo_hits):
+            #     mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_lo else 0.0)
+            # for mk, (hx, hy) in zip(hi_hit_marks, hi_hits):
+            #     mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_hi else 0.0)
+
+            # hits appear when track arc reaches them — use arc index not radius
+            # (radius check fails for looping low-pT tracks)
             for mk, (hx, hy) in zip(lo_hit_marks, lo_hits):
-                mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_lo else 0.0)
+                # find index of this hit in lox/loy
+                dists = (lox - hx)**2 + (loy - hy)**2
+                hit_idx = int(np.argmin(dists))
+                mk.set_alpha(0.9 if n_lo > hit_idx else 0.0)
             for mk, (hx, hy) in zip(hi_hit_marks, hi_hits):
-                mk.set_alpha(0.9 if np.sqrt(hx**2+hy**2) <= cur_r_hi else 0.0)
+                dists = (hix - hx)**2 + (hiy - hy)**2
+                hit_idx = int(np.argmin(dists))
+                mk.set_alpha(0.9 if n_hi > hit_idx else 0.0)
 
         # — Phase 3: labels appear (T_LABEL → ) ———————————————————————————
         lbl_a = fade(frame, T_LABEL, fps)
