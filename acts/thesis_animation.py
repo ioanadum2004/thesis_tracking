@@ -256,6 +256,7 @@ def make_act0_original(outdir, particles_path=None, hits_path=None, fps=30):
 
     # ── precompute helices ────────────────────────────────────────────────────
     layer_radii = [32, 72, 116, 172]   # mm
+    
 
     def helix_xyz(pt, eta, phi0, charge, s_max=400, n=300):
         """Return (x,y,z) arrays along helix arc."""
@@ -979,9 +980,11 @@ def make_act1_simple(outdir, hits_data=None, particles=None, fps=30):
                              linewidth=1.5, alpha=0.0, linestyle='--')
         ax.add_patch(circle)
         rings.append(circle)
-        lbl = ax.text(r * 0.707 + 4, r * 0.707 + 4, name,
-                      color=col, fontsize=7, alpha=0.0,
-                      path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
+        # ── REPLACE lo_label text ─────────────────────────────────────────────────
+        lo_label = ax.text(cx_lo - R_lo - 10, cy_lo,
+            f'low pT = {pt_lo:.2f} GeV\nR ≈ {R_lo:.0f} mm\n→ loops back!',
+            color=MAGENTA, fontsize=9, alpha=0.0, va='center', ha='right',
+            path_effects=[pe.withStroke(linewidth=2, foreground=BG)])
         ring_labels.append(lbl)
 
     # beampipe
@@ -2199,36 +2202,56 @@ def make_act5(outdir, fps=30):
         return x, y
 
     B_T = 2.0
-    layer_radii = [32, 72, 116, 172]
+    layer_radii = [32, 72, 116, 172, 260, 360, 500, 700]   # pixel + strip layers
+    layer_colors_ring = [CYAN, CYAN, CYAN, CYAN, ORANGE, ORANGE, GREEN, GREEN]
+    layer_names_ring  = ['Pixel L1','Pixel L2','Pixel L3','Pixel L4',
+                        'Strip L1','Strip L2','Strip L3','Strip L4']
 
-    # ── two tracks ────────────────────────────────────────────────────────────
-    # low-pT: 0.15 GeV → R ≈ 250 mm → visibly curls back
+    # ── the two track definitions ─────────────────────────────────────
+    # low-pT: 0.15 GeV → R ≈ 250 mm → loops back inside detector
     pt_lo  = 0.15
     R_lo   = pt_lo / (0.3 * B_T) * 1000      # ≈ 250 mm
-    phi_lo = np.deg2rad(80)
+    phi_lo = np.deg2rad(70)
     chg_lo = +1
 
     # high-pT: 5.0 GeV → R ≈ 8333 mm → nearly straight
     pt_hi  = 5.0
-    R_hi   = pt_hi / (0.3 * B_T) * 1000      # ≈ 8333 mm
-    phi_hi = np.deg2rad(80)
+    R_hi   = pt_hi / (0.3 * B_T) * 1000
+    phi_hi = np.deg2rad(70)
     chg_hi = +1
 
-    s_dense = np.linspace(0, 700, 6000)
+    # more points, much longer arc so low-pT completes full loop
+    s_dense = np.linspace(0, 2 * np.pi * R_lo * 1.05, 8000)  # full loop + 5%
 
     lox, loy = helix_xy(s_dense, R_lo, phi_lo, chg_lo)
     hix, hiy = helix_xy(s_dense, R_hi, phi_hi, chg_hi)
 
-    # clip to plot bounds
-    BOUND = 420
-    def clip_track(x, y):
-        mask = (np.abs(x) < BOUND) & (np.abs(y) < BOUND)
+    # # clip to plot bounds
+    # BOUND = 420
+    # def clip_track(x, y):
+    #     mask = (np.abs(x) < BOUND) & (np.abs(y) < BOUND)
+    #     cut  = np.where(~mask)[0]
+    #     n    = cut[0] if len(cut) else len(x)
+    #     return x[:n], y[:n]
+
+    # lox, loy = clip_track(lox, loy)
+    # hix, hiy = clip_track(hix, hiy)
+
+    # - clip_track — low-pT must NOT be clipped, high-pT still clipped
+    BOUND = 800   # larger plot bounds to show strip layers
+
+    def clip_track(x, y, bound=BOUND):
+        mask = (np.abs(x) < bound) & (np.abs(y) < bound)
         cut  = np.where(~mask)[0]
         n    = cut[0] if len(cut) else len(x)
         return x[:n], y[:n]
 
-    lox, loy = clip_track(lox, loy)
+    # low-pT: don't clip — let it loop fully
+    # (it stays within R_lo*2 ≈ 500mm which fits in BOUND=800)
+    # high-pT: clip at boundary
     hix, hiy = clip_track(hix, hiy)
+    # lox/loy: keep full loop, just sanity-clip at very large bound
+    lox, loy = clip_track(lox, loy, bound=1200)
 
     # hit positions
     def get_hits(x, y):
@@ -2263,10 +2286,11 @@ def make_act5(outdir, fps=30):
     ax.axis('off')
 
     # detector rings
+    # ── ring drawing loop ─────────────────────────────────────────
     rings = []
-    for r in layer_radii:
-        c = plt.Circle((0, 0), r, color=CYAN, fill=False,
-                        linewidth=1.2, linestyle='--', alpha=0.0)
+    for r, col in zip(layer_radii, layer_colors_ring):
+        c = plt.Circle((0, 0), r, color=col, fill=False,
+                    linewidth=1.2, linestyle='--', alpha=0.0)
         ax.add_patch(c)
         rings.append(c)
 
@@ -2356,7 +2380,7 @@ def make_act5(outdir, fps=30):
     # view limits for zoom phase
     ZOOM_XC  = (cx_lo + 0) / 2      # centre between helix centre and origin
     ZOOM_YC  = (cy_lo + 0) / 2
-    ZOOM_HALF = 280                  # half-width when fully zoomed
+    ZOOM_HALF = 320                  # half-width when fully zoomed
 
     # ── update ────────────────────────────────────────────────────────────────
     def update(frame):
