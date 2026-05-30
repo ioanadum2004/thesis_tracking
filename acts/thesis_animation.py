@@ -66,18 +66,18 @@ os.environ['UPROOT_ARRAY_CACHE'] = '0'
 
 BG        = '#ffffff'
 GRID      = '#ffffff'
-CYAN      = '#2ab5a0'   # richer teal (text, labels)
-BLUE      = '#4a90d9'   # stronger blue (pixel rings)
-ORANGE    = '#e8920a'   # deeper orange (strip rings)
-GREEN     = '#3db554'   # vivid green (track)
-MAGENTA   = '#c4185a'   # stronger magenta (bottom SP)
-YELLOW    = '#d4a800'   # deeper gold (middle SP)
-GREY      = '#999999'   # medium grey (beam/grey rings)
+CYAN      = '#2ab5a0'   # teal — labels/text
+BLUE      = '#4a90d9'   # blue — pixel layer rings (dashed)
+ORANGE    = '#c0392b'   # red — strip layer rings (dashed)
+GREEN     = '#3db554'   # vivid green — track
+MAGENTA   = '#c4185a'   # magenta — bottom SP marker
+YELLOW    = '#d4a800'   # gold — middle SP marker
+GREY      = '#aaaaaa'   # all detector rings
 WHITE     = '#ffffff'
-PINK      = '#e8705a'   # richer salmon
+PINK      = '#e8705a'   # salmon
 PANEL_BG  = '#ffffff'
-LIGHT_GREY= '#cccccc'   # slightly darker dashes
-PURPLE    = '#8855cc'   # deeper purple
+LIGHT_GREY= '#cccccc'   # lighter dashed rings
+PURPLE    = '#8855cc'   # purple
 
 plt.rcParams.update({
     'figure.facecolor': BG,
