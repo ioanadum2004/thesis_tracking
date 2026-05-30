@@ -64,20 +64,20 @@ os.environ['UPROOT_ARRAY_CACHE'] = '0'
 #LIGHT_GREY= '#f4f4f4'
 #PURPLE    = '#bf5fff'
 
-BG        = '#ffffff'   # white background
-GRID      = '#ffffff'   # same as BG (no visible grid)
-CYAN      = '#64c8b9'   # teal (bottom-left track)
-BLUE      = '#64a0dc'   # blue (left track)
-ORANGE    = '#e6aa50'   # orange (right track)
-GREEN     = '#90d290'   # green (top track)
-MAGENTA   = '#d25078'   # pink-magenta (bottom track)
-YELLOW    = '#f0d23c'   # yellow (fake track)
-GREY      = '#b4b4b4'   # detector layer circles
-WHITE     = '#ffffff'   # white
-PINK      = '#e69696'   # salmon-pink (right track)
-PANEL_BG  = '#ffffff'   # white panel
-LIGHT_GREY= '#d2d2d2'   # dashed detector circles
-PURPLE    = '#aa82c8'   # purple (bottom track)
+BG        = '#ffffff'
+GRID      = '#ffffff'
+CYAN      = '#2ab5a0'   # richer teal (text, labels)
+BLUE      = '#4a90d9'   # stronger blue (pixel rings)
+ORANGE    = '#e8920a'   # deeper orange (strip rings)
+GREEN     = '#3db554'   # vivid green (track)
+MAGENTA   = '#c4185a'   # stronger magenta (bottom SP)
+YELLOW    = '#d4a800'   # deeper gold (middle SP)
+GREY      = '#999999'   # medium grey (beam/grey rings)
+WHITE     = '#ffffff'
+PINK      = '#e8705a'   # richer salmon
+PANEL_BG  = '#ffffff'
+LIGHT_GREY= '#cccccc'   # slightly darker dashes
+PURPLE    = '#8855cc'   # deeper purple
 
 plt.rcParams.update({
     'figure.facecolor': BG,
