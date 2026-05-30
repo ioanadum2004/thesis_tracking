@@ -64,20 +64,20 @@ os.environ['UPROOT_ARRAY_CACHE'] = '0'
 #LIGHT_GREY= '#f4f4f4'
 #PURPLE    = '#bf5fff'
 
-BG        = '#ffffff'   # near-black blue
-GRID      = '#0a0e1a'
-CYAN      = '#a5dcd2'
-BLUE      = '#1f77b4'
-ORANGE    = '#f79d1d'
-GREEN     = '#c7e792'
-MAGENTA   = '#cd376a'
-YELLOW    = '#ffdd00'
-GREY      = '#a6a6a6'
-WHITE     = '#0a0e1a'
-PINK      = '#fc998e'
-PANEL_BG  = '#fef4e7'
-LIGHT_GREY= '#f4f4f4'                                                                      
-PURPLE    = '#bf5fff'
+BG        = '#ffffff'   # white background
+GRID      = '#ffffff'   # same as BG (no visible grid)
+CYAN      = '#64c8b9'   # teal (bottom-left track)
+BLUE      = '#64a0dc'   # blue (left track)
+ORANGE    = '#e6aa50'   # orange (right track)
+GREEN     = '#90d290'   # green (top track)
+MAGENTA   = '#d25078'   # pink-magenta (bottom track)
+YELLOW    = '#f0d23c'   # yellow (fake track)
+GREY      = '#b4b4b4'   # detector layer circles
+WHITE     = '#ffffff'   # white
+PINK      = '#e69696'   # salmon-pink (right track)
+PANEL_BG  = '#ffffff'   # white panel
+LIGHT_GREY= '#d2d2d2'   # dashed detector circles
+PURPLE    = '#aa82c8'   # purple (bottom track)
 
 plt.rcParams.update({
     'figure.facecolor': BG,
